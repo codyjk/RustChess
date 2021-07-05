@@ -1,10 +1,16 @@
 use std::io;
 use std::process;
 
-use chess::board::Board;
+use chess::board::{Board, ChessMove};
 use regex::Regex;
 
+const STARTING_POSITION: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+
 fn main() {
+    let mut board = Board::from_fen(STARTING_POSITION).unwrap();
+
+    println!("{}", board.to_ascii());
+
     loop {
         let mut input = String::new();
 
@@ -20,73 +26,67 @@ fn main() {
             Ok(cmd) => cmd,
             Err(error) => {
                 println!("failed to parse command `{}`: {}", input.trim_end(), error);
-                process::exit(1);
+                continue;
             }
         };
 
         match command {
-            Command::Quit => {
-                println!("exiting...");
-                process::exit(0);
+            Command::Move { algebraic_move } => {
+                let chessmove = match ChessMove::from_algebraic(algebraic_move) {
+                    Ok(result) => result,
+                    Err(error) => {
+                        println!("move error: {}", error);
+                        continue;
+                    }
+                };
+                let result = board.apply(&chessmove);
+                let captured_piece = match result {
+                    Ok(piece) => piece,
+                    Err(error) => {
+                        println!("move error: {}", error);
+                        continue;
+                    }
+                };
+
+                match captured_piece {
+                    Some(piece) => println!(
+                        "captured {} on {}",
+                        piece.to_fen(),
+                        chessmove.to_coord.to_algebraic()
+                    ),
+                    _ => (),
+                };
+
+                println!("{}", board.to_ascii());
             }
-            Command::ParseFen { fen } => {
-                let board = Board::from_fen(&fen);
-                println!("Board:\n{}", board.unwrap().to_ascii());
-            }
-            Command::UseUCI => {
-                println!("id name chess.sh 0.1");
-                println!("id author Cody JK");
-            }
-            Command::RespondWhenReady => {
-                println!("readyok");
-            }
-            Command::Debug { on } => {
-                println!("debug mode: {}", on.to_string());
-            }
+            Command::Quit => process::exit(0),
         }
     }
 }
 
 pub enum Command {
-    ParseFen { fen: String },
+    Move { algebraic_move: String },
     Quit,
-    UseUCI,
-    Debug { on: bool },
-    RespondWhenReady,
 }
 
 impl Command {
     pub fn parse(command: &str) -> Result<Command, &'static str> {
         // handle commands with no args
         match command {
-            "isready" => return Ok(Command::RespondWhenReady),
             "quit" => return Ok(Command::Quit),
-            "uci" => return Ok(Command::UseUCI),
             _ => (),
         };
 
         // handle commands with args
-        if command.starts_with("fen") {
-            let re = Regex::new("^fen (.*)$").unwrap();
+        if command.starts_with("move") {
+            let re = Regex::new("^move (.*)$").unwrap();
             let caps = match re.captures(&command) {
                 Some(captures) => captures,
-                None => return Err("unable to parse fen"),
+                None => return Err("unable to parse move command"),
             };
-            return Ok(Command::ParseFen {
-                fen: caps[1].to_string(),
+            return Ok(Command::Move {
+                algebraic_move: caps[1].to_string(),
             });
-        } else if command.starts_with("debug") {
-            let re = Regex::new("^debug (on|off)$").unwrap();
-            let caps = match re.captures(&command) {
-                Some(captures) => captures,
-                None => return Err("unable to parse debug command"),
-            };
-            let on = match &caps[1] {
-                "on" => true,
-                "off" => false,
-                &_ => return Err("unable to parse debug arg (this should never happen since regex only allows on and off)"),
-            };
-            return Ok(Command::Debug { on });
         }
 
         return Err("invalid command");

@@ -1,7 +1,8 @@
 pub mod coordinate;
 pub mod piece;
 
-use coordinate::Coordinate;
+pub use coordinate::Coordinate;
+
 use piece::Piece;
 use regex::Regex;
 
@@ -13,7 +14,28 @@ struct Square {
     piece: Option<Piece>,
 }
 
+pub struct ChessMove {
+    pub from_coord: Coordinate,
+    pub to_coord: Coordinate,
+}
+
+impl ChessMove {
+    pub fn from_algebraic(algebraic_move: String) -> Result<Self, &'static str> {
+        let re = Regex::new("^([a-h][1-8])([a-h][1-8])$").unwrap();
+        let caps = match re.captures(&algebraic_move) {
+            Some(captures) => captures,
+            None => return Err("invalid move"),
+        };
+
+        Ok(Self {
+            from_coord: Coordinate::from_algebraic(&caps[1]),
+            to_coord: Coordinate::from_algebraic(&caps[2]),
+        })
+    }
+}
+
 impl Board {
+    /// Instantiates an empty board.
     pub fn new() -> Board {
         let squares = (0..8)
             .map(|_row| (0..8).map(|_col| Square { piece: None }).collect())
@@ -22,16 +44,30 @@ impl Board {
         Board { squares }
     }
 
+    /// Shows the piece on the requested `coord`.
     pub fn get(&self, coord: Coordinate) -> Option<Piece> {
         let (row, col) = coord.to_row_col();
         self.squares[row][col].piece
     }
 
-    pub fn put(&mut self, coord: Coordinate, piece: Piece) -> Option<Piece> {
+    /// Puts a `piece` on the requested `coord`
+    pub fn put(&mut self, coord: Coordinate, piece: Option<Piece>) -> Option<Piece> {
         let (row, col) = coord.to_row_col();
         let prev = self.squares[row][col].piece;
-        self.squares[row][col].piece = Some(piece);
+        self.squares[row][col].piece = piece;
         prev
+    }
+
+    /// Applies a chess move to the board. If this resulted in a capture,
+    /// the captured piece is returned.
+    pub fn apply(&mut self, chessmove: &ChessMove) -> Result<Option<Piece>, &'static str> {
+        match self.get(chessmove.from_coord) {
+            None => return Err("cannot apply chess move, the `from` square is empty"),
+            _ => (),
+        };
+        let piece_to_move = self.put(chessmove.from_coord, None);
+        let captured_piece = self.put(chessmove.to_coord, piece_to_move);
+        Ok(captured_piece)
     }
 
     /// A FEN record contains six fields. The separator between fields is a space. The fields are:
@@ -102,7 +138,7 @@ impl Board {
                 assert!(col < 8);
                 match Piece::from_fen(fen_char) {
                     Some(piece) => {
-                        board.put(coord, piece);
+                        board.put(coord, Some(piece));
                         col += 1;
                     }
                     None => {
