@@ -1,24 +1,22 @@
-use crate::board::coordinate::Coordinate;
-use crate::board::piece::*;
+pub mod coordinate;
+pub mod piece;
 
+use coordinate::Coordinate;
+use piece::Piece;
 use regex::Regex;
-
-struct Square {
-    piece: Option<Piece>,
-}
 
 pub struct Board {
     squares: Vec<Vec<Square>>,
 }
 
+struct Square {
+    piece: Option<Piece>,
+}
+
 impl Board {
     pub fn new() -> Board {
         let squares = (0..8)
-            .map(|_row| {
-                (0..8)
-                    .map(|_col| Square { piece: None })
-                    .collect()
-            })
+            .map(|_row| (0..8).map(|_col| Square { piece: None }).collect())
             .collect();
 
         Board { squares }
@@ -144,6 +142,7 @@ impl Board {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use piece::Color;
 
     #[test]
     fn parse_fen() {
