@@ -1,10 +1,10 @@
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Color {
     Black,
     White,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Piece {
     Bishop(Color),
     King(Color),

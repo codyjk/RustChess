@@ -4,10 +4,8 @@ use std::process;
 use chess::board::{Board, ChessMove};
 use regex::Regex;
 
-const STARTING_POSITION: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-
 fn main() {
-    let mut board = Board::from_fen(STARTING_POSITION).unwrap();
+    let mut board = Board::starting_position();
 
     println!("{}", board.to_ascii());
 
@@ -39,7 +37,7 @@ fn main() {
                         continue;
                     }
                 };
-                let result = board.apply(&chessmove);
+                let result = board.apply(chessmove);
                 let captured_piece = match result {
                     Ok(piece) => piece,
                     Err(error) => {

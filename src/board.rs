@@ -6,6 +6,8 @@ pub use coordinate::Coordinate;
 use piece::Piece;
 use regex::Regex;
 
+const STARTING_POSITION_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+
 pub struct Board {
     squares: Vec<Vec<Square>>,
 }
@@ -14,6 +16,7 @@ struct Square {
     piece: Option<Piece>,
 }
 
+#[derive(Clone, Copy, PartialEq)]
 pub struct ChessMove {
     pub from_coord: Coordinate,
     pub to_coord: Coordinate,
@@ -36,12 +39,16 @@ impl ChessMove {
 
 impl Board {
     /// Instantiates an empty board.
-    pub fn new() -> Board {
+    pub fn new() -> Self {
         let squares = (0..8)
             .map(|_row| (0..8).map(|_col| Square { piece: None }).collect())
             .collect();
 
-        Board { squares }
+        Self { squares }
+    }
+
+    pub fn starting_position() -> Self {
+        Self::from_fen(STARTING_POSITION_FEN).unwrap()
     }
 
     /// Shows the piece on the requested `coord`.
@@ -60,7 +67,7 @@ impl Board {
 
     /// Applies a chess move to the board. If this resulted in a capture,
     /// the captured piece is returned.
-    pub fn apply(&mut self, chessmove: &ChessMove) -> Result<Option<Piece>, &'static str> {
+    pub fn apply(&mut self, chessmove: ChessMove) -> Result<Option<Piece>, &'static str> {
         match self.get(chessmove.from_coord) {
             None => return Err("cannot apply chess move, the `from` square is empty"),
             _ => (),
@@ -94,7 +101,7 @@ impl Board {
     ///     Black's move.
     ///
     /// Starting position FEN: `rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1`
-    pub fn from_fen(fen: &str) -> Result<Board, String> {
+    pub fn from_fen(fen: &str) -> Result<Self, String> {
         let rank_partial_regex = "([pnbrqkPNBRQK1-8]{1,8})";
         let color_partial_regex = "(b|w)";
         let castling_partial_regex = "([kqKQ]{1,4}|-)";
@@ -125,7 +132,7 @@ impl Board {
         };
 
         // blank board
-        let mut board = Board::new();
+        let mut board = Self::new();
 
         // parse ranks
         for capture_group in 1..=8 {
@@ -181,20 +188,19 @@ mod tests {
     use piece::Color;
 
     #[test]
-    fn parse_fen() {
+    fn test_parse_fen() {
         // based off of examples from https://www.chess.com/terms/fen-chess
         let board = Board::from_fen("8/8/8/4p1K1/2k1P3/8/8/8 b - - 0 1").unwrap();
         println!("Testing board:\n{}", board.to_ascii());
         let tests = vec![
             (Coordinate::C4, Piece::King(Color::Black)),
-            (Coordinate::E5, Piece::Pawn(Color::White)),
-            (Coordinate::E4, Piece::Pawn(Color::Black)),
+            (Coordinate::E5, Piece::Pawn(Color::Black)),
+            (Coordinate::E4, Piece::Pawn(Color::White)),
             (Coordinate::G5, Piece::King(Color::White)),
         ];
 
         for (coord, piece) in &tests {
-            let _expected = Some(piece);
-            assert!(matches!(board.get(*coord), _expected));
+            assert_eq!(board.get(*coord).unwrap(), *piece);
         }
         let occupied_squares: Vec<Coordinate> = tests
             .into_iter()
@@ -206,6 +212,52 @@ mod tests {
                 continue;
             }
             assert!(matches!(board.get(coord), None));
+        }
+    }
+
+    #[test]
+    fn test_apply_chess_move() {
+        let mut board = Board::starting_position();
+        println!("Testing board:\n{}", board.to_ascii());
+
+        // using a queens gambit accepted opening to test basic chess move application
+        let moves: Vec<(Coordinate, Coordinate, Piece, Option<Piece>)> = vec![
+            (
+                Coordinate::E2,
+                Coordinate::E4,
+                Piece::Pawn(Color::White),
+                None,
+            ),
+            (
+                Coordinate::E7,
+                Coordinate::E5,
+                Piece::Pawn(Color::Black),
+                None,
+            ),
+            (
+                Coordinate::D2,
+                Coordinate::D4,
+                Piece::Pawn(Color::White),
+                None,
+            ),
+            (
+                Coordinate::E5,
+                Coordinate::D4,
+                Piece::Pawn(Color::Black),
+                Some(Piece::Pawn(Color::White)),
+            ),
+        ];
+
+        for (from_coord, to_coord, moved_piece, expected_capture) in &moves {
+            let captured = board
+                .apply(ChessMove {
+                    from_coord: *from_coord,
+                    to_coord: *to_coord,
+                })
+                .unwrap();
+            assert_eq!(board.get(*to_coord).unwrap(), *moved_piece);
+            assert_eq!(captured, *expected_capture);
+            println!("New board state:\n{}", board.to_ascii());
         }
     }
 }
