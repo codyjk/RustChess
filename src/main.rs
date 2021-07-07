@@ -1,11 +1,11 @@
 use std::io;
 use std::process;
 
-use chess::board::{Board, ChessMove};
+use chess::bitboard::{Bitboard, ChessMove};
 use regex::Regex;
 
 fn main() {
-    let mut board = Board::starting_position();
+    let mut board = Bitboard::starting_position();
 
     println!("{}", board.to_ascii());
 
@@ -47,10 +47,10 @@ fn main() {
                 };
 
                 match captured_piece {
-                    Some(piece) => println!(
+                    Some((piece, color)) => println!(
                         "captured {} on {}",
-                        piece.to_fen(),
-                        chessmove.to_coord.to_algebraic()
+                        piece.to_fen(color),
+                        chessmove.to_square.to_algebraic()
                     ),
                     _ => (),
                 };
