@@ -1,7 +1,8 @@
 use std::io;
 use std::process;
 
-use chess::bitboard::{Bitboard, ChessMove};
+use chess::bitboard::Bitboard;
+use chess::moves::ChessMove;
 use regex::Regex;
 
 fn main() {
