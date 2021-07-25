@@ -59,6 +59,10 @@ impl Pieces {
         None
     }
 
+    pub fn occupied(self) -> u64 {
+        self.occupied
+    }
+
     pub fn is_occupied(self, square: Square) -> bool {
         square.to_bit() & self.occupied > 0
     }

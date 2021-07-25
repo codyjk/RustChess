@@ -24,7 +24,7 @@ impl Bitboard {
         }
     }
 
-    pub fn pieces(self, color: Color) -> Pieces {
+    pub fn pieces(&self, color: Color) -> Pieces {
         match color {
             Color::White => self.white,
             Color::Black => self.black,
@@ -33,6 +33,14 @@ impl Bitboard {
 
     pub fn starting_position() -> Self {
         Self::from_fen(fen::STARTING_POSITION_FEN).unwrap()
+    }
+
+    pub fn occupied(&self) -> u64 {
+        self.white.occupied() | self.black.occupied()
+    }
+
+    pub fn is_occupied(&self, square: Square) -> bool {
+        self.get(square).is_some()
     }
 
     pub fn get(&self, square: Square) -> Option<(Piece, Color)> {
@@ -55,11 +63,6 @@ impl Bitboard {
         }
     }
 
-    pub fn is_occupied(&self, square: Square) -> bool {
-        self.get(square).is_some()
-    }
-
-    /// Puts a `piece` on the requested `square` if it is empty
     pub fn put(&mut self, square: Square, piece: Piece, color: Color) -> Result<(), &'static str> {
         if self.is_occupied(square) {
             return Err("that square already has a piece on it");

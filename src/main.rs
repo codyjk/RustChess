@@ -1,8 +1,9 @@
 use std::io;
 use std::process;
 
+use chess::bitboard::color::Color;
 use chess::bitboard::Bitboard;
-use chess::moves::ChessMove;
+use chess::moves::{generate, ChessMove};
 use regex::Regex;
 
 fn main() {
@@ -31,6 +32,8 @@ fn main() {
 
         match command {
             Command::Move { algebraic_move } => {
+                let mut moves = generate(&board, Color::White);
+                moves.append(&mut generate(&board, Color::Black));
                 let chessmove = match ChessMove::from_algebraic(algebraic_move) {
                     Ok(result) => result,
                     Err(error) => {
@@ -38,6 +41,12 @@ fn main() {
                         continue;
                     }
                 };
+
+                if !moves.iter().any(|&m| m == chessmove) {
+                    println!("invalid move");
+                    continue;
+                }
+
                 let result = board.apply(chessmove);
                 let captured_piece = match result {
                     Ok(piece) => piece,
