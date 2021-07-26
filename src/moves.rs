@@ -1,7 +1,7 @@
 mod board;
 mod fen;
 
-use crate::board::bitboard::Bitboard;
+use crate::board::bitboard::{Bitboard, RANK_4, RANK_5};
 use crate::board::color::Color;
 use crate::board::piece::Piece;
 use crate::board::square::Square;
@@ -42,8 +42,8 @@ fn generate_pawn_moves(pawns: Bitboard, occupied: Bitboard, color: Color) -> Vec
         Color::Black => pawns >> 8, // move 1 rank down the board
     };
     let double_move_targets: Bitboard = match color {
-        Color::White => 0x00000000FF000000, // rank 4
-        Color::Black => 0x000000FF00000000, // rank 5
+        Color::White => RANK_4, // rank 4
+        Color::Black => RANK_5, // rank 5
     };
 
     let targets = (single_move_targets | double_move_targets) & !occupied;
