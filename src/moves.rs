@@ -2,7 +2,7 @@ mod board;
 mod debug;
 mod fen;
 
-use crate::board::bitboard::{Bitboard, A_FILE, H_FILE, RANK_4, RANK_5};
+use crate::board::bitboard::{Bitboard, A_FILE, B_FILE, G_FILE, H_FILE, RANK_4, RANK_5};
 use crate::board::color::Color;
 use crate::board::piece::Piece;
 use crate::board::square::Square;
@@ -27,6 +27,7 @@ pub fn generate(board: &Board, color: Color) -> Vec<ChessMove> {
     let mut moves = vec![];
 
     moves.append(&mut generate_pawn_moves(board, color));
+    moves.append(&mut generate_knight_moves(board, color));
 
     moves
 }
@@ -106,6 +107,49 @@ fn generate_pawn_moves(board: &Board, color: Color) -> Vec<ChessMove> {
     moves
 }
 
+fn generate_knight_moves(board: &Board, color: Color) -> Vec<ChessMove> {
+    let mut intermediates: Vec<(Bitboard, Bitboard)> = vec![];
+    let mut moves: Vec<ChessMove> = vec![];
+    let knights = board.pieces(color).locate(Piece::Knight);
+
+    for x in 0..64 {
+        let knight = 1 << x;
+        if knights & knight == 0 {
+            continue;
+        }
+
+        // nne = north-north-east, nee = north-east-east, etc..
+        let move_nne = knight << 17 & !A_FILE;
+        let move_nee = knight << 10 & !A_FILE & !B_FILE;
+        let move_see = knight >> 6 & !A_FILE & !B_FILE;
+        let move_sse = knight >> 15 & !A_FILE;
+        let move_nnw = knight << 15 & !H_FILE;
+        let move_nww = knight << 6 & !G_FILE & !H_FILE;
+        let move_sww = knight >> 10 & !G_FILE & !H_FILE;
+        let move_ssw = knight >> 17 & !H_FILE;
+
+        intermediates.push((knight, move_nne));
+        intermediates.push((knight, move_nee));
+        intermediates.push((knight, move_see));
+        intermediates.push((knight, move_sse));
+        intermediates.push((knight, move_nnw));
+        intermediates.push((knight, move_nww));
+        intermediates.push((knight, move_sww));
+        intermediates.push((knight, move_ssw));
+    }
+
+    for (knight, target) in intermediates {
+        if target == 0 {
+            continue;
+        }
+
+        let mv = ChessMove::new(Square::from_bitboard(knight), Square::from_bitboard(target));
+        moves.push(mv);
+    }
+
+    moves
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -140,6 +184,38 @@ mod tests {
         assert_eq!(expected_white_moves, white_moves);
 
         let black_moves = generate_pawn_moves(&board, Color::Black);
+        assert_eq!(expected_black_moves, black_moves);
+    }
+
+    #[test]
+    fn test_generate_knight_moves() {
+        let mut board = Board::new();
+        board.put(Square::C3, Piece::Knight, Color::White).unwrap();
+        board.put(Square::H6, Piece::Knight, Color::Black).unwrap();
+        println!("Testing board:\n{}", board.to_ascii());
+
+        let expected_white_moves: Vec<ChessMove> = vec![
+            ChessMove::new(Square::C3, Square::D5),
+            ChessMove::new(Square::C3, Square::E4),
+            ChessMove::new(Square::C3, Square::E2),
+            ChessMove::new(Square::C3, Square::D1),
+            ChessMove::new(Square::C3, Square::B5),
+            ChessMove::new(Square::C3, Square::A4),
+            ChessMove::new(Square::C3, Square::A2),
+            ChessMove::new(Square::C3, Square::B1),
+        ];
+
+        let expected_black_moves: Vec<ChessMove> = vec![
+            ChessMove::new(Square::H6, Square::G8),
+            ChessMove::new(Square::H6, Square::F7),
+            ChessMove::new(Square::H6, Square::F5),
+            ChessMove::new(Square::H6, Square::G4),
+        ];
+
+        let white_moves = generate_knight_moves(&board, Color::White);
+        assert_eq!(expected_white_moves, white_moves);
+
+        let black_moves = generate_knight_moves(&board, Color::Black);
         assert_eq!(expected_black_moves, black_moves);
     }
 }
