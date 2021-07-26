@@ -1,3 +1,5 @@
+use super::bitboard::Bitboard;
+
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Square {
     A1,
@@ -67,7 +69,7 @@ pub enum Square {
 }
 
 impl Square {
-    pub fn to_bit(&self) -> u64 {
+    pub fn to_bitboard(&self) -> Bitboard {
         match self {
             Self::A1 => 1 << 0,
             Self::B1 => 1 << 1,
@@ -136,7 +138,7 @@ impl Square {
         }
     }
 
-    pub fn from_bit(bb: u64) -> Self {
+    pub fn from_bitboard(bb: Bitboard) -> Self {
         let maybe_square = match bb {
             b if b == (1 << 0) => Some(Self::A1),
             b if b == (1 << 1) => Some(Self::B1),

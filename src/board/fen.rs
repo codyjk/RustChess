@@ -1,12 +1,12 @@
 use super::color::Color;
 use super::piece::Piece;
 use super::square::Square;
-use super::Bitboard;
+use super::Board;
 use regex::Regex;
 
 pub const STARTING_POSITION_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
-impl Bitboard {
+impl Board {
     /// A FEN record contains six fields. The separator between fields is a space. The fields are:
     ///   1. Piece placement (from White's perspective). Each rank is described, starting with rank 8
     ///     and ending with rank 1; within each rank, the contents of each square are described from
@@ -135,7 +135,7 @@ mod tests {
     #[test]
     fn test_parse_fen() {
         // based off of examples from https://www.chess.com/terms/fen-chess
-        let board = Bitboard::from_fen("8/8/8/4p1K1/2k1P3/8/8/8 b - - 0 1").unwrap();
+        let board = Board::from_fen("8/8/8/4p1K1/2k1P3/8/8/8 b - - 0 1").unwrap();
         println!("Testing board:\n{}", board.to_ascii());
         let tests = vec![
             (Square::C4, Piece::King, Color::Black),

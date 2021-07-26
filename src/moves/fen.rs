@@ -1,5 +1,5 @@
 use super::ChessMove;
-use crate::bitboard::square::Square;
+use crate::board::square::Square;
 use regex::Regex;
 
 impl ChessMove {

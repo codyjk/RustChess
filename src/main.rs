@@ -1,13 +1,13 @@
 use std::io;
 use std::process;
 
-use chess::bitboard::color::Color;
-use chess::bitboard::Bitboard;
+use chess::board::color::Color;
+use chess::board::Board;
 use chess::moves::{generate, ChessMove};
 use regex::Regex;
 
 fn main() {
-    let mut board = Bitboard::starting_position();
+    let mut board = Board::starting_position();
 
     println!("{}", board.to_ascii());
 

@@ -1,9 +1,9 @@
 use super::ChessMove;
-use crate::bitboard::color::Color;
-use crate::bitboard::piece::Piece;
-use crate::bitboard::Bitboard;
+use crate::board::color::Color;
+use crate::board::piece::Piece;
+use crate::board::Board;
 
-impl Bitboard {
+impl Board {
     /// Applies a chess move to the board. If this resulted in a capture,
     /// the captured piece is returned.
     pub fn apply(&mut self, chessmove: ChessMove) -> Result<Option<(Piece, Color)>, &'static str> {
@@ -24,11 +24,11 @@ impl Bitboard {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::bitboard::square::Square;
+    use crate::board::square::Square;
 
     #[test]
     fn test_apply_chess_move() {
-        let mut board = Bitboard::starting_position();
+        let mut board = Board::starting_position();
         println!("Testing board:\n{}", board.to_ascii());
 
         // using a queens gambit accepted opening to test basic chess move application

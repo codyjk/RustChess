@@ -1,3 +1,4 @@
+pub mod bitboard;
 pub mod color;
 pub mod piece;
 pub mod square;
@@ -6,19 +7,20 @@ mod fen;
 mod pieces;
 mod ui;
 
+use bitboard::Bitboard;
 use color::Color;
 use piece::Piece;
 use pieces::Pieces;
 use square::Square;
 
-pub struct Bitboard {
+pub struct Board {
     white: Pieces,
     black: Pieces,
 }
 
-impl Bitboard {
+impl Board {
     pub fn new() -> Self {
-        Bitboard {
+        Board {
             white: Pieces::new(),
             black: Pieces::new(),
         }
@@ -35,7 +37,7 @@ impl Bitboard {
         Self::from_fen(fen::STARTING_POSITION_FEN).unwrap()
     }
 
-    pub fn occupied(&self) -> u64 {
+    pub fn occupied(&self) -> Bitboard {
         self.white.occupied() | self.black.occupied()
     }
 

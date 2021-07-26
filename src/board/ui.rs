@@ -1,7 +1,7 @@
 use super::square::Square;
-use super::Bitboard;
+use super::Board;
 
-impl Bitboard {
+impl Board {
     pub fn to_ascii(&self) -> String {
         let divider = "+---+---+---+---+---+---+---+---+\n";
         let rows: Vec<String> = (0..=7)

@@ -1,10 +1,11 @@
-mod bitboard;
+mod board;
 mod fen;
 
-use crate::bitboard::color::Color;
-use crate::bitboard::piece::Piece;
-use crate::bitboard::square::Square;
-use crate::bitboard::Bitboard;
+use crate::board::bitboard::Bitboard;
+use crate::board::color::Color;
+use crate::board::piece::Piece;
+use crate::board::square::Square;
+use crate::board::Board;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct ChessMove {
@@ -21,7 +22,7 @@ impl ChessMove {
     }
 }
 
-pub fn generate(board: &Bitboard, color: Color) -> Vec<ChessMove> {
+pub fn generate(board: &Board, color: Color) -> Vec<ChessMove> {
     let pieces = board.pieces(color);
     let occupied = board.occupied();
     let mut moves = vec![];
@@ -35,12 +36,12 @@ pub fn generate(board: &Bitboard, color: Color) -> Vec<ChessMove> {
     moves
 }
 
-fn generate_pawn_moves(pawns: u64, occupied: u64, color: Color) -> Vec<ChessMove> {
+fn generate_pawn_moves(pawns: Bitboard, occupied: Bitboard, color: Color) -> Vec<ChessMove> {
     let single_move_targets = match color {
         Color::White => pawns << 8, // move 1 rank up the board
         Color::Black => pawns >> 8, // move 1 rank down the board
     };
-    let double_move_targets: u64 = match color {
+    let double_move_targets: Bitboard = match color {
         Color::White => 0x00000000FF000000, // rank 4
         Color::Black => 0x000000FF00000000, // rank 5
     };
@@ -60,7 +61,10 @@ fn generate_pawn_moves(pawns: u64, occupied: u64, color: Color) -> Vec<ChessMove
             Color::Black => pawn >> 8,
         };
         if single_move & targets > 0 {
-            let mv = ChessMove::new(Square::from_bit(pawn), Square::from_bit(single_move));
+            let mv = ChessMove::new(
+                Square::from_bitboard(pawn),
+                Square::from_bitboard(single_move),
+            );
             moves.push(mv);
         }
 
@@ -69,7 +73,10 @@ fn generate_pawn_moves(pawns: u64, occupied: u64, color: Color) -> Vec<ChessMove
             Color::Black => single_move >> 8,
         };
         if double_move & targets > 0 {
-            let mv = ChessMove::new(Square::from_bit(pawn), Square::from_bit(double_move));
+            let mv = ChessMove::new(
+                Square::from_bitboard(pawn),
+                Square::from_bitboard(double_move),
+            );
             moves.push(mv);
         }
     }
@@ -83,7 +90,7 @@ mod tests {
 
     #[test]
     fn test_generate_pawn_moves() {
-        let mut board = Bitboard::new();
+        let mut board = Board::new();
         board.put(Square::A4, Piece::Pawn, Color::White).unwrap();
         board.put(Square::A5, Piece::Pawn, Color::Black).unwrap();
         board.put(Square::D2, Piece::Pawn, Color::White).unwrap();
