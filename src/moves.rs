@@ -1,13 +1,14 @@
 mod board;
+mod debug;
 mod fen;
 
-use crate::board::bitboard::{Bitboard, RANK_4, RANK_5};
+use crate::board::bitboard::{Bitboard, A_FILE, H_FILE, RANK_4, RANK_5};
 use crate::board::color::Color;
 use crate::board::piece::Piece;
 use crate::board::square::Square;
 use crate::board::Board;
 
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct ChessMove {
     pub from_square: Square,
     pub to_square: Square,
@@ -23,20 +24,17 @@ impl ChessMove {
 }
 
 pub fn generate(board: &Board, color: Color) -> Vec<ChessMove> {
-    let pieces = board.pieces(color);
-    let occupied = board.occupied();
     let mut moves = vec![];
 
-    moves.append(&mut generate_pawn_moves(
-        pieces.locate(Piece::Pawn),
-        occupied,
-        color,
-    ));
+    moves.append(&mut generate_pawn_moves(board, color));
 
     moves
 }
 
-fn generate_pawn_moves(pawns: Bitboard, occupied: Bitboard, color: Color) -> Vec<ChessMove> {
+fn generate_pawn_moves(board: &Board, color: Color) -> Vec<ChessMove> {
+    let pawns = board.pieces(color).locate(Piece::Pawn);
+    let occupied = board.occupied();
+
     let single_move_targets = match color {
         Color::White => pawns << 8, // move 1 rank up the board
         Color::Black => pawns >> 8, // move 1 rank down the board
@@ -45,8 +43,8 @@ fn generate_pawn_moves(pawns: Bitboard, occupied: Bitboard, color: Color) -> Vec
         Color::White => RANK_4, // rank 4
         Color::Black => RANK_5, // rank 5
     };
-
-    let targets = (single_move_targets | double_move_targets) & !occupied;
+    let move_targets = (single_move_targets | double_move_targets) & !occupied;
+    let attack_targets = board.pieces(color.opposite()).occupied();
 
     let mut moves: Vec<ChessMove> = vec![];
 
@@ -60,7 +58,7 @@ fn generate_pawn_moves(pawns: Bitboard, occupied: Bitboard, color: Color) -> Vec
             Color::White => pawn << 8,
             Color::Black => pawn >> 8,
         };
-        if single_move & targets > 0 {
+        if single_move & move_targets > 0 {
             let mv = ChessMove::new(
                 Square::from_bitboard(pawn),
                 Square::from_bitboard(single_move),
@@ -72,10 +70,34 @@ fn generate_pawn_moves(pawns: Bitboard, occupied: Bitboard, color: Color) -> Vec
             Color::White => single_move << 8,
             Color::Black => single_move >> 8,
         };
-        if double_move & targets > 0 {
+        if double_move & move_targets > 0 {
             let mv = ChessMove::new(
                 Square::from_bitboard(pawn),
                 Square::from_bitboard(double_move),
+            );
+            moves.push(mv);
+        }
+
+        let attack_west = match color {
+            Color::White => (pawn << 9) & !A_FILE,
+            Color::Black => (pawn >> 7) & !A_FILE,
+        };
+        if attack_west & attack_targets > 0 {
+            let mv = ChessMove::new(
+                Square::from_bitboard(pawn),
+                Square::from_bitboard(attack_west),
+            );
+            moves.push(mv);
+        }
+
+        let attack_east = match color {
+            Color::White => (pawn << 7) & !H_FILE,
+            Color::Black => (pawn >> 9) & !H_FILE,
+        };
+        if attack_east & attack_targets > 0 {
+            let mv = ChessMove::new(
+                Square::from_bitboard(pawn),
+                Square::from_bitboard(attack_east),
             );
             moves.push(mv);
         }
@@ -95,31 +117,29 @@ mod tests {
         board.put(Square::A5, Piece::Pawn, Color::Black).unwrap();
         board.put(Square::D2, Piece::Pawn, Color::White).unwrap();
         board.put(Square::D7, Piece::Pawn, Color::Black).unwrap();
-        let occupied = board.occupied();
+        board.put(Square::G6, Piece::Pawn, Color::White).unwrap();
+        board.put(Square::H7, Piece::Pawn, Color::Black).unwrap();
         println!("Testing board:\n{}", board.to_ascii());
 
         let expected_white_moves: Vec<ChessMove> = vec![
             ChessMove::new(Square::D2, Square::D3),
             ChessMove::new(Square::D2, Square::D4),
+            ChessMove::new(Square::G6, Square::G7),
+            ChessMove::new(Square::G6, Square::H7),
         ];
 
         let expected_black_moves: Vec<ChessMove> = vec![
             ChessMove::new(Square::D7, Square::D6),
             ChessMove::new(Square::D7, Square::D5),
+            ChessMove::new(Square::H7, Square::H6),
+            ChessMove::new(Square::H7, Square::H5),
+            ChessMove::new(Square::H7, Square::G6),
         ];
 
-        let white_moves = generate_pawn_moves(
-            board.pieces(Color::White).locate(Piece::Pawn),
-            occupied,
-            Color::White,
-        );
+        let white_moves = generate_pawn_moves(&board, Color::White);
         assert_eq!(expected_white_moves, white_moves);
 
-        let black_moves = generate_pawn_moves(
-            board.pieces(Color::Black).locate(Piece::Pawn),
-            occupied,
-            Color::Black,
-        );
+        let black_moves = generate_pawn_moves(&board, Color::Black);
         assert_eq!(expected_black_moves, black_moves);
     }
 }
