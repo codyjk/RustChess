@@ -4,17 +4,28 @@ use std::collections::HashMap;
 
 #[derive(Clone, Copy, PartialEq, Debug, Eq, Hash)]
 pub enum Direction {
-    North,
     East,
+    North,
+    NorthEast,
+    NorthWest,
     South,
+    SouthEast,
+    SouthWest,
     West,
 }
 
 pub const ROOK_DIRS: [Direction; 4] = [
+    Direction::East,
     Direction::North,
     Direction::South,
-    Direction::East,
     Direction::West,
+];
+
+pub const BISHOP_DIRS: [Direction; 4] = [
+    Direction::NorthEast,
+    Direction::NorthWest,
+    Direction::SouthEast,
+    Direction::SouthWest,
 ];
 
 type Ray = (Square, Direction);
@@ -39,6 +50,11 @@ impl RayTable {
                 self.table
                     .insert((square, *dir), generate_rook_ray(square_bit, *dir));
             }
+
+            for dir in BISHOP_DIRS.iter() {
+                self.table
+                    .insert((square, *dir), generate_bishop_ray(square_bit, *dir));
+            }
         }
 
         self
@@ -58,6 +74,7 @@ fn generate_rook_ray(square_bit: Bitboard, dir: Direction) -> Bitboard {
         Direction::South => RANK_1,
         Direction::East => H_FILE,
         Direction::West => A_FILE,
+        _ => 0,
     };
 
     while ray & boundary == 0 {
@@ -66,6 +83,34 @@ fn generate_rook_ray(square_bit: Bitboard, dir: Direction) -> Bitboard {
             Direction::South => ray >> 8,
             Direction::East => ray << 1,
             Direction::West => ray >> 1,
+            _ => 0,
+        };
+        ray |= next_ray;
+    }
+
+    ray ^= square_bit;
+
+    ray
+}
+
+fn generate_bishop_ray(square_bit: Bitboard, dir: Direction) -> Bitboard {
+    let mut ray = square_bit;
+
+    let (boundary_rank, boundary_file) = match dir {
+        Direction::NorthWest => (RANK_8, A_FILE),
+        Direction::NorthEast => (RANK_8, H_FILE),
+        Direction::SouthWest => (RANK_1, A_FILE),
+        Direction::SouthEast => (RANK_1, H_FILE),
+        _ => (0, 0),
+    };
+
+    while ray & boundary_rank == 0 && ray & boundary_file == 0 {
+        let next_ray = match dir {
+            Direction::NorthWest => ray << 7,
+            Direction::NorthEast => ray << 9,
+            Direction::SouthWest => ray >> 9,
+            Direction::SouthEast => ray >> 7,
+            _ => 0,
         };
         ray |= next_ray;
     }
@@ -132,5 +177,77 @@ mod tests {
         assert_eq!(expected_ray_s, generate_rook_ray(sq_bit, Direction::South));
         assert_eq!(expected_ray_e, generate_rook_ray(sq_bit, Direction::East));
         assert_eq!(expected_ray_w, generate_rook_ray(sq_bit, Direction::West));
+    }
+
+    #[test]
+    fn test_generate_bishop_ray_on_corner() {
+        let sq = Square::A1;
+        let sq_bit = sq.to_bitboard();
+        let expected_ray_ne = Square::B2.to_bitboard()
+            | Square::C3.to_bitboard()
+            | Square::D4.to_bitboard()
+            | Square::E5.to_bitboard()
+            | Square::F6.to_bitboard()
+            | Square::G7.to_bitboard()
+            | Square::H8.to_bitboard();
+        assert_eq!(
+            expected_ray_ne,
+            generate_bishop_ray(sq_bit, Direction::NorthEast)
+        );
+        assert_eq!(EMPTY, generate_bishop_ray(sq_bit, Direction::NorthWest));
+        assert_eq!(EMPTY, generate_bishop_ray(sq_bit, Direction::SouthWest));
+        assert_eq!(EMPTY, generate_bishop_ray(sq_bit, Direction::SouthEast));
+    }
+
+    #[test]
+    fn test_generate_bishop_ray_on_boundary() {
+        let sq = Square::A3;
+        let sq_bit = sq.to_bitboard();
+        let expected_ray_ne = Square::B4.to_bitboard()
+            | Square::C5.to_bitboard()
+            | Square::D6.to_bitboard()
+            | Square::E7.to_bitboard()
+            | Square::F8.to_bitboard();
+        let expected_ray_se = Square::B2.to_bitboard() | Square::C1.to_bitboard();
+        assert_eq!(
+            expected_ray_ne,
+            generate_bishop_ray(sq_bit, Direction::NorthEast)
+        );
+        assert_eq!(EMPTY, generate_bishop_ray(sq_bit, Direction::NorthWest));
+        assert_eq!(EMPTY, generate_bishop_ray(sq_bit, Direction::SouthWest));
+        assert_eq!(
+            expected_ray_se,
+            generate_bishop_ray(sq_bit, Direction::SouthEast)
+        );
+    }
+
+    #[test]
+    fn test_generate_bishop_ray_in_middle() {
+        let sq = Square::C3;
+        let sq_bit = sq.to_bitboard();
+        let expected_ray_ne = Square::D4.to_bitboard()
+            | Square::E5.to_bitboard()
+            | Square::F6.to_bitboard()
+            | Square::G7.to_bitboard()
+            | Square::H8.to_bitboard();
+        let expected_ray_nw = Square::B4.to_bitboard() | Square::A5.to_bitboard();
+        let expected_ray_se = Square::D2.to_bitboard() | Square::E1.to_bitboard();
+        let expected_ray_sw = Square::B2.to_bitboard() | Square::A1.to_bitboard();
+        assert_eq!(
+            expected_ray_ne,
+            generate_bishop_ray(sq_bit, Direction::NorthEast)
+        );
+        assert_eq!(
+            expected_ray_nw,
+            generate_bishop_ray(sq_bit, Direction::NorthWest)
+        );
+        assert_eq!(
+            expected_ray_sw,
+            generate_bishop_ray(sq_bit, Direction::SouthWest)
+        );
+        assert_eq!(
+            expected_ray_se,
+            generate_bishop_ray(sq_bit, Direction::SouthEast)
+        );
     }
 }
