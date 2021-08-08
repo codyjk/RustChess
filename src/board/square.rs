@@ -1,6 +1,6 @@
 use super::bitboard::Bitboard;
 
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Debug, Eq, PartialOrd, Ord, Hash)]
 pub enum Square {
     A1,
     A2,
