@@ -30,7 +30,7 @@ impl RayTable {
         }
     }
 
-    pub fn populate(&mut self) {
+    pub fn populate(&mut self) -> &Self {
         for x in 0..64 {
             let square_bit = 1 << x;
             let square = Square::from_bitboard(square_bit);
@@ -40,6 +40,8 @@ impl RayTable {
                     .insert((square, *dir), generate_rook_ray(square_bit, *dir));
             }
         }
+
+        self
     }
 
     pub fn get(&self, square: Square, dir: Direction) -> Bitboard {

@@ -3,11 +3,14 @@ use std::process;
 
 use chess::board::color::Color;
 use chess::board::Board;
+use chess::moves::ray_table::RayTable;
 use chess::moves::{generate, ChessMove};
 use regex::Regex;
 
 fn main() {
     let mut board = Board::starting_position();
+    let mut ray_table = RayTable::new();
+    ray_table.populate();
 
     println!("{}", board.to_ascii());
 
@@ -32,8 +35,8 @@ fn main() {
 
         match command {
             Command::Move { algebraic_move } => {
-                let mut moves = generate(&board, Color::White);
-                moves.append(&mut generate(&board, Color::Black));
+                let mut moves = generate(&board, Color::White, &ray_table);
+                moves.append(&mut generate(&board, Color::Black, &ray_table));
                 let chessmove = match ChessMove::from_algebraic(algebraic_move) {
                     Ok(result) => result,
                     Err(error) => {

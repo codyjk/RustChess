@@ -1,7 +1,7 @@
 mod board;
 mod debug;
 mod fen;
-mod ray_table;
+pub mod ray_table;
 
 use crate::board::bitboard::{Bitboard, A_FILE, B_FILE, EMPTY, G_FILE, H_FILE, RANK_4, RANK_5};
 use crate::board::color::Color;
@@ -25,12 +25,12 @@ impl ChessMove {
     }
 }
 
-pub fn generate(board: &Board, color: Color) -> Vec<ChessMove> {
+pub fn generate(board: &Board, color: Color, ray_table: &RayTable) -> Vec<ChessMove> {
     let mut moves = vec![];
 
     moves.append(&mut generate_pawn_moves(board, color));
     moves.append(&mut generate_knight_moves(board, color));
-    moves.append(&mut generate_rook_moves(board, color));
+    moves.append(&mut generate_rook_moves(board, color, ray_table));
 
     moves
 }
@@ -172,13 +172,9 @@ fn leftmost_bit(x: u64) -> u64 {
     b ^ (b >> 1)
 }
 
-fn generate_rook_moves(board: &Board, color: Color) -> Vec<ChessMove> {
+fn generate_rook_moves(board: &Board, color: Color, ray_table: &RayTable) -> Vec<ChessMove> {
     let mut moves: Vec<ChessMove> = vec![];
     let mut intermediates: Vec<(Bitboard, Bitboard)> = vec![];
-
-    // TODO: cache table somewhere else
-    let mut ray_table = RayTable::new();
-    ray_table.populate();
 
     let pieces = board.pieces(color);
     let rooks = pieces.locate(Piece::Rook);
@@ -339,7 +335,7 @@ mod tests {
         ];
         expected_moves.sort();
 
-        let mut moves = generate_rook_moves(&board, Color::White);
+        let mut moves = generate_rook_moves(&board, Color::White, RayTable::new().populate());
         moves.sort();
 
         assert_eq!(expected_moves, moves);
@@ -359,7 +355,7 @@ mod tests {
         ];
         expected_moves.sort();
 
-        let mut moves = generate_rook_moves(&board, Color::White);
+        let mut moves = generate_rook_moves(&board, Color::White, RayTable::new().populate());
         moves.sort();
 
         assert_eq!(expected_moves, moves);
