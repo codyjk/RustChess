@@ -1,14 +1,14 @@
 mod board;
 mod debug;
 mod fen;
-mod rays;
+mod ray_table;
 
 use crate::board::bitboard::{Bitboard, A_FILE, B_FILE, EMPTY, G_FILE, H_FILE, RANK_4, RANK_5};
 use crate::board::color::Color;
 use crate::board::piece::Piece;
 use crate::board::square::Square;
 use crate::board::Board;
-use rays::{Direction, ROOK_DIRS};
+use ray_table::{Direction, RayTable, ROOK_DIRS};
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ChessMove {
@@ -177,7 +177,8 @@ fn generate_rook_moves(board: &Board, color: Color) -> Vec<ChessMove> {
     let mut intermediates: Vec<(Bitboard, Bitboard)> = vec![];
 
     // TODO: cache table somewhere else
-    let ray_table = rays::generate_ray_table();
+    let mut ray_table = RayTable::new();
+    ray_table.populate();
 
     let pieces = board.pieces(color);
     let rooks = pieces.locate(Piece::Rook);
@@ -193,7 +194,7 @@ fn generate_rook_moves(board: &Board, color: Color) -> Vec<ChessMove> {
         let mut target_squares = EMPTY;
 
         for dir in ROOK_DIRS.iter() {
-            let ray = *ray_table.get(&(sq, *dir)).unwrap();
+            let ray = ray_table.get(sq, *dir);
             if ray == 0 {
                 continue;
             }
@@ -215,9 +216,8 @@ fn generate_rook_moves(board: &Board, color: Color) -> Vec<ChessMove> {
                 Direction::West => leftmost_bit(intercepts),
             };
 
-            let blocked_squares = *ray_table
-                .get(&(Square::from_bitboard(intercept), *dir))
-                .unwrap();
+            let blocked_squares = ray_table.get(Square::from_bitboard(intercept), *dir);
+
             target_squares |= ray ^ blocked_squares;
 
             // if the intercept is the same color piece, remove it from the targets.

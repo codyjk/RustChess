@@ -18,21 +18,34 @@ pub const ROOK_DIRS: [Direction; 4] = [
 ];
 
 type Ray = (Square, Direction);
-type RayTable = HashMap<Ray, Bitboard>;
 
-pub fn generate_ray_table() -> RayTable {
-    let mut table = HashMap::new();
+pub struct RayTable {
+    table: HashMap<Ray, Bitboard>,
+}
 
-    for x in 0..64 {
-        let square_bit = 1 << x;
-        let square = Square::from_bitboard(square_bit);
-
-        for dir in ROOK_DIRS.iter() {
-            table.insert((square, *dir), generate_rook_ray(square_bit, *dir));
+impl RayTable {
+    pub fn new() -> Self {
+        Self {
+            table: HashMap::new(),
         }
     }
 
-    table
+    pub fn populate(&mut self) {
+        for x in 0..64 {
+            let square_bit = 1 << x;
+            let square = Square::from_bitboard(square_bit);
+
+            for dir in ROOK_DIRS.iter() {
+                self.table
+                    .insert((square, *dir), generate_rook_ray(square_bit, *dir));
+            }
+        }
+    }
+
+    pub fn get(&self, square: Square, dir: Direction) -> Bitboard {
+        let ray = (square, dir);
+        *self.table.get(&ray).unwrap()
+    }
 }
 
 fn generate_rook_ray(square_bit: Bitboard, dir: Direction) -> Bitboard {
