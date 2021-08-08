@@ -3,7 +3,9 @@ mod debug;
 mod fen;
 pub mod ray_table;
 
-use crate::board::bitboard::{Bitboard, A_FILE, B_FILE, EMPTY, G_FILE, H_FILE, RANK_4, RANK_5};
+use crate::board::bitboard::{
+    Bitboard, A_FILE, B_FILE, EMPTY, G_FILE, H_FILE, RANK_1, RANK_4, RANK_5, RANK_8,
+};
 use crate::board::color::Color;
 use crate::board::piece::Piece;
 use crate::board::square::Square;
@@ -30,6 +32,7 @@ pub fn generate(board: &Board, color: Color, ray_table: &RayTable) -> Vec<ChessM
 
     moves.append(&mut generate_pawn_moves(board, color));
     moves.append(&mut generate_knight_moves(board, color));
+    moves.append(&mut generate_king_moves(board, color));
     moves.append(&mut generate_rook_moves(board, color, ray_table));
     moves.append(&mut generate_bishop_moves(board, color, ray_table));
     moves.append(&mut generate_queen_moves(board, color, ray_table));
@@ -284,6 +287,37 @@ fn generate_queen_moves(board: &Board, color: Color, ray_table: &RayTable) -> Ve
     moves
 }
 
+fn generate_king_moves(board: &Board, color: Color) -> Vec<ChessMove> {
+    let mut moves: Vec<ChessMove> = vec![];
+    let king = board.pieces(color).locate(Piece::King);
+    let king_sq = Square::from_bitboard(king);
+    let occupied = board.pieces(color).occupied();
+
+    let mut targets = EMPTY;
+
+    // shift the king's position. in the event that it falls off of the boundary,
+    // we want to negate the rank/file where the king would fall.
+    targets |= (king >> 8) & !RANK_1 & !occupied; // north
+    targets |= (king << 8) & !RANK_8 & !occupied; // south
+    targets |= (king << 1) & !A_FILE & !occupied; // east
+    targets |= (king >> 1) & !H_FILE & !occupied; // west
+    targets |= (king >> 7) & !RANK_1 & !A_FILE & !occupied; // northeast
+    targets |= (king >> 9) & !RANK_1 & !H_FILE & !occupied; // northwest
+    targets |= (king << 9) & !RANK_8 & !A_FILE & !occupied; // southeast
+    targets |= (king << 7) & !RANK_8 & !H_FILE & !occupied; // southwest
+
+    for x in 0..64 {
+        let target = 1 << x;
+        if target & targets == 0 {
+            continue;
+        }
+
+        moves.push(ChessMove::new(king_sq, Square::from_bitboard(target)));
+    }
+
+    moves
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -475,6 +509,71 @@ mod tests {
         expected_moves.sort();
 
         let mut moves = generate_queen_moves(&board, Color::White, RayTable::new().populate());
+        moves.sort();
+
+        assert_eq!(expected_moves, moves);
+    }
+
+    #[test]
+    fn test_generate_king_moves_corner() {
+        let mut board = Board::new();
+        board.put(Square::A1, Piece::King, Color::White).unwrap();
+        println!("Testing board:\n{}", board.to_ascii());
+
+        let mut expected_moves: Vec<ChessMove> = vec![
+            ChessMove::new(Square::A1, Square::A2),
+            ChessMove::new(Square::A1, Square::B1),
+            ChessMove::new(Square::A1, Square::B2),
+        ];
+        expected_moves.sort();
+
+        let mut moves = generate_king_moves(&board, Color::White);
+        moves.sort();
+
+        assert_eq!(expected_moves, moves);
+    }
+
+    #[test]
+    fn test_generate_king_moves_edge() {
+        let mut board = Board::new();
+        board.put(Square::E1, Piece::King, Color::White).unwrap();
+        println!("Testing board:\n{}", board.to_ascii());
+
+        let mut expected_moves: Vec<ChessMove> = vec![
+            ChessMove::new(Square::E1, Square::D1),
+            ChessMove::new(Square::E1, Square::D2),
+            ChessMove::new(Square::E1, Square::E2),
+            ChessMove::new(Square::E1, Square::F1),
+            ChessMove::new(Square::E1, Square::F2),
+        ];
+        expected_moves.sort();
+
+        let mut moves = generate_king_moves(&board, Color::White);
+        moves.sort();
+
+        assert_eq!(expected_moves, moves);
+    }
+
+    #[test]
+    fn test_generate_king_moves_middle() {
+        let mut board = Board::new();
+        board.put(Square::E5, Piece::King, Color::White).unwrap();
+        board.put(Square::E6, Piece::Pawn, Color::White).unwrap();
+        board.put(Square::E4, Piece::Pawn, Color::Black).unwrap();
+        println!("Testing board:\n{}", board.to_ascii());
+
+        let mut expected_moves: Vec<ChessMove> = vec![
+            ChessMove::new(Square::E5, Square::D4),
+            ChessMove::new(Square::E5, Square::D5),
+            ChessMove::new(Square::E5, Square::D6),
+            ChessMove::new(Square::E5, Square::E4),
+            ChessMove::new(Square::E5, Square::F4),
+            ChessMove::new(Square::E5, Square::F5),
+            ChessMove::new(Square::E5, Square::F6),
+        ];
+        expected_moves.sort();
+
+        let mut moves = generate_king_moves(&board, Color::White);
         moves.sort();
 
         assert_eq!(expected_moves, moves);
