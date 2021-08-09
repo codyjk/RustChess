@@ -13,6 +13,7 @@ impl ChessMove {
         Ok(Self {
             from_square: Square::from_algebraic(&caps[1]),
             to_square: Square::from_algebraic(&caps[2]),
+            capture: None,
         })
     }
 }

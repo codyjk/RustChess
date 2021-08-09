@@ -12,17 +12,21 @@ use crate::board::square::Square;
 use crate::board::Board;
 use ray_table::{Direction, RayTable, BISHOP_DIRS, ROOK_DIRS};
 
+type Capture = (Piece, Color);
+
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ChessMove {
     pub from_square: Square,
     pub to_square: Square,
+    pub capture: Option<Capture>,
 }
 
 impl ChessMove {
-    pub fn new(from_square: Square, to_square: Square) -> Self {
+    pub fn new(from_square: Square, to_square: Square, capture: Option<Capture>) -> Self {
         Self {
             from_square: from_square,
             to_square: to_square,
+            capture: capture,
         }
     }
 }
@@ -71,6 +75,7 @@ fn generate_pawn_moves(board: &Board, color: Color) -> Vec<ChessMove> {
             let mv = ChessMove::new(
                 Square::from_bitboard(pawn),
                 Square::from_bitboard(single_move),
+                None,
             );
             moves.push(mv);
         }
@@ -83,6 +88,7 @@ fn generate_pawn_moves(board: &Board, color: Color) -> Vec<ChessMove> {
             let mv = ChessMove::new(
                 Square::from_bitboard(pawn),
                 Square::from_bitboard(double_move),
+                None,
             );
             moves.push(mv);
         }
@@ -92,9 +98,15 @@ fn generate_pawn_moves(board: &Board, color: Color) -> Vec<ChessMove> {
             Color::Black => (pawn >> 7) & !A_FILE,
         };
         if attack_west & attack_targets > 0 {
+            let captured_piece = board
+                .pieces(color.opposite())
+                .get(Square::from_bitboard(attack_west))
+                .unwrap();
+            let capture = (captured_piece, color.opposite());
             let mv = ChessMove::new(
                 Square::from_bitboard(pawn),
                 Square::from_bitboard(attack_west),
+                Some(capture),
             );
             moves.push(mv);
         }
@@ -104,9 +116,15 @@ fn generate_pawn_moves(board: &Board, color: Color) -> Vec<ChessMove> {
             Color::Black => (pawn >> 9) & !H_FILE,
         };
         if attack_east & attack_targets > 0 {
+            let captured_piece = board
+                .pieces(color.opposite())
+                .get(Square::from_bitboard(attack_east))
+                .unwrap();
+            let capture = (captured_piece, color.opposite());
             let mv = ChessMove::new(
                 Square::from_bitboard(pawn),
                 Square::from_bitboard(attack_east),
+                Some(capture),
             );
             moves.push(mv);
         }
@@ -151,7 +169,11 @@ fn generate_knight_moves(board: &Board, color: Color) -> Vec<ChessMove> {
             continue;
         }
 
-        let mv = ChessMove::new(Square::from_bitboard(knight), Square::from_bitboard(target));
+        let mv = ChessMove::new(
+            Square::from_bitboard(knight),
+            Square::from_bitboard(target),
+            None,
+        );
         moves.push(mv);
     }
 
@@ -245,15 +267,21 @@ fn generate_ray_moves(
         intermediates.push((piece, target_squares));
     }
 
-    for (rook, target_squares) in intermediates {
-        let rook_sq = Square::from_bitboard(rook);
+    for (piece, target_squares) in intermediates {
+        let piece_sq = Square::from_bitboard(piece);
         for x in 0..64 {
             let target = 1 << x;
             if target_squares & target == 0 {
                 continue;
             }
 
-            moves.push(ChessMove::new(rook_sq, Square::from_bitboard(target)));
+            let target_sq = Square::from_bitboard(target);
+            let capture = match board.pieces(color.opposite()).get(target_sq) {
+                Some(piece) => Some((piece, color.opposite())),
+                None => None,
+            };
+
+            moves.push(ChessMove::new(piece_sq, target_sq, capture));
         }
     }
 
@@ -312,7 +340,17 @@ fn generate_king_moves(board: &Board, color: Color) -> Vec<ChessMove> {
             continue;
         }
 
-        moves.push(ChessMove::new(king_sq, Square::from_bitboard(target)));
+        let target_sq = Square::from_bitboard(target);
+        let capture = match board.pieces(color.opposite()).get(target_sq) {
+            Some(piece) => Some((piece, color.opposite())),
+            None => None,
+        };
+
+        moves.push(ChessMove::new(
+            king_sq,
+            Square::from_bitboard(target),
+            capture,
+        ));
     }
 
     moves
@@ -334,18 +372,18 @@ mod tests {
         println!("Testing board:\n{}", board.to_ascii());
 
         let expected_white_moves: Vec<ChessMove> = vec![
-            ChessMove::new(Square::D2, Square::D3),
-            ChessMove::new(Square::D2, Square::D4),
-            ChessMove::new(Square::G6, Square::G7),
-            ChessMove::new(Square::G6, Square::H7),
+            ChessMove::new(Square::D2, Square::D3, None),
+            ChessMove::new(Square::D2, Square::D4, None),
+            ChessMove::new(Square::G6, Square::G7, None),
+            ChessMove::new(Square::G6, Square::H7, Some((Piece::Pawn, Color::Black))),
         ];
 
         let expected_black_moves: Vec<ChessMove> = vec![
-            ChessMove::new(Square::D7, Square::D6),
-            ChessMove::new(Square::D7, Square::D5),
-            ChessMove::new(Square::H7, Square::H6),
-            ChessMove::new(Square::H7, Square::H5),
-            ChessMove::new(Square::H7, Square::G6),
+            ChessMove::new(Square::D7, Square::D6, None),
+            ChessMove::new(Square::D7, Square::D5, None),
+            ChessMove::new(Square::H7, Square::H6, None),
+            ChessMove::new(Square::H7, Square::H5, None),
+            ChessMove::new(Square::H7, Square::G6, Some((Piece::Pawn, Color::White))),
         ];
 
         let white_moves = generate_pawn_moves(&board, Color::White);
@@ -363,21 +401,21 @@ mod tests {
         println!("Testing board:\n{}", board.to_ascii());
 
         let expected_white_moves: Vec<ChessMove> = vec![
-            ChessMove::new(Square::C3, Square::D5),
-            ChessMove::new(Square::C3, Square::E4),
-            ChessMove::new(Square::C3, Square::E2),
-            ChessMove::new(Square::C3, Square::D1),
-            ChessMove::new(Square::C3, Square::B5),
-            ChessMove::new(Square::C3, Square::A4),
-            ChessMove::new(Square::C3, Square::A2),
-            ChessMove::new(Square::C3, Square::B1),
+            ChessMove::new(Square::C3, Square::D5, None),
+            ChessMove::new(Square::C3, Square::E4, None),
+            ChessMove::new(Square::C3, Square::E2, None),
+            ChessMove::new(Square::C3, Square::D1, None),
+            ChessMove::new(Square::C3, Square::B5, None),
+            ChessMove::new(Square::C3, Square::A4, None),
+            ChessMove::new(Square::C3, Square::A2, None),
+            ChessMove::new(Square::C3, Square::B1, None),
         ];
 
         let expected_black_moves: Vec<ChessMove> = vec![
-            ChessMove::new(Square::H6, Square::G8),
-            ChessMove::new(Square::H6, Square::F7),
-            ChessMove::new(Square::H6, Square::F5),
-            ChessMove::new(Square::H6, Square::G4),
+            ChessMove::new(Square::H6, Square::G8, None),
+            ChessMove::new(Square::H6, Square::F7, None),
+            ChessMove::new(Square::H6, Square::F5, None),
+            ChessMove::new(Square::H6, Square::G4, None),
         ];
 
         let white_moves = generate_knight_moves(&board, Color::White);
@@ -398,16 +436,16 @@ mod tests {
         println!("Testing board:\n{}", board.to_ascii());
 
         let mut expected_moves: Vec<ChessMove> = vec![
-            ChessMove::new(Square::C3, Square::C2),
-            ChessMove::new(Square::C3, Square::C4),
-            ChessMove::new(Square::C3, Square::C5),
-            ChessMove::new(Square::C3, Square::C6),
-            ChessMove::new(Square::C3, Square::B3),
-            ChessMove::new(Square::C3, Square::D3),
-            ChessMove::new(Square::C3, Square::E3),
-            ChessMove::new(Square::C3, Square::F3),
-            ChessMove::new(Square::C3, Square::G3),
-            ChessMove::new(Square::C3, Square::H3),
+            ChessMove::new(Square::C3, Square::C2, None),
+            ChessMove::new(Square::C3, Square::C4, None),
+            ChessMove::new(Square::C3, Square::C5, None),
+            ChessMove::new(Square::C3, Square::C6, None),
+            ChessMove::new(Square::C3, Square::B3, None),
+            ChessMove::new(Square::C3, Square::D3, None),
+            ChessMove::new(Square::C3, Square::E3, None),
+            ChessMove::new(Square::C3, Square::F3, None),
+            ChessMove::new(Square::C3, Square::G3, None),
+            ChessMove::new(Square::C3, Square::H3, Some((Piece::Pawn, Color::Black))),
         ];
         expected_moves.sort();
 
@@ -426,8 +464,8 @@ mod tests {
         println!("Testing board:\n{}", board.to_ascii());
 
         let mut expected_moves: Vec<ChessMove> = vec![
-            ChessMove::new(Square::A2, Square::A1),
-            ChessMove::new(Square::A2, Square::A3),
+            ChessMove::new(Square::A2, Square::A1, None),
+            ChessMove::new(Square::A2, Square::A3, None),
         ];
         expected_moves.sort();
 
@@ -448,13 +486,13 @@ mod tests {
         println!("Testing board:\n{}", board.to_ascii());
 
         let mut expected_moves: Vec<ChessMove> = vec![
-            ChessMove::new(Square::E5, Square::D4),
-            ChessMove::new(Square::E5, Square::D6),
-            ChessMove::new(Square::E5, Square::F4),
-            ChessMove::new(Square::E5, Square::F6),
-            ChessMove::new(Square::E5, Square::G3),
-            ChessMove::new(Square::E5, Square::G7),
-            ChessMove::new(Square::E5, Square::H2),
+            ChessMove::new(Square::E5, Square::D4, None),
+            ChessMove::new(Square::E5, Square::D6, None),
+            ChessMove::new(Square::E5, Square::F4, None),
+            ChessMove::new(Square::E5, Square::F6, None),
+            ChessMove::new(Square::E5, Square::G3, None),
+            ChessMove::new(Square::E5, Square::G7, Some((Piece::Pawn, Color::Black))),
+            ChessMove::new(Square::E5, Square::H2, None),
         ];
         expected_moves.sort();
 
@@ -480,31 +518,31 @@ mod tests {
         let mut expected_moves: Vec<ChessMove> = vec![
             // North - no moves
             // NorthEast
-            ChessMove::new(Square::E5, Square::F6),
-            ChessMove::new(Square::E5, Square::G7),
-            ChessMove::new(Square::E5, Square::H8),
+            ChessMove::new(Square::E5, Square::F6, None),
+            ChessMove::new(Square::E5, Square::G7, None),
+            ChessMove::new(Square::E5, Square::H8, Some((Piece::Pawn, Color::Black))),
             // East
-            ChessMove::new(Square::E5, Square::F5),
-            ChessMove::new(Square::E5, Square::G5),
-            ChessMove::new(Square::E5, Square::H5),
+            ChessMove::new(Square::E5, Square::F5, None),
+            ChessMove::new(Square::E5, Square::G5, None),
+            ChessMove::new(Square::E5, Square::H5, None),
             // SouthEast
-            ChessMove::new(Square::E5, Square::F4),
-            ChessMove::new(Square::E5, Square::G3),
+            ChessMove::new(Square::E5, Square::F4, None),
+            ChessMove::new(Square::E5, Square::G3, Some((Piece::Pawn, Color::Black))),
             // South
-            ChessMove::new(Square::E5, Square::E4),
-            ChessMove::new(Square::E5, Square::E3),
-            ChessMove::new(Square::E5, Square::E2),
-            ChessMove::new(Square::E5, Square::E1),
+            ChessMove::new(Square::E5, Square::E4, None),
+            ChessMove::new(Square::E5, Square::E3, None),
+            ChessMove::new(Square::E5, Square::E2, None),
+            ChessMove::new(Square::E5, Square::E1, None),
             // SouthWest
-            ChessMove::new(Square::E5, Square::D4),
-            ChessMove::new(Square::E5, Square::C3),
+            ChessMove::new(Square::E5, Square::D4, None),
+            ChessMove::new(Square::E5, Square::C3, None),
             // West
-            ChessMove::new(Square::E5, Square::D5),
-            ChessMove::new(Square::E5, Square::C5),
+            ChessMove::new(Square::E5, Square::D5, None),
+            ChessMove::new(Square::E5, Square::C5, None),
             // NorthWest
-            ChessMove::new(Square::E5, Square::D6),
-            ChessMove::new(Square::E5, Square::C7),
-            ChessMove::new(Square::E5, Square::B8),
+            ChessMove::new(Square::E5, Square::D6, None),
+            ChessMove::new(Square::E5, Square::C7, None),
+            ChessMove::new(Square::E5, Square::B8, None),
         ];
         expected_moves.sort();
 
@@ -521,9 +559,9 @@ mod tests {
         println!("Testing board:\n{}", board.to_ascii());
 
         let mut expected_moves: Vec<ChessMove> = vec![
-            ChessMove::new(Square::A1, Square::A2),
-            ChessMove::new(Square::A1, Square::B1),
-            ChessMove::new(Square::A1, Square::B2),
+            ChessMove::new(Square::A1, Square::A2, None),
+            ChessMove::new(Square::A1, Square::B1, None),
+            ChessMove::new(Square::A1, Square::B2, None),
         ];
         expected_moves.sort();
 
@@ -537,14 +575,15 @@ mod tests {
     fn test_generate_king_moves_edge() {
         let mut board = Board::new();
         board.put(Square::E1, Piece::King, Color::White).unwrap();
+        board.put(Square::D2, Piece::Pawn, Color::Black).unwrap();
         println!("Testing board:\n{}", board.to_ascii());
 
         let mut expected_moves: Vec<ChessMove> = vec![
-            ChessMove::new(Square::E1, Square::D1),
-            ChessMove::new(Square::E1, Square::D2),
-            ChessMove::new(Square::E1, Square::E2),
-            ChessMove::new(Square::E1, Square::F1),
-            ChessMove::new(Square::E1, Square::F2),
+            ChessMove::new(Square::E1, Square::D1, None),
+            ChessMove::new(Square::E1, Square::D2, Some((Piece::Pawn, Color::Black))),
+            ChessMove::new(Square::E1, Square::E2, None),
+            ChessMove::new(Square::E1, Square::F1, None),
+            ChessMove::new(Square::E1, Square::F2, None),
         ];
         expected_moves.sort();
 
@@ -563,13 +602,13 @@ mod tests {
         println!("Testing board:\n{}", board.to_ascii());
 
         let mut expected_moves: Vec<ChessMove> = vec![
-            ChessMove::new(Square::E5, Square::D4),
-            ChessMove::new(Square::E5, Square::D5),
-            ChessMove::new(Square::E5, Square::D6),
-            ChessMove::new(Square::E5, Square::E4),
-            ChessMove::new(Square::E5, Square::F4),
-            ChessMove::new(Square::E5, Square::F5),
-            ChessMove::new(Square::E5, Square::F6),
+            ChessMove::new(Square::E5, Square::D4, None),
+            ChessMove::new(Square::E5, Square::D5, None),
+            ChessMove::new(Square::E5, Square::D6, None),
+            ChessMove::new(Square::E5, Square::E4, Some((Piece::Pawn, Color::Black))),
+            ChessMove::new(Square::E5, Square::F4, None),
+            ChessMove::new(Square::E5, Square::F5, None),
+            ChessMove::new(Square::E5, Square::F6, None),
         ];
         expected_moves.sort();
 

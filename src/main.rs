@@ -37,13 +37,16 @@ fn main() {
             Command::Move { algebraic_move } => {
                 let mut moves = generate(&board, Color::White, &ray_table);
                 moves.append(&mut generate(&board, Color::Black, &ray_table));
-                let chessmove = match ChessMove::from_algebraic(algebraic_move) {
+                let partial_move = match ChessMove::from_algebraic(algebraic_move) {
                     Ok(result) => result,
                     Err(error) => {
                         println!("move error: {}", error);
                         continue;
                     }
                 };
+                let capture = board.get(partial_move.to_square);
+                let chessmove =
+                    ChessMove::new(partial_move.from_square, partial_move.to_square, capture);
 
                 if !moves.iter().any(|&m| m == chessmove) {
                     println!("invalid move");

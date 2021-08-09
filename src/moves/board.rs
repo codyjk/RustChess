@@ -49,6 +49,7 @@ mod tests {
                 .apply(ChessMove {
                     from_square: *from_square,
                     to_square: *to_square,
+                    capture: *expected_capture,
                 })
                 .unwrap();
             assert_eq!(board.get(*to_square).unwrap(), *moved);
