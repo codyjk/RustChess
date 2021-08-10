@@ -1,6 +1,5 @@
 mod board;
 mod debug;
-mod fen;
 pub mod ray_table;
 
 use crate::board::bitboard::{

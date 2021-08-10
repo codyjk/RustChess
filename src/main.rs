@@ -1,10 +1,10 @@
 use std::io;
-use std::process;
 
 use chess::board::color::Color;
+use chess::board::square::Square;
 use chess::board::Board;
+use chess::moves::generate;
 use chess::moves::ray_table::RayTable;
-use chess::moves::{generate, ChessMove};
 use regex::Regex;
 
 fn main() {
@@ -12,97 +12,77 @@ fn main() {
     let mut ray_table = RayTable::new();
     ray_table.populate();
 
-    println!("{}", board.to_ascii());
-
     loop {
+        println!("{}", board.to_ascii());
         let mut input = String::new();
 
         let parsed = match io::stdin().read_line(&mut input) {
-            Ok(_n) => Command::parse(&input.trim_start().trim_end()),
+            Ok(_n) => MoveCommand::parse(&input.trim_start().trim_end()),
             Err(error) => {
                 println!("error: {}", error);
                 continue;
             }
         };
 
-        let command = match parsed {
-            Ok(cmd) => cmd,
+        let partial_move = match parsed {
+            Ok(move_command) => move_command,
             Err(error) => {
-                println!("failed to parse command `{}`: {}", input.trim_end(), error);
+                println!("invalid move: {}", error);
                 continue;
             }
         };
 
-        match command {
-            Command::Move { algebraic_move } => {
-                let mut moves = generate(&board, Color::White, &ray_table);
-                moves.append(&mut generate(&board, Color::Black, &ray_table));
-                let partial_move = match ChessMove::from_algebraic(algebraic_move) {
-                    Ok(result) => result,
-                    Err(error) => {
-                        println!("move error: {}", error);
-                        continue;
-                    }
-                };
-                let capture = board.get(partial_move.to_square);
-                let chessmove =
-                    ChessMove::new(partial_move.from_square, partial_move.to_square, capture);
+        let mut moves = generate(&board, Color::White, &ray_table);
+        moves.append(&mut generate(&board, Color::Black, &ray_table));
 
-                if !moves.iter().any(|&m| m == chessmove) {
-                    println!("invalid move");
-                    continue;
-                }
+        let maybe_chessmove = moves.iter().find(|&m| {
+            m.from_square == partial_move.from_square && m.to_square == partial_move.to_square
+        });
 
-                let result = board.apply(chessmove);
-                let captured_piece = match result {
-                    Ok(piece) => piece,
-                    Err(error) => {
-                        println!("move error: {}", error);
-                        continue;
-                    }
-                };
-
-                match captured_piece {
-                    Some((piece, color)) => println!(
-                        "captured {} on {}",
-                        piece.to_fen(color),
-                        chessmove.to_square.to_algebraic()
-                    ),
-                    _ => (),
-                };
-
-                println!("{}", board.to_ascii());
+        let chessmove = match maybe_chessmove {
+            Some(result) => result,
+            None => {
+                println!("invalid move");
+                continue;
             }
-            Command::Quit => process::exit(0),
-        }
+        };
+
+        let result = board.apply(*chessmove);
+        let captured_piece = match result {
+            Ok(piece) => piece,
+            Err(error) => {
+                println!("move error: {}", error);
+                continue;
+            }
+        };
+
+        match captured_piece {
+            Some((piece, color)) => println!(
+                "captured {} on {}",
+                piece.to_fen(color),
+                chessmove.to_square.to_algebraic()
+            ),
+            _ => (),
+        };
     }
 }
 
-pub enum Command {
-    Move { algebraic_move: String },
-    Quit,
+struct MoveCommand {
+    from_square: Square,
+    to_square: Square,
 }
 
-impl Command {
-    pub fn parse(command: &str) -> Result<Command, &'static str> {
-        // handle commands with no args
-        match command {
-            "quit" => return Ok(Command::Quit),
-            _ => (),
+impl MoveCommand {
+    pub fn parse(command: &str) -> Result<MoveCommand, &'static str> {
+        let re = Regex::new("^([a-h][1-8])([a-h][1-8])$").unwrap();
+        let caps = match re.captures(&command) {
+            Some(captures) => captures,
+            None => return Err("invalid move"),
         };
 
-        // handle commands with args
-        if command.starts_with("move") {
-            let re = Regex::new("^move (.*)$").unwrap();
-            let caps = match re.captures(&command) {
-                Some(captures) => captures,
-                None => return Err("unable to parse move command"),
-            };
-            return Ok(Command::Move {
-                algebraic_move: caps[1].to_string(),
-            });
-        }
-
-        return Err("invalid command");
+        Ok(Self {
+            from_square: Square::from_algebraic(&caps[1]),
+            to_square: Square::from_algebraic(&caps[2]),
+        })
     }
 }
