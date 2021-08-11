@@ -1,6 +1,5 @@
 use super::bitboard::{Bitboard, EMPTY};
 use super::piece::Piece;
-use super::square::Square;
 
 #[derive(Clone, Copy, PartialEq)]
 pub struct Pieces {
@@ -38,20 +37,18 @@ impl Pieces {
         }
     }
 
-    pub fn get(self, square: Square) -> Option<Piece> {
-        let square_bit = square.to_bitboard();
-
-        if square_bit & self.bishops > 0 {
+    pub fn get(self, square: u64) -> Option<Piece> {
+        if square & self.bishops > 0 {
             return Some(Piece::Bishop);
-        } else if square_bit & self.kings > 0 {
+        } else if square & self.kings > 0 {
             return Some(Piece::King);
-        } else if square_bit & self.knights > 0 {
+        } else if square & self.knights > 0 {
             return Some(Piece::Knight);
-        } else if square_bit & self.pawns > 0 {
+        } else if square & self.pawns > 0 {
             return Some(Piece::Pawn);
-        } else if square_bit & self.queens > 0 {
+        } else if square & self.queens > 0 {
             return Some(Piece::Queen);
-        } else if square_bit & self.rooks > 0 {
+        } else if square & self.rooks > 0 {
             return Some(Piece::Rook);
         }
 
@@ -62,50 +59,46 @@ impl Pieces {
         self.occupied
     }
 
-    pub fn is_occupied(self, square: Square) -> bool {
-        square.to_bitboard() & self.occupied > 0
+    pub fn is_occupied(self, square: u64) -> bool {
+        square & self.occupied > 0
     }
 
-    pub fn put(&mut self, square: Square, piece: Piece) -> Result<(), &'static str> {
+    pub fn put(&mut self, square: u64, piece: Piece) -> Result<(), &'static str> {
         if self.is_occupied(square) {
             return Err("that square already has a piece on it");
         }
 
-        let square_bit = square.to_bitboard();
-
         match piece {
-            Piece::Bishop => self.bishops |= square_bit,
-            Piece::King => self.kings |= square_bit,
-            Piece::Knight => self.knights |= square_bit,
-            Piece::Pawn => self.pawns |= square_bit,
-            Piece::Queen => self.queens |= square_bit,
-            Piece::Rook => self.rooks |= square_bit,
+            Piece::Bishop => self.bishops |= square,
+            Piece::King => self.kings |= square,
+            Piece::Knight => self.knights |= square,
+            Piece::Pawn => self.pawns |= square,
+            Piece::Queen => self.queens |= square,
+            Piece::Rook => self.rooks |= square,
         };
 
-        self.occupied |= square_bit;
+        self.occupied |= square;
 
         Ok(())
     }
 
-    pub fn remove(&mut self, square: Square) -> Option<Piece> {
+    pub fn remove(&mut self, square: u64) -> Option<Piece> {
         let removed = self.get(square);
         let removed_piece = match removed {
             Some(piece) => piece,
             None => return None,
         };
 
-        let square_bit = square.to_bitboard();
-
         match removed_piece {
-            Piece::Bishop => self.bishops ^= square_bit,
-            Piece::King => self.kings ^= square_bit,
-            Piece::Knight => self.knights ^= square_bit,
-            Piece::Pawn => self.pawns ^= square_bit,
-            Piece::Queen => self.queens ^= square_bit,
-            Piece::Rook => self.rooks ^= square_bit,
+            Piece::Bishop => self.bishops ^= square,
+            Piece::King => self.kings ^= square,
+            Piece::Knight => self.knights ^= square,
+            Piece::Pawn => self.pawns ^= square,
+            Piece::Queen => self.queens ^= square,
+            Piece::Rook => self.rooks ^= square,
         };
 
-        self.occupied ^= square_bit;
+        self.occupied ^= square;
 
         removed
     }

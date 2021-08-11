@@ -1,3 +1,4 @@
+use crate::board::square;
 use std::fmt;
 
 use super::ChessMove;
@@ -12,8 +13,8 @@ impl fmt::Debug for ChessMove {
         write!(
             f,
             "{}{}{}",
-            self.from_square.to_algebraic().to_lowercase(),
-            self.to_square.to_algebraic().to_lowercase(),
+            square::to_algebraic(self.from_square).to_lowercase(),
+            square::to_algebraic(self.to_square).to_lowercase(),
             capture_msg
         )
     }

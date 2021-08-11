@@ -1,7 +1,7 @@
 use std::io;
 
 use chess::board::color::Color;
-use chess::board::square::Square;
+use chess::board::square;
 use chess::board::Board;
 use chess::moves::generate;
 use chess::moves::ray_table::RayTable;
@@ -60,7 +60,7 @@ fn main() {
             Some((piece, color)) => println!(
                 "captured {} on {}",
                 piece.to_fen(color),
-                chessmove.to_square.to_algebraic()
+                square::to_algebraic(chessmove.to_square),
             ),
             _ => (),
         };
@@ -68,8 +68,8 @@ fn main() {
 }
 
 struct MoveCommand {
-    from_square: Square,
-    to_square: Square,
+    from_square: u64,
+    to_square: u64,
 }
 
 impl MoveCommand {
@@ -81,8 +81,8 @@ impl MoveCommand {
         };
 
         Ok(Self {
-            from_square: Square::from_algebraic(&caps[1]),
-            to_square: Square::from_algebraic(&caps[2]),
+            from_square: square::from_algebraic(&caps[1]),
+            to_square: square::from_algebraic(&caps[2]),
         })
     }
 }

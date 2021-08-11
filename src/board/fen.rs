@@ -1,6 +1,6 @@
 use super::color::Color;
 use super::piece::Piece;
-use super::square::Square;
+use super::square;
 use super::Board;
 use regex::Regex;
 
@@ -71,7 +71,7 @@ impl Board {
             let mut col = 0;
 
             for fen_char in rank.chars() {
-                let square = Square::from_row_col(row, col);
+                let square = square::from_row_col(row, col);
                 assert!(col < 8);
                 match Piece::from_fen(fen_char) {
                     Some((piece, color)) => {
@@ -138,25 +138,25 @@ mod tests {
         let board = Board::from_fen("8/8/8/4p1K1/2k1P3/8/8/8 b - - 0 1").unwrap();
         println!("Testing board:\n{}", board.to_ascii());
         let tests = vec![
-            (Square::C4, Piece::King, Color::Black),
-            (Square::E5, Piece::Pawn, Color::Black),
-            (Square::E4, Piece::Pawn, Color::White),
-            (Square::G5, Piece::King, Color::White),
+            (square::C4, Piece::King, Color::Black),
+            (square::E5, Piece::Pawn, Color::Black),
+            (square::E4, Piece::Pawn, Color::White),
+            (square::G5, Piece::King, Color::White),
         ];
 
         for (square, piece, color) in &tests {
             assert_eq!(board.get(*square).unwrap(), (*piece, *color));
         }
-        let occupied_squares: Vec<Square> = tests
+        let occupied_squares: Vec<u64> = tests
             .into_iter()
             .map(|(square, _expected_piece, _expected_color)| square.clone())
             .collect();
 
-        for square in Square::ordered() {
+        for square in &square::ORDERED {
             if occupied_squares.contains(&square) {
                 continue;
             }
-            assert!(matches!(board.get(square), None));
+            assert!(matches!(board.get(*square), None));
         }
     }
 }

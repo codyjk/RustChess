@@ -1,4 +1,4 @@
-use super::square::Square;
+use super::square;
 use super::Board;
 
 impl Board {
@@ -15,7 +15,7 @@ impl Board {
         for row in row_iter {
             let mut cells: Vec<String> = vec![];
             for col in col_iter.clone() {
-                let sq = Square::from_row_col(row, col);
+                let sq = square::from_row_col(row, col);
                 let cell = match self.get(sq) {
                     Some((piece, color)) => piece.to_fen(color),
                     None => ' ',

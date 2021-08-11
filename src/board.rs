@@ -11,7 +11,6 @@ use bitboard::Bitboard;
 use color::Color;
 use piece::Piece;
 use pieces::Pieces;
-use square::Square;
 
 pub struct Board {
     white: Pieces,
@@ -41,11 +40,11 @@ impl Board {
         self.white.occupied() | self.black.occupied()
     }
 
-    pub fn is_occupied(&self, square: Square) -> bool {
+    pub fn is_occupied(&self, square: u64) -> bool {
         self.get(square).is_some()
     }
 
-    pub fn get(&self, square: Square) -> Option<(Piece, Color)> {
+    pub fn get(&self, square: u64) -> Option<(Piece, Color)> {
         let color = if self.white.is_occupied(square) {
             Color::White
         } else if self.black.is_occupied(square) {
@@ -65,7 +64,7 @@ impl Board {
         }
     }
 
-    pub fn put(&mut self, square: Square, piece: Piece, color: Color) -> Result<(), &'static str> {
+    pub fn put(&mut self, square: u64, piece: Piece, color: Color) -> Result<(), &'static str> {
         if self.is_occupied(square) {
             return Err("that square already has a piece on it");
         }
@@ -76,7 +75,7 @@ impl Board {
         }
     }
 
-    pub fn remove(&mut self, square: Square) -> Option<(Piece, Color)> {
+    pub fn remove(&mut self, square: u64) -> Option<(Piece, Color)> {
         let color = match self.get(square) {
             Some((_piece, color)) => color,
             None => return None,

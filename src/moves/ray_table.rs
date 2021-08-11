@@ -1,5 +1,5 @@
 use crate::board::bitboard::{Bitboard, A_FILE, H_FILE, RANK_1, RANK_8};
-use crate::board::square::Square;
+use crate::board::square;
 use std::collections::HashMap;
 
 #[derive(Clone, Copy, PartialEq, Debug, Eq, Hash)]
@@ -28,7 +28,7 @@ pub const BISHOP_DIRS: [Direction; 4] = [
     Direction::SouthWest,
 ];
 
-type Ray = (Square, Direction);
+type Ray = (u64, Direction); // (square, direction)
 
 pub struct RayTable {
     table: HashMap<Ray, Bitboard>,
@@ -44,7 +44,7 @@ impl RayTable {
     pub fn populate(&mut self) -> &Self {
         for x in 0..64 {
             let square_bit = 1 << x;
-            let square = Square::from_bitboard(square_bit);
+            let square = square::assert(square_bit);
 
             for dir in ROOK_DIRS.iter() {
                 self.table
@@ -60,7 +60,7 @@ impl RayTable {
         self
     }
 
-    pub fn get(&self, square: Square, dir: Direction) -> Bitboard {
+    pub fn get(&self, square: u64, dir: Direction) -> Bitboard {
         let ray = (square, dir);
         *self.table.get(&ray).unwrap()
     }
@@ -127,127 +127,101 @@ mod tests {
 
     #[test]
     fn test_generate_rook_ray_on_corner() {
-        let sq = Square::A1;
-        let sq_bit = sq.to_bitboard();
+        let sq = square::A1;
         let expected_ray_n = 0x0101010101010100; // A_FILE without A1
         let expected_ray_e = 0xFE; // RANK_1 without A1
-        assert_eq!(expected_ray_n, generate_rook_ray(sq_bit, Direction::North));
-        assert_eq!(expected_ray_e, generate_rook_ray(sq_bit, Direction::East));
-        assert_eq!(EMPTY, generate_rook_ray(sq_bit, Direction::South));
-        assert_eq!(EMPTY, generate_rook_ray(sq_bit, Direction::West));
+        assert_eq!(expected_ray_n, generate_rook_ray(sq, Direction::North));
+        assert_eq!(expected_ray_e, generate_rook_ray(sq, Direction::East));
+        assert_eq!(EMPTY, generate_rook_ray(sq, Direction::South));
+        assert_eq!(EMPTY, generate_rook_ray(sq, Direction::West));
     }
 
     #[test]
     fn test_generate_rook_ray_on_boundary() {
-        let sq = Square::A2;
-        let sq_bit = sq.to_bitboard();
-        let expected_ray_n = A_FILE ^ Square::A1.to_bitboard() ^ Square::A2.to_bitboard();
-        let expected_ray_s = Square::A1.to_bitboard();
-        let expected_ray_e = RANK_2 ^ Square::A2.to_bitboard();
-        assert_eq!(expected_ray_n, generate_rook_ray(sq_bit, Direction::North));
-        assert_eq!(expected_ray_e, generate_rook_ray(sq_bit, Direction::East));
-        assert_eq!(expected_ray_s, generate_rook_ray(sq_bit, Direction::South));
-        assert_eq!(EMPTY, generate_rook_ray(sq_bit, Direction::West));
+        let sq = square::A2;
+        let expected_ray_n = A_FILE ^ square::A1 ^ square::A2;
+        let expected_ray_s = square::A1;
+        let expected_ray_e = RANK_2 ^ square::A2;
+        assert_eq!(expected_ray_n, generate_rook_ray(sq, Direction::North));
+        assert_eq!(expected_ray_e, generate_rook_ray(sq, Direction::East));
+        assert_eq!(expected_ray_s, generate_rook_ray(sq, Direction::South));
+        assert_eq!(EMPTY, generate_rook_ray(sq, Direction::West));
     }
 
     #[test]
     fn test_generate_rook_ray_in_middle() {
-        let sq = Square::C3;
-        let sq_bit = sq.to_bitboard();
+        let sq = square::C3;
         // crude way of building rays...
-        let expected_ray_n =
-            C_FILE ^ Square::C3.to_bitboard() ^ Square::C2.to_bitboard() ^ Square::C1.to_bitboard();
-        let expected_ray_s = C_FILE
-            ^ Square::C3.to_bitboard()
-            ^ Square::C4.to_bitboard()
-            ^ Square::C5.to_bitboard()
-            ^ Square::C6.to_bitboard()
-            ^ Square::C7.to_bitboard()
-            ^ Square::C8.to_bitboard();
-        let expected_ray_e =
-            RANK_3 ^ Square::C3.to_bitboard() ^ Square::B3.to_bitboard() ^ Square::A3.to_bitboard();
-        let expected_ray_w = RANK_3
-            ^ Square::C3.to_bitboard()
-            ^ Square::D3.to_bitboard()
-            ^ Square::E3.to_bitboard()
-            ^ Square::F3.to_bitboard()
-            ^ Square::G3.to_bitboard()
-            ^ Square::H3.to_bitboard();
-        assert_eq!(expected_ray_n, generate_rook_ray(sq_bit, Direction::North));
-        assert_eq!(expected_ray_s, generate_rook_ray(sq_bit, Direction::South));
-        assert_eq!(expected_ray_e, generate_rook_ray(sq_bit, Direction::East));
-        assert_eq!(expected_ray_w, generate_rook_ray(sq_bit, Direction::West));
+        let expected_ray_n = C_FILE ^ square::C3 ^ square::C2 ^ square::C1;
+        let expected_ray_s =
+            C_FILE ^ square::C3 ^ square::C4 ^ square::C5 ^ square::C6 ^ square::C7 ^ square::C8;
+        let expected_ray_e = RANK_3 ^ square::C3 ^ square::B3 ^ square::A3;
+        let expected_ray_w =
+            RANK_3 ^ square::C3 ^ square::D3 ^ square::E3 ^ square::F3 ^ square::G3 ^ square::H3;
+        assert_eq!(expected_ray_n, generate_rook_ray(sq, Direction::North));
+        assert_eq!(expected_ray_s, generate_rook_ray(sq, Direction::South));
+        assert_eq!(expected_ray_e, generate_rook_ray(sq, Direction::East));
+        assert_eq!(expected_ray_w, generate_rook_ray(sq, Direction::West));
     }
 
     #[test]
     fn test_generate_bishop_ray_on_corner() {
-        let sq = Square::A1;
-        let sq_bit = sq.to_bitboard();
-        let expected_ray_ne = Square::B2.to_bitboard()
-            | Square::C3.to_bitboard()
-            | Square::D4.to_bitboard()
-            | Square::E5.to_bitboard()
-            | Square::F6.to_bitboard()
-            | Square::G7.to_bitboard()
-            | Square::H8.to_bitboard();
+        let sq = square::A1;
+        let expected_ray_ne = square::B2
+            | square::C3
+            | square::D4
+            | square::E5
+            | square::F6
+            | square::G7
+            | square::H8;
         assert_eq!(
             expected_ray_ne,
-            generate_bishop_ray(sq_bit, Direction::NorthEast)
+            generate_bishop_ray(sq, Direction::NorthEast)
         );
-        assert_eq!(EMPTY, generate_bishop_ray(sq_bit, Direction::NorthWest));
-        assert_eq!(EMPTY, generate_bishop_ray(sq_bit, Direction::SouthWest));
-        assert_eq!(EMPTY, generate_bishop_ray(sq_bit, Direction::SouthEast));
+        assert_eq!(EMPTY, generate_bishop_ray(sq, Direction::NorthWest));
+        assert_eq!(EMPTY, generate_bishop_ray(sq, Direction::SouthWest));
+        assert_eq!(EMPTY, generate_bishop_ray(sq, Direction::SouthEast));
     }
 
     #[test]
     fn test_generate_bishop_ray_on_boundary() {
-        let sq = Square::A3;
-        let sq_bit = sq.to_bitboard();
-        let expected_ray_ne = Square::B4.to_bitboard()
-            | Square::C5.to_bitboard()
-            | Square::D6.to_bitboard()
-            | Square::E7.to_bitboard()
-            | Square::F8.to_bitboard();
-        let expected_ray_se = Square::B2.to_bitboard() | Square::C1.to_bitboard();
+        let sq = square::A3;
+        let expected_ray_ne = square::B4 | square::C5 | square::D6 | square::E7 | square::F8;
+        let expected_ray_se = square::B2 | square::C1;
         assert_eq!(
             expected_ray_ne,
-            generate_bishop_ray(sq_bit, Direction::NorthEast)
+            generate_bishop_ray(sq, Direction::NorthEast)
         );
-        assert_eq!(EMPTY, generate_bishop_ray(sq_bit, Direction::NorthWest));
-        assert_eq!(EMPTY, generate_bishop_ray(sq_bit, Direction::SouthWest));
+        assert_eq!(EMPTY, generate_bishop_ray(sq, Direction::NorthWest));
+        assert_eq!(EMPTY, generate_bishop_ray(sq, Direction::SouthWest));
         assert_eq!(
             expected_ray_se,
-            generate_bishop_ray(sq_bit, Direction::SouthEast)
+            generate_bishop_ray(sq, Direction::SouthEast)
         );
     }
 
     #[test]
     fn test_generate_bishop_ray_in_middle() {
-        let sq = Square::C3;
-        let sq_bit = sq.to_bitboard();
-        let expected_ray_ne = Square::D4.to_bitboard()
-            | Square::E5.to_bitboard()
-            | Square::F6.to_bitboard()
-            | Square::G7.to_bitboard()
-            | Square::H8.to_bitboard();
-        let expected_ray_nw = Square::B4.to_bitboard() | Square::A5.to_bitboard();
-        let expected_ray_se = Square::D2.to_bitboard() | Square::E1.to_bitboard();
-        let expected_ray_sw = Square::B2.to_bitboard() | Square::A1.to_bitboard();
+        let sq = square::C3;
+        let expected_ray_ne = square::D4 | square::E5 | square::F6 | square::G7 | square::H8;
+        let expected_ray_nw = square::B4 | square::A5;
+        let expected_ray_se = square::D2 | square::E1;
+        let expected_ray_sw = square::B2 | square::A1;
         assert_eq!(
             expected_ray_ne,
-            generate_bishop_ray(sq_bit, Direction::NorthEast)
+            generate_bishop_ray(sq, Direction::NorthEast)
         );
         assert_eq!(
             expected_ray_nw,
-            generate_bishop_ray(sq_bit, Direction::NorthWest)
+            generate_bishop_ray(sq, Direction::NorthWest)
         );
         assert_eq!(
             expected_ray_sw,
-            generate_bishop_ray(sq_bit, Direction::SouthWest)
+            generate_bishop_ray(sq, Direction::SouthWest)
         );
         assert_eq!(
             expected_ray_se,
-            generate_bishop_ray(sq_bit, Direction::SouthEast)
+            generate_bishop_ray(sq, Direction::SouthEast)
         );
     }
 }

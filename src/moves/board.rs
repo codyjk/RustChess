@@ -24,7 +24,7 @@ impl Board {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::board::square::Square;
+    use crate::board::square;
 
     #[test]
     fn test_apply_chess_move() {
@@ -32,13 +32,13 @@ mod tests {
         println!("Testing board:\n{}", board.to_ascii());
 
         // using a queens gambit accepted opening to test basic chess move application
-        let moves: Vec<(Square, Square, (Piece, Color), Option<(Piece, Color)>)> = vec![
-            (Square::E2, Square::E4, (Piece::Pawn, Color::White), None),
-            (Square::E7, Square::E5, (Piece::Pawn, Color::Black), None),
-            (Square::D2, Square::D4, (Piece::Pawn, Color::White), None),
+        let moves: Vec<(u64, u64, (Piece, Color), Option<(Piece, Color)>)> = vec![
+            (square::E2, square::E4, (Piece::Pawn, Color::White), None),
+            (square::E7, square::E5, (Piece::Pawn, Color::Black), None),
+            (square::D2, square::D4, (Piece::Pawn, Color::White), None),
             (
-                Square::E5,
-                Square::D4,
+                square::E5,
+                square::D4,
                 (Piece::Pawn, Color::Black),
                 Some((Piece::Pawn, Color::White)),
             ),
