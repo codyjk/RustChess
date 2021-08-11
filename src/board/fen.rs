@@ -87,6 +87,14 @@ impl Board {
             }
         }
 
+        // parse turn
+        board.turn = match &caps[9] {
+            "b" => Some(Color::Black),
+            "w" => Some(Color::White),
+            _ => None,
+        }
+        .unwrap();
+
         Ok(board)
     }
 }

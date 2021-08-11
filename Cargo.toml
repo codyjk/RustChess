@@ -8,3 +8,4 @@ edition = "2018"
 
 [dependencies]
 regex = "1.5"
+rand = "0.8.4"

@@ -5,14 +5,14 @@ use crate::board::Board;
 
 impl Board {
     pub fn apply(&mut self, chessmove: ChessMove) -> Result<Option<(Piece, Color)>, &'static str> {
-        let maybe_piece = self.remove(chessmove.from_square);
+        let maybe_piece = self.remove(chessmove.from_square());
         let (piece_to_move, color) = match maybe_piece {
             None => return Err("cannot apply chess move, the `from` square is empty"),
             Some((piece, color)) => (piece, color),
         };
 
-        let captured_piece = self.remove(chessmove.to_square);
-        match self.put(chessmove.to_square, piece_to_move, color) {
+        let captured_piece = self.remove(chessmove.to_square());
+        match self.put(chessmove.to_square(), piece_to_move, color) {
             Ok(()) => return Ok(captured_piece),
             Err(error) => return Err(error),
         }
@@ -20,19 +20,19 @@ impl Board {
 
     pub fn undo(&mut self, chessmove: ChessMove) -> Result<(), &'static str> {
         // remove the moved piece
-        let maybe_piece = self.remove(chessmove.to_square);
+        let maybe_piece = self.remove(chessmove.to_square());
         let (piece_to_move_back, piece_color) = match maybe_piece {
             None => return Err("cannot undo chess move, the `to` square is empty"),
             Some((piece, color)) => (piece, color),
         };
 
         // put the captured piece back
-        if chessmove.capture.is_some() {
-            let (piece, color) = chessmove.capture.unwrap();
-            self.put(chessmove.to_square, piece, color).unwrap();
+        if chessmove.capture().is_some() {
+            let (piece, color) = chessmove.capture().unwrap();
+            self.put(chessmove.to_square(), piece, color).unwrap();
         }
 
-        match self.put(chessmove.from_square, piece_to_move_back, piece_color) {
+        match self.put(chessmove.from_square(), piece_to_move_back, piece_color) {
             Ok(()) => return Ok(()),
             Err(error) => return Err(error),
         }
@@ -64,11 +64,7 @@ mod tests {
 
         for (from_square, to_square, moved, expected_capture) in &moves {
             let captured = board
-                .apply(ChessMove {
-                    from_square: *from_square,
-                    to_square: *to_square,
-                    capture: *expected_capture,
-                })
+                .apply(ChessMove::new(*from_square, *to_square, *expected_capture))
                 .unwrap();
             assert_eq!(board.get(*to_square).unwrap(), *moved);
             assert_eq!(captured, *expected_capture);

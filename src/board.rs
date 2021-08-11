@@ -15,6 +15,7 @@ use pieces::Pieces;
 pub struct Board {
     white: Pieces,
     black: Pieces,
+    turn: Color,
 }
 
 impl Board {
@@ -22,6 +23,7 @@ impl Board {
         Board {
             white: Pieces::new(),
             black: Pieces::new(),
+            turn: Color::White,
         }
     }
 
@@ -90,5 +92,14 @@ impl Board {
             Some(piece) => Some((piece, color)),
             None => None,
         }
+    }
+
+    pub fn turn(&self) -> Color {
+        return self.turn;
+    }
+
+    pub fn next_turn(&mut self) -> Color {
+        self.turn = self.turn.opposite();
+        self.turn
     }
 }

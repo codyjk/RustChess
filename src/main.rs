@@ -5,49 +5,80 @@ use chess::board::square;
 use chess::board::Board;
 use chess::moves::generate;
 use chess::moves::ray_table::RayTable;
+use rand::{self, Rng};
 use regex::Regex;
 
 fn main() {
     let mut board = Board::starting_position();
     let mut ray_table = RayTable::new();
+    let player_color = Color::White;
     ray_table.populate();
 
+    println!("you are {}!", player_color);
+
     loop {
-        println!("{}", board.to_ascii());
         let mut input = String::new();
+        let current_turn = board.turn();
+        let candidates = generate(&mut board, current_turn, &ray_table);
 
-        let mut moves = generate(&mut board, Color::White, &ray_table);
-        moves.append(&mut generate(&mut board, Color::Black, &ray_table));
+        let chessmove = if player_color == current_turn {
+            println!("it is your turn!");
+            println!("{}", board.to_ascii());
+            let parsed = match io::stdin().read_line(&mut input) {
+                Ok(_n) => MoveCommand::parse(&input.trim_start().trim_end()),
+                Err(error) => {
+                    println!("error: {}", error);
+                    continue;
+                }
+            };
 
-        let parsed = match io::stdin().read_line(&mut input) {
-            Ok(_n) => MoveCommand::parse(&input.trim_start().trim_end()),
-            Err(error) => {
-                println!("error: {}", error);
-                continue;
+            let partial_move = match parsed {
+                Ok(move_command) => move_command,
+                Err(error) => {
+                    println!("invalid move: {}", error);
+                    continue;
+                }
+            };
+
+            let maybe_chessmove = candidates.iter().find(|&m| {
+                m.from_square() == partial_move.from_square
+                    && m.to_square() == partial_move.to_square
+            });
+
+            match maybe_chessmove {
+                Some(result) => *result,
+                None => {
+                    println!("invalid move");
+                    continue;
+                }
             }
+        } else {
+            let random_move = match candidates.len() {
+                0 => None,
+                _ => {
+                    let rng = rand::thread_rng().gen_range(0..candidates.len());
+                    println!("{} candidate moves, picked {}", candidates.len(), rng);
+                    Some(candidates[rng])
+                }
+            };
+
+            let chessmove = match random_move {
+                Some(mv) => {
+                    println!("computer chose {}", mv);
+                    mv
+                }
+                None => {
+                    println!("no available moves! either checkmate or stalemate!");
+                    break;
+                }
+            };
+
+            println!("{}", board.to_ascii());
+
+            chessmove
         };
 
-        let partial_move = match parsed {
-            Ok(move_command) => move_command,
-            Err(error) => {
-                println!("invalid move: {}", error);
-                continue;
-            }
-        };
-
-        let maybe_chessmove = moves.iter().find(|&m| {
-            m.from_square() == partial_move.from_square && m.to_square() == partial_move.to_square
-        });
-
-        let chessmove = match maybe_chessmove {
-            Some(result) => result,
-            None => {
-                println!("invalid move");
-                continue;
-            }
-        };
-
-        let result = board.apply(*chessmove);
+        let result = board.apply(chessmove);
         let captured_piece = match result {
             Ok(piece) => piece,
             Err(error) => {
@@ -64,6 +95,8 @@ fn main() {
             ),
             _ => (),
         };
+
+        board.next_turn();
     }
 }
 

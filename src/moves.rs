@@ -1,5 +1,5 @@
 mod board;
-mod debug;
+mod chess_move;
 pub mod ray_table;
 mod targets;
 
@@ -7,39 +7,9 @@ use crate::board::color::Color;
 use crate::board::piece::Piece;
 use crate::board::square;
 use crate::board::Board;
+use chess_move::ChessMove;
 use ray_table::RayTable;
 use targets::PieceTarget;
-
-type Capture = (Piece, Color);
-
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct ChessMove {
-    from_square: u64,
-    to_square: u64,
-    capture: Option<Capture>,
-}
-
-impl ChessMove {
-    pub fn new(from_square: u64, to_square: u64, capture: Option<Capture>) -> Self {
-        Self {
-            from_square: from_square,
-            to_square: to_square,
-            capture: capture,
-        }
-    }
-
-    pub fn from_square(self) -> u64 {
-        self.from_square
-    }
-
-    pub fn to_square(self) -> u64 {
-        self.to_square
-    }
-
-    pub fn capture(self) -> Option<Capture> {
-        self.capture
-    }
-}
 
 pub fn generate(board: &mut Board, color: Color, ray_table: &RayTable) -> Vec<ChessMove> {
     let mut moves = vec![];
