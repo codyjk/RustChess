@@ -36,7 +36,7 @@ fn main() {
         };
 
         let maybe_chessmove = moves.iter().find(|&m| {
-            m.from_square == partial_move.from_square && m.to_square == partial_move.to_square
+            m.from_square() == partial_move.from_square && m.to_square() == partial_move.to_square
         });
 
         let chessmove = match maybe_chessmove {
@@ -60,7 +60,7 @@ fn main() {
             Some((piece, color)) => println!(
                 "captured {} on {}",
                 piece.to_fen(color),
-                square::to_algebraic(chessmove.to_square),
+                square::to_algebraic(chessmove.to_square()),
             ),
             _ => (),
         };

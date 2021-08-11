@@ -14,9 +14,9 @@ type Capture = (Piece, Color);
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ChessMove {
-    pub from_square: u64,
-    pub to_square: u64,
-    pub capture: Option<Capture>,
+    from_square: u64,
+    to_square: u64,
+    capture: Option<Capture>,
 }
 
 impl ChessMove {
@@ -26,6 +26,18 @@ impl ChessMove {
             to_square: to_square,
             capture: capture,
         }
+    }
+
+    pub fn from_square(self) -> u64 {
+        self.from_square
+    }
+
+    pub fn to_square(self) -> u64 {
+        self.to_square
+    }
+
+    pub fn capture(self) -> Option<Capture> {
+        self.capture
     }
 }
 
