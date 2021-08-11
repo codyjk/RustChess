@@ -16,6 +16,9 @@ fn main() {
         println!("{}", board.to_ascii());
         let mut input = String::new();
 
+        let mut moves = generate(&mut board, Color::White, &ray_table);
+        moves.append(&mut generate(&mut board, Color::Black, &ray_table));
+
         let parsed = match io::stdin().read_line(&mut input) {
             Ok(_n) => MoveCommand::parse(&input.trim_start().trim_end()),
             Err(error) => {
@@ -31,9 +34,6 @@ fn main() {
                 continue;
             }
         };
-
-        let mut moves = generate(&board, Color::White, &ray_table);
-        moves.append(&mut generate(&board, Color::Black, &ray_table));
 
         let maybe_chessmove = moves.iter().find(|&m| {
             m.from_square == partial_move.from_square && m.to_square == partial_move.to_square

@@ -114,6 +114,7 @@ pub fn generate_pawn_attack_targets(board: &Board, color: Color) -> Vec<PieceTar
 pub fn generate_knight_targets(board: &Board, color: Color) -> Vec<PieceTarget> {
     let mut piece_targets: Vec<(Bitboard, Bitboard)> = vec![];
     let knights = board.pieces(color).locate(Piece::Knight);
+    let occupied = board.pieces(color).occupied();
 
     for x in 0..64 {
         let knight = 1 << x;
@@ -122,14 +123,14 @@ pub fn generate_knight_targets(board: &Board, color: Color) -> Vec<PieceTarget> 
         }
 
         // nne = north-north-east, nee = north-east-east, etc..
-        let move_nne = knight << 17 & !A_FILE;
-        let move_nee = knight << 10 & !A_FILE & !B_FILE;
-        let move_see = knight >> 6 & !A_FILE & !B_FILE;
-        let move_sse = knight >> 15 & !A_FILE;
-        let move_nnw = knight << 15 & !H_FILE;
-        let move_nww = knight << 6 & !G_FILE & !H_FILE;
-        let move_sww = knight >> 10 & !G_FILE & !H_FILE;
-        let move_ssw = knight >> 17 & !H_FILE;
+        let move_nne = knight << 17 & !A_FILE & !occupied;
+        let move_nee = knight << 10 & !A_FILE & !B_FILE & !occupied;
+        let move_see = knight >> 6 & !A_FILE & !B_FILE & !occupied;
+        let move_sse = knight >> 15 & !A_FILE & !occupied;
+        let move_nnw = knight << 15 & !H_FILE & !occupied;
+        let move_nww = knight << 6 & !G_FILE & !H_FILE & !occupied;
+        let move_sww = knight >> 10 & !G_FILE & !H_FILE & !occupied;
+        let move_ssw = knight >> 17 & !H_FILE & !occupied;
 
         piece_targets.push((knight, move_nne));
         piece_targets.push((knight, move_nee));

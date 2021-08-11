@@ -29,7 +29,7 @@ impl ChessMove {
     }
 }
 
-pub fn generate(board: &Board, color: Color, ray_table: &RayTable) -> Vec<ChessMove> {
+pub fn generate(board: &mut Board, color: Color, ray_table: &RayTable) -> Vec<ChessMove> {
     let mut moves = vec![];
 
     moves.append(&mut generate_pawn_moves(board, color));
@@ -38,6 +38,8 @@ pub fn generate(board: &Board, color: Color, ray_table: &RayTable) -> Vec<ChessM
     moves.append(&mut generate_rook_moves(board, color, ray_table));
     moves.append(&mut generate_bishop_moves(board, color, ray_table));
     moves.append(&mut generate_queen_moves(board, color, ray_table));
+
+    moves = remove_invalid_moves(moves, board, color, ray_table);
 
     moves
 }
@@ -102,6 +104,32 @@ fn generate_king_moves(board: &Board, color: Color) -> Vec<ChessMove> {
     expand_piece_targets(board, color, targets)
 }
 
+fn remove_invalid_moves(
+    candidates: Vec<ChessMove>,
+    board: &mut Board,
+    color: Color,
+    ray_table: &RayTable,
+) -> Vec<ChessMove> {
+    let mut moves = vec![];
+
+    // simulate each chessmove and see if it leaves the player's king in check.
+    // if it does, it's invalid.
+    for chessmove in candidates {
+        board.apply(chessmove).unwrap();
+
+        let king = board.pieces(color).locate(Piece::King);
+        let attacked_squares = targets::generate_attack_targets(board, color.opposite(), ray_table);
+
+        if king & attacked_squares == 0 {
+            moves.push(chessmove);
+        }
+
+        board.undo(chessmove).unwrap();
+    }
+
+    moves
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -147,12 +175,13 @@ mod tests {
     fn test_generate_knight_moves() {
         let mut board = Board::new();
         board.put(square::C3, Piece::Knight, Color::White).unwrap();
+        board.put(square::E4, Piece::Pawn, Color::White).unwrap();
+        board.put(square::D5, Piece::Pawn, Color::Black).unwrap();
         board.put(square::H6, Piece::Knight, Color::Black).unwrap();
         println!("Testing board:\n{}", board.to_ascii());
 
         let expected_white_moves: Vec<ChessMove> = vec![
-            ChessMove::new(square::C3, square::D5, None),
-            ChessMove::new(square::C3, square::E4, None),
+            ChessMove::new(square::C3, square::D5, Some((Piece::Pawn, Color::Black))),
             ChessMove::new(square::C3, square::E2, None),
             ChessMove::new(square::C3, square::D1, None),
             ChessMove::new(square::C3, square::B5, None),
