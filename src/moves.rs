@@ -3,12 +3,11 @@ mod debug;
 pub mod ray_table;
 mod targets;
 
-use crate::board::bitboard::{Bitboard, A_FILE, B_FILE, G_FILE, H_FILE};
 use crate::board::color::Color;
 use crate::board::piece::Piece;
 use crate::board::square;
 use crate::board::Board;
-use ray_table::{RayTable, BISHOP_DIRS, ROOK_DIRS};
+use ray_table::RayTable;
 use targets::PieceTarget;
 
 type Capture = (Piece, Color);
@@ -53,66 +52,22 @@ fn generate_pawn_moves(board: &Board, color: Color) -> Vec<ChessMove> {
 }
 
 fn generate_knight_moves(board: &Board, color: Color) -> Vec<ChessMove> {
-    let mut piece_targets: Vec<(Bitboard, Bitboard)> = vec![];
-    let knights = board.pieces(color).locate(Piece::Knight);
-
-    for x in 0..64 {
-        let knight = 1 << x;
-        if knights & knight == 0 {
-            continue;
-        }
-
-        // nne = north-north-east, nee = north-east-east, etc..
-        let move_nne = knight << 17 & !A_FILE;
-        let move_nee = knight << 10 & !A_FILE & !B_FILE;
-        let move_see = knight >> 6 & !A_FILE & !B_FILE;
-        let move_sse = knight >> 15 & !A_FILE;
-        let move_nnw = knight << 15 & !H_FILE;
-        let move_nww = knight << 6 & !G_FILE & !H_FILE;
-        let move_sww = knight >> 10 & !G_FILE & !H_FILE;
-        let move_ssw = knight >> 17 & !H_FILE;
-
-        piece_targets.push((knight, move_nne));
-        piece_targets.push((knight, move_nee));
-        piece_targets.push((knight, move_see));
-        piece_targets.push((knight, move_sse));
-        piece_targets.push((knight, move_nnw));
-        piece_targets.push((knight, move_nww));
-        piece_targets.push((knight, move_sww));
-        piece_targets.push((knight, move_ssw));
-    }
-
+    let piece_targets = targets::generate_knight_targets(board, color);
     expand_piece_targets(board, color, piece_targets)
 }
 
 fn generate_rook_moves(board: &Board, color: Color, ray_table: &RayTable) -> Vec<ChessMove> {
-    let piece_targets =
-        targets::generate_ray_targets(board, color, ray_table, Piece::Rook, ROOK_DIRS);
+    let piece_targets = targets::generate_rook_targets(board, color, ray_table);
     expand_piece_targets(board, color, piece_targets)
 }
 
 fn generate_bishop_moves(board: &Board, color: Color, ray_table: &RayTable) -> Vec<ChessMove> {
-    let piece_targets =
-        targets::generate_ray_targets(board, color, ray_table, Piece::Bishop, BISHOP_DIRS);
+    let piece_targets = targets::generate_bishop_targets(board, color, ray_table);
     expand_piece_targets(board, color, piece_targets)
 }
 
 fn generate_queen_moves(board: &Board, color: Color, ray_table: &RayTable) -> Vec<ChessMove> {
-    let mut piece_targets: Vec<PieceTarget> = vec![];
-    piece_targets.append(&mut targets::generate_ray_targets(
-        board,
-        color,
-        ray_table,
-        Piece::Queen,
-        ROOK_DIRS,
-    ));
-    piece_targets.append(&mut targets::generate_ray_targets(
-        board,
-        color,
-        ray_table,
-        Piece::Queen,
-        BISHOP_DIRS,
-    ));
+    let piece_targets = targets::generate_queen_targets(board, color, ray_table);
     expand_piece_targets(board, color, piece_targets)
 }
 
