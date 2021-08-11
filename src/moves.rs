@@ -1,15 +1,15 @@
 mod board;
 mod debug;
 pub mod ray_table;
+mod targets;
 
-use crate::board::bitboard::{
-    Bitboard, A_FILE, B_FILE, EMPTY, G_FILE, H_FILE, RANK_1, RANK_4, RANK_5, RANK_8,
-};
+use crate::board::bitboard::{Bitboard, A_FILE, B_FILE, G_FILE, H_FILE};
 use crate::board::color::Color;
 use crate::board::piece::Piece;
 use crate::board::square;
 use crate::board::Board;
-use ray_table::{Direction, RayTable, BISHOP_DIRS, ROOK_DIRS};
+use ray_table::{RayTable, BISHOP_DIRS, ROOK_DIRS};
+use targets::PieceTarget;
 
 type Capture = (Piece, Color);
 
@@ -44,89 +44,16 @@ pub fn generate(board: &Board, color: Color, ray_table: &RayTable) -> Vec<ChessM
 }
 
 fn generate_pawn_moves(board: &Board, color: Color) -> Vec<ChessMove> {
-    let pawns = board.pieces(color).locate(Piece::Pawn);
-    let occupied = board.occupied();
+    let mut piece_targets: Vec<PieceTarget> = vec![];
 
-    let single_move_targets = match color {
-        Color::White => pawns << 8, // move 1 rank up the board
-        Color::Black => pawns >> 8, // move 1 rank down the board
-    };
-    let double_move_targets = match color {
-        Color::White => RANK_4, // rank 4
-        Color::Black => RANK_5, // rank 5
-    };
-    let move_targets = (single_move_targets | double_move_targets) & !occupied;
-    let attack_targets = board.pieces(color.opposite()).occupied();
+    piece_targets.append(&mut targets::generate_pawn_move_targets(board, color));
+    piece_targets.append(&mut targets::generate_pawn_attack_targets(board, color));
 
-    let mut moves: Vec<ChessMove> = vec![];
-
-    for x in 0..64 {
-        let pawn = 1 << x;
-        if pawns & pawn == 0 {
-            continue;
-        }
-
-        let single_move = match color {
-            Color::White => pawn << 8,
-            Color::Black => pawn >> 8,
-        };
-        if single_move & move_targets > 0 {
-            let mv = ChessMove::new(square::assert(pawn), square::assert(single_move), None);
-            moves.push(mv);
-        }
-
-        let double_move = match color {
-            Color::White => single_move << 8,
-            Color::Black => single_move >> 8,
-        };
-        if double_move & move_targets > 0 {
-            let mv = ChessMove::new(square::assert(pawn), square::assert(double_move), None);
-            moves.push(mv);
-        }
-
-        let attack_west = match color {
-            Color::White => (pawn << 9) & !A_FILE,
-            Color::Black => (pawn >> 7) & !A_FILE,
-        };
-        if attack_west & attack_targets > 0 {
-            let captured_piece = board
-                .pieces(color.opposite())
-                .get(square::assert(attack_west))
-                .unwrap();
-            let capture = (captured_piece, color.opposite());
-            let mv = ChessMove::new(
-                square::assert(pawn),
-                square::assert(attack_west),
-                Some(capture),
-            );
-            moves.push(mv);
-        }
-
-        let attack_east = match color {
-            Color::White => (pawn << 7) & !H_FILE,
-            Color::Black => (pawn >> 9) & !H_FILE,
-        };
-        if attack_east & attack_targets > 0 {
-            let captured_piece = board
-                .pieces(color.opposite())
-                .get(square::assert(attack_east))
-                .unwrap();
-            let capture = (captured_piece, color.opposite());
-            let mv = ChessMove::new(
-                square::assert(pawn),
-                square::assert(attack_east),
-                Some(capture),
-            );
-            moves.push(mv);
-        }
-    }
-
-    moves
+    expand_piece_targets(board, color, piece_targets)
 }
 
 fn generate_knight_moves(board: &Board, color: Color) -> Vec<ChessMove> {
-    let mut intermediates: Vec<(Bitboard, Bitboard)> = vec![];
-    let mut moves: Vec<ChessMove> = vec![];
+    let mut piece_targets: Vec<(Bitboard, Bitboard)> = vec![];
     let knights = board.pieces(color).locate(Piece::Knight);
 
     for x in 0..64 {
@@ -145,116 +72,57 @@ fn generate_knight_moves(board: &Board, color: Color) -> Vec<ChessMove> {
         let move_sww = knight >> 10 & !G_FILE & !H_FILE;
         let move_ssw = knight >> 17 & !H_FILE;
 
-        intermediates.push((knight, move_nne));
-        intermediates.push((knight, move_nee));
-        intermediates.push((knight, move_see));
-        intermediates.push((knight, move_sse));
-        intermediates.push((knight, move_nnw));
-        intermediates.push((knight, move_nww));
-        intermediates.push((knight, move_sww));
-        intermediates.push((knight, move_ssw));
+        piece_targets.push((knight, move_nne));
+        piece_targets.push((knight, move_nee));
+        piece_targets.push((knight, move_see));
+        piece_targets.push((knight, move_sse));
+        piece_targets.push((knight, move_nnw));
+        piece_targets.push((knight, move_nww));
+        piece_targets.push((knight, move_sww));
+        piece_targets.push((knight, move_ssw));
     }
 
-    for (knight, target) in intermediates {
-        if target == 0 {
-            continue;
-        }
-
-        let mv = ChessMove::new(square::assert(knight), square::assert(target), None);
-        moves.push(mv);
-    }
-
-    moves
+    expand_piece_targets(board, color, piece_targets)
 }
 
-fn rightmost_bit(x: u64) -> u64 {
-    x & (!x + 1)
+fn generate_rook_moves(board: &Board, color: Color, ray_table: &RayTable) -> Vec<ChessMove> {
+    let piece_targets =
+        targets::generate_ray_targets(board, color, ray_table, Piece::Rook, ROOK_DIRS);
+    expand_piece_targets(board, color, piece_targets)
 }
 
-fn leftmost_bit(x: u64) -> u64 {
-    let mut b = x;
-
-    // fill in rightmost bits
-    b |= b >> 32;
-    b |= b >> 16;
-    b |= b >> 8;
-    b |= b >> 4;
-    b |= b >> 2;
-    b |= b >> 1;
-
-    // get the leftmost bit
-    b ^ (b >> 1)
+fn generate_bishop_moves(board: &Board, color: Color, ray_table: &RayTable) -> Vec<ChessMove> {
+    let piece_targets =
+        targets::generate_ray_targets(board, color, ray_table, Piece::Bishop, BISHOP_DIRS);
+    expand_piece_targets(board, color, piece_targets)
 }
 
-fn generate_ray_moves(
+fn generate_queen_moves(board: &Board, color: Color, ray_table: &RayTable) -> Vec<ChessMove> {
+    let mut piece_targets: Vec<PieceTarget> = vec![];
+    piece_targets.append(&mut targets::generate_ray_targets(
+        board,
+        color,
+        ray_table,
+        Piece::Queen,
+        ROOK_DIRS,
+    ));
+    piece_targets.append(&mut targets::generate_ray_targets(
+        board,
+        color,
+        ray_table,
+        Piece::Queen,
+        BISHOP_DIRS,
+    ));
+    expand_piece_targets(board, color, piece_targets)
+}
+
+fn expand_piece_targets(
     board: &Board,
     color: Color,
-    ray_table: &RayTable,
-    ray_piece: Piece,
-    ray_dirs: [Direction; 4],
+    piece_targets: Vec<PieceTarget>,
 ) -> Vec<ChessMove> {
-    let pieces = board.pieces(color).locate(ray_piece);
-    let occupied = board.occupied();
-
     let mut moves: Vec<ChessMove> = vec![];
-    let mut intermediates: Vec<(Bitboard, Bitboard)> = vec![];
-
-    for x in 0..64 {
-        let piece = 1 << x;
-        if pieces & piece == 0 {
-            continue;
-        }
-
-        let sq = square::assert(piece);
-        let mut target_squares = EMPTY;
-
-        for dir in ray_dirs.iter() {
-            let ray = ray_table.get(sq, *dir);
-            if ray == 0 {
-                continue;
-            }
-
-            let intercepts = ray & occupied;
-
-            if intercepts == 0 {
-                intermediates.push((piece, ray));
-                continue;
-            }
-
-            // intercept = where the piece's ray is terminated.
-            // in each direction, the goal is to select the intercept
-            // that is closest to the piece. for each direction, this is either
-            // the leftmost or rightmost bit.
-            let intercept = match dir {
-                // ROOKS
-                Direction::North => rightmost_bit(intercepts),
-                Direction::East => rightmost_bit(intercepts),
-                Direction::South => leftmost_bit(intercepts),
-                Direction::West => leftmost_bit(intercepts),
-
-                // BISHOPS
-                Direction::NorthWest => leftmost_bit(intercepts),
-                Direction::NorthEast => rightmost_bit(intercepts),
-                Direction::SouthWest => leftmost_bit(intercepts),
-                Direction::SouthEast => rightmost_bit(intercepts),
-            };
-
-            let blocked_squares = ray_table.get(square::assert(intercept), *dir);
-
-            target_squares |= ray ^ blocked_squares;
-
-            // if the intercept is the same color piece, remove it from the targets.
-            // otherwise, it is a target square because it belongs to the other
-            // color and can therefore be captured
-            if intercept & board.pieces(color).occupied() > 0 {
-                target_squares ^= intercept;
-            }
-        }
-
-        intermediates.push((piece, target_squares));
-    }
-
-    for (piece, target_squares) in intermediates {
+    for (piece, target_squares) in piece_targets {
         let piece_sq = square::assert(piece);
         for x in 0..64 {
             let target = 1 << x;
@@ -271,72 +139,12 @@ fn generate_ray_moves(
             moves.push(ChessMove::new(piece_sq, target_sq, capture));
         }
     }
-
-    moves
-}
-
-fn generate_rook_moves(board: &Board, color: Color, ray_table: &RayTable) -> Vec<ChessMove> {
-    generate_ray_moves(board, color, ray_table, Piece::Rook, ROOK_DIRS)
-}
-
-fn generate_bishop_moves(board: &Board, color: Color, ray_table: &RayTable) -> Vec<ChessMove> {
-    generate_ray_moves(board, color, ray_table, Piece::Bishop, BISHOP_DIRS)
-}
-
-fn generate_queen_moves(board: &Board, color: Color, ray_table: &RayTable) -> Vec<ChessMove> {
-    let mut moves: Vec<ChessMove> = vec![];
-    moves.append(&mut generate_ray_moves(
-        board,
-        color,
-        ray_table,
-        Piece::Queen,
-        ROOK_DIRS,
-    ));
-    moves.append(&mut generate_ray_moves(
-        board,
-        color,
-        ray_table,
-        Piece::Queen,
-        BISHOP_DIRS,
-    ));
     moves
 }
 
 fn generate_king_moves(board: &Board, color: Color) -> Vec<ChessMove> {
-    let mut moves: Vec<ChessMove> = vec![];
-    let king = board.pieces(color).locate(Piece::King);
-    let king_sq = square::assert(king);
-    let occupied = board.pieces(color).occupied();
-
-    let mut targets = EMPTY;
-
-    // shift the king's position. in the event that it falls off of the boundary,
-    // we want to negate the rank/file where the king would fall.
-    targets |= (king >> 8) & !RANK_1 & !occupied; // north
-    targets |= (king << 8) & !RANK_8 & !occupied; // south
-    targets |= (king << 1) & !A_FILE & !occupied; // east
-    targets |= (king >> 1) & !H_FILE & !occupied; // west
-    targets |= (king >> 7) & !RANK_1 & !A_FILE & !occupied; // northeast
-    targets |= (king >> 9) & !RANK_1 & !H_FILE & !occupied; // northwest
-    targets |= (king << 9) & !RANK_8 & !A_FILE & !occupied; // southeast
-    targets |= (king << 7) & !RANK_8 & !H_FILE & !occupied; // southwest
-
-    for x in 0..64 {
-        let target = 1 << x;
-        if target & targets == 0 {
-            continue;
-        }
-
-        let target_sq = square::assert(target);
-        let capture = match board.pieces(color.opposite()).get(target_sq) {
-            Some(piece) => Some((piece, color.opposite())),
-            None => None,
-        };
-
-        moves.push(ChessMove::new(king_sq, square::assert(target), capture));
-    }
-
-    moves
+    let targets = targets::generate_king_targets(board, color);
+    expand_piece_targets(board, color, targets)
 }
 
 #[cfg(test)]
@@ -354,25 +162,29 @@ mod tests {
         board.put(square::H7, Piece::Pawn, Color::Black).unwrap();
         println!("Testing board:\n{}", board.to_ascii());
 
-        let expected_white_moves: Vec<ChessMove> = vec![
+        let mut expected_white_moves: Vec<ChessMove> = vec![
             ChessMove::new(square::D2, square::D3, None),
             ChessMove::new(square::D2, square::D4, None),
             ChessMove::new(square::G6, square::G7, None),
             ChessMove::new(square::G6, square::H7, Some((Piece::Pawn, Color::Black))),
         ];
+        expected_white_moves.sort();
 
-        let expected_black_moves: Vec<ChessMove> = vec![
+        let mut expected_black_moves: Vec<ChessMove> = vec![
             ChessMove::new(square::D7, square::D6, None),
             ChessMove::new(square::D7, square::D5, None),
             ChessMove::new(square::H7, square::H6, None),
             ChessMove::new(square::H7, square::H5, None),
             ChessMove::new(square::H7, square::G6, Some((Piece::Pawn, Color::White))),
         ];
+        expected_black_moves.sort();
 
-        let white_moves = generate_pawn_moves(&board, Color::White);
+        let mut white_moves = generate_pawn_moves(&board, Color::White);
+        white_moves.sort();
         assert_eq!(expected_white_moves, white_moves);
 
-        let black_moves = generate_pawn_moves(&board, Color::Black);
+        let mut black_moves = generate_pawn_moves(&board, Color::Black);
+        black_moves.sort();
         assert_eq!(expected_black_moves, black_moves);
     }
 
