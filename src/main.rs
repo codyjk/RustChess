@@ -15,6 +15,7 @@ fn main() {
     ray_table.populate();
 
     println!("you are {}!", player_color);
+    println!("{}", board.to_ascii());
 
     loop {
         let mut input = String::new();
@@ -23,7 +24,6 @@ fn main() {
 
         let chessmove = if player_color == current_turn {
             println!("it is your turn!");
-            println!("{}", board.to_ascii());
             let parsed = match io::stdin().read_line(&mut input) {
                 Ok(_n) => MoveCommand::parse(&input.trim_start().trim_end()),
                 Err(error) => {
@@ -57,7 +57,7 @@ fn main() {
                 0 => None,
                 _ => {
                     let rng = rand::thread_rng().gen_range(0..candidates.len());
-                    println!("{} candidate moves, picked {}", candidates.len(), rng);
+                    println!("{} candidate moves", candidates.len());
                     Some(candidates[rng])
                 }
             };
@@ -72,8 +72,6 @@ fn main() {
                     break;
                 }
             };
-
-            println!("{}", board.to_ascii());
 
             chessmove
         };
@@ -96,6 +94,7 @@ fn main() {
             _ => (),
         };
 
+        println!("{}", board.to_ascii());
         board.next_turn();
     }
 }

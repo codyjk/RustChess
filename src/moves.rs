@@ -27,11 +27,7 @@ pub fn generate(board: &mut Board, color: Color, ray_table: &RayTable) -> Vec<Ch
 }
 
 fn generate_pawn_moves(board: &Board, color: Color) -> Vec<ChessMove> {
-    let mut piece_targets: Vec<PieceTarget> = vec![];
-
-    piece_targets.append(&mut targets::generate_pawn_move_targets(board, color));
-    piece_targets.append(&mut targets::generate_pawn_attack_targets(board, color));
-
+    let piece_targets = targets::generate_pawn_targets(board, color);
     expand_piece_targets(board, color, piece_targets)
 }
 
@@ -333,7 +329,7 @@ mod tests {
     }
 
     #[test]
-    fn test_generate_king_moves_edge() {
+    fn test_generate_king_moves_edge_south() {
         let mut board = Board::new();
         board.put(square::E1, Piece::King, Color::White).unwrap();
         board.put(square::D2, Piece::Pawn, Color::Black).unwrap();

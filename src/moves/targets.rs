@@ -27,7 +27,7 @@ fn leftmost_bit(x: u64) -> u64 {
     b ^ (b >> 1)
 }
 
-pub fn generate_pawn_move_targets(board: &Board, color: Color) -> Vec<PieceTarget> {
+pub fn generate_pawn_targets(board: &Board, color: Color) -> Vec<PieceTarget> {
     let mut piece_targets: Vec<PieceTarget> = vec![];
 
     let pawns = board.pieces(color).locate(Piece::Pawn);
@@ -70,23 +70,30 @@ pub fn generate_pawn_move_targets(board: &Board, color: Color) -> Vec<PieceTarge
         piece_targets.push((pawn, targets));
     }
 
+    let attack_targets = board.pieces(color.opposite()).occupied();
+
+    for (pawn, targets) in generate_pawn_attack_targets(board, color) {
+        if attack_targets & targets > 0 {
+            piece_targets.push((pawn, attack_targets & targets));
+        }
+    }
+
     piece_targets
 }
 
+// having a separate function for generating pawn attacks is useful for generating
+// attack maps. this separates the attacked squares from the ones with enemy pieces
+// on them
 pub fn generate_pawn_attack_targets(board: &Board, color: Color) -> Vec<PieceTarget> {
     let mut piece_targets: Vec<PieceTarget> = vec![];
 
     let pawns = board.pieces(color).locate(Piece::Pawn);
-
-    let attack_targets = board.pieces(color.opposite()).occupied();
 
     for x in 0..64 {
         let pawn = 1 << x;
         if pawns & pawn == 0 {
             continue;
         }
-
-        let mut targets = EMPTY;
 
         let attack_west = match color {
             Color::White => (pawn << 9) & !A_FILE,
@@ -98,12 +105,7 @@ pub fn generate_pawn_attack_targets(board: &Board, color: Color) -> Vec<PieceTar
             Color::Black => (pawn >> 9) & !H_FILE,
         };
 
-        targets |= attack_west & attack_targets;
-        targets |= attack_east & attack_targets;
-
-        if targets == EMPTY {
-            continue;
-        }
+        let targets = attack_east | attack_west;
 
         piece_targets.push((pawn, targets));
     }
@@ -189,10 +191,10 @@ fn generate_ray_targets(
                 Direction::West => leftmost_bit(intercepts),
 
                 // BISHOPS
-                Direction::NorthWest => leftmost_bit(intercepts),
+                Direction::NorthWest => rightmost_bit(intercepts),
                 Direction::NorthEast => rightmost_bit(intercepts),
                 Direction::SouthWest => leftmost_bit(intercepts),
-                Direction::SouthEast => rightmost_bit(intercepts),
+                Direction::SouthEast => leftmost_bit(intercepts),
             };
 
             let blocked_squares = ray_table.get(intercept, *dir);
@@ -262,14 +264,16 @@ pub fn generate_king_targets(board: &Board, color: Color) -> Vec<PieceTarget> {
 
     // shift the king's position. in the event that it falls off of the boundary,
     // we want to negate the rank/file where the king would fall.
-    targets |= (king >> 8) & !RANK_1 & !occupied; // north
-    targets |= (king << 8) & !RANK_8 & !occupied; // south
+    targets |= (king << 9) & !RANK_1 & !A_FILE & !occupied; // northeast
+    targets |= (king << 8) & !RANK_1 & !occupied; // north
+    targets |= (king << 7) & !RANK_1 & !H_FILE & !occupied; // northwest
+
+    targets |= (king >> 7) & !RANK_8 & !A_FILE & !occupied; // southeast
+    targets |= (king >> 8) & !RANK_8 & !occupied; // south
+    targets |= (king >> 9) & !RANK_8 & !H_FILE & !occupied; // southwest
+
     targets |= (king << 1) & !A_FILE & !occupied; // east
     targets |= (king >> 1) & !H_FILE & !occupied; // west
-    targets |= (king >> 7) & !RANK_1 & !A_FILE & !occupied; // northeast
-    targets |= (king >> 9) & !RANK_1 & !H_FILE & !occupied; // northwest
-    targets |= (king << 9) & !RANK_8 & !A_FILE & !occupied; // southeast
-    targets |= (king << 7) & !RANK_8 & !H_FILE & !occupied; // southwest
 
     vec![(king, targets)]
 }
@@ -295,7 +299,27 @@ pub fn generate_attack_targets(board: &Board, color: Color, ray_table: &RayTable
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::board::bitboard::{render_occupied, RANK_3};
     use crate::board::square;
+    use crate::moves::ChessMove;
+
+    #[test]
+    fn test_generate_king_targets() {
+        let mut board = Board::new();
+        board.put(square::H7, Piece::King, Color::White).unwrap();
+        println!("Testing board:\n{}", board.to_ascii());
+        let occupied = board.pieces(Color::White).occupied();
+
+        let expected_targets =
+            EMPTY | square::G6 | square::H6 | square::G7 | square::G8 | square::H8;
+
+        let result = generate_king_targets(&board, Color::White);
+        let (_king, targets) = result[0];
+
+        println!("occupied:\n{}", render_occupied(occupied));
+        println!("Targets:\n{}", render_occupied(targets));
+        assert_eq!(expected_targets, targets);
+    }
 
     #[test]
     fn test_generate_attack_targets() {
@@ -340,11 +364,92 @@ mod tests {
         let expected_black_targets = EMPTY
             // pawn
             | square::A4
+            | square::C4
             // king
             | square::G1
             | square::G2
             | square::H2;
         let black_targets = generate_attack_targets(&board, Color::Black, &ray_table);
         assert_eq!(expected_black_targets, black_targets);
+    }
+
+    #[test]
+    pub fn test_generate_attack_targets_2() {
+        let mut ray_table = RayTable::new();
+        ray_table.populate();
+
+        let mut board = Board::starting_position();
+        board
+            .apply(ChessMove::new(square::E2, square::E4, None))
+            .unwrap();
+        board
+            .apply(ChessMove::new(square::F7, square::F5, None))
+            .unwrap();
+        board
+            .apply(ChessMove::new(square::D1, square::H5, None))
+            .unwrap();
+        board
+            .apply(ChessMove::new(square::G7, square::G6, None))
+            .unwrap();
+        println!("Testing board:\n{}", board.to_ascii());
+
+        //   +---+---+---+---+---+---+---+---+
+        // 8 | r | n | b | q | k | b | n | r |
+        //   +---+---+---+---+---+---+---+---+
+        // 7 | p | p | p | p | p |   |   | p |
+        //   +---+---+---+---+---+---+---+---+
+        // 6 |   |   |   |   |   |   | p |   |
+        //   +---+---+---+---+---+---+---+---+
+        // 5 |   |   |   |   |   | p |   | Q |
+        //   +---+---+---+---+---+---+---+---+
+        // 4 |   |   |   |   | P |   |   |   |
+        //   +---+---+---+---+---+---+---+---+
+        // 3 |   |   |   |   |   |   |   |   |
+        //   +---+---+---+---+---+---+---+---+
+        // 2 | P | P | P | P |   | P | P | P |
+        //   +---+---+---+---+---+---+---+---+
+        // 1 | R | N | B |   | K | B | N | R |
+        //   +---+---+---+---+---+---+---+---+
+        //     A   B   C   D   E   F   G   H
+
+        let expected_white_targets = EMPTY
+            // knights
+            | RANK_3
+            // forward pawn
+            | square::D5
+            | square::F5
+            // queen - north
+            | square::H6
+            | square::H7
+            // queen - nortwest
+            | square::G6
+            // queen - west
+            | square::G5
+            | square::F5
+            // queen - southwest
+            | square::G4
+            | square::F3
+            | square::E2
+            | square::D1
+            // queen - south
+            | square::H4
+            | square::H3
+            // bishop
+            | square::E2
+            | square::D3
+            | square::C4
+            | square::B5
+            | square::A6
+            // king
+            | square::D1
+            | square::E2;
+
+        let white_targets = generate_attack_targets(&board, Color::White, &ray_table);
+        println!(
+            "expected white targets:\n{}",
+            render_occupied(expected_white_targets)
+        );
+        println!("actual white targets:\n{}", render_occupied(white_targets));
+        assert_eq!(expected_white_targets, white_targets);
     }
 }
