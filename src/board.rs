@@ -7,7 +7,7 @@ mod fen;
 mod pieces;
 mod ui;
 
-use bitboard::Bitboard;
+use bitboard::{Bitboard, EMPTY};
 use color::Color;
 use piece::Piece;
 use pieces::Pieces;
@@ -16,6 +16,7 @@ pub struct Board {
     white: Pieces,
     black: Pieces,
     turn: Color,
+    en_passant_target_stack: Vec<u64>,
 }
 
 impl Board {
@@ -24,6 +25,7 @@ impl Board {
             white: Pieces::new(),
             black: Pieces::new(),
             turn: Color::White,
+            en_passant_target_stack: vec![EMPTY],
         }
     }
 
@@ -101,5 +103,18 @@ impl Board {
     pub fn next_turn(&mut self) -> Color {
         self.turn = self.turn.opposite();
         self.turn
+    }
+
+    pub fn push_en_passant_target(&mut self, target_square: u64) -> u64 {
+        self.en_passant_target_stack.push(target_square);
+        target_square
+    }
+
+    pub fn peek_en_passant_target(&self) -> u64 {
+        *self.en_passant_target_stack.last().unwrap()
+    }
+
+    pub fn pop_en_passant_target(&mut self) -> u64 {
+        self.en_passant_target_stack.pop().unwrap()
     }
 }
