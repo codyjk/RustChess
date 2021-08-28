@@ -1,4 +1,4 @@
-use crate::board::bitboard::{Bitboard, A_FILE, H_FILE, RANK_1, RANK_8};
+use crate::board::bitboard::{A_FILE, H_FILE, RANK_1, RANK_8};
 use crate::board::square;
 use std::collections::HashMap;
 
@@ -31,7 +31,7 @@ pub const BISHOP_DIRS: [Direction; 4] = [
 type Ray = (u64, Direction); // (square, direction)
 
 pub struct RayTable {
-    table: HashMap<Ray, Bitboard>,
+    table: HashMap<Ray, u64>,
 }
 
 impl RayTable {
@@ -60,13 +60,13 @@ impl RayTable {
         self
     }
 
-    pub fn get(&self, square: u64, dir: Direction) -> Bitboard {
+    pub fn get(&self, square: u64, dir: Direction) -> u64 {
         let ray = (square, dir);
         *self.table.get(&ray).unwrap()
     }
 }
 
-fn generate_rook_ray(square_bit: Bitboard, dir: Direction) -> Bitboard {
+fn generate_rook_ray(square_bit: u64, dir: Direction) -> u64 {
     let mut ray = square_bit;
 
     let boundary = match dir {
@@ -93,7 +93,7 @@ fn generate_rook_ray(square_bit: Bitboard, dir: Direction) -> Bitboard {
     ray
 }
 
-fn generate_bishop_ray(square_bit: Bitboard, dir: Direction) -> Bitboard {
+fn generate_bishop_ray(square_bit: u64, dir: Direction) -> u64 {
     let mut ray = square_bit;
 
     let (boundary_rank, boundary_file) = match dir {

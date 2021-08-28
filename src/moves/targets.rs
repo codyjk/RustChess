@@ -1,5 +1,5 @@
 use crate::board::bitboard::{
-    Bitboard, A_FILE, B_FILE, EMPTY, G_FILE, H_FILE, RANK_1, RANK_4, RANK_5, RANK_8,
+    A_FILE, B_FILE, EMPTY, G_FILE, H_FILE, RANK_1, RANK_4, RANK_5, RANK_8,
 };
 use crate::board::color::Color;
 use crate::board::piece::Piece;
@@ -114,7 +114,7 @@ pub fn generate_pawn_attack_targets(board: &Board, color: Color) -> Vec<PieceTar
 }
 
 pub fn generate_knight_targets(board: &Board, color: Color) -> Vec<PieceTarget> {
-    let mut piece_targets: Vec<(Bitboard, Bitboard)> = vec![];
+    let mut piece_targets: Vec<(u64, u64)> = vec![];
     let knights = board.pieces(color).locate(Piece::Knight);
     let occupied = board.pieces(color).occupied();
 
@@ -156,7 +156,7 @@ fn generate_ray_targets(
 ) -> Vec<PieceTarget> {
     let pieces = board.pieces(color).locate(ray_piece);
     let occupied = board.occupied();
-    let mut piece_targets: Vec<(Bitboard, Bitboard)> = vec![];
+    let mut piece_targets: Vec<(u64, u64)> = vec![];
 
     for x in 0..64 {
         let piece = 1 << x;

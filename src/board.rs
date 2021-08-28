@@ -7,7 +7,7 @@ mod fen;
 mod pieces;
 mod ui;
 
-use bitboard::{Bitboard, EMPTY};
+use bitboard::EMPTY;
 use color::Color;
 use piece::Piece;
 use pieces::Pieces;
@@ -40,7 +40,7 @@ impl Board {
         Self::from_fen(fen::STARTING_POSITION_FEN).unwrap()
     }
 
-    pub fn occupied(&self) -> Bitboard {
+    pub fn occupied(&self) -> u64 {
         self.white.occupied() | self.black.occupied()
     }
 

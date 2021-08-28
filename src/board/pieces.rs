@@ -1,15 +1,15 @@
-use super::bitboard::{Bitboard, EMPTY};
+use super::bitboard::EMPTY;
 use super::piece::Piece;
 
 #[derive(Clone, Copy, PartialEq)]
 pub struct Pieces {
-    pawns: Bitboard,
-    rooks: Bitboard,
-    knights: Bitboard,
-    bishops: Bitboard,
-    kings: Bitboard,
-    queens: Bitboard,
-    occupied: Bitboard,
+    pawns: u64,
+    rooks: u64,
+    knights: u64,
+    bishops: u64,
+    kings: u64,
+    queens: u64,
+    occupied: u64,
 }
 
 impl Pieces {
@@ -26,7 +26,7 @@ impl Pieces {
         }
     }
 
-    pub fn locate(self, piece: Piece) -> Bitboard {
+    pub fn locate(self, piece: Piece) -> u64 {
         match piece {
             Piece::Bishop => self.bishops,
             Piece::King => self.kings,
@@ -55,7 +55,7 @@ impl Pieces {
         None
     }
 
-    pub fn occupied(self) -> Bitboard {
+    pub fn occupied(self) -> u64 {
         self.occupied
     }
 
