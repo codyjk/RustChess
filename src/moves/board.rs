@@ -12,6 +12,9 @@ impl Board {
         match cm.op() {
             Op::Standard => self.apply_standard(cm.from_square(), cm.to_square(), cm.capture()),
             Op::EnPassant => self.apply_en_passant(cm.from_square(), cm.to_square()),
+            Op::Promote { to_piece } => {
+                self.apply_promote(cm.from_square(), cm.to_square(), cm.capture(), to_piece)
+            }
         }
     }
 
@@ -88,10 +91,30 @@ impl Board {
         Ok(Some(capture))
     }
 
+    fn apply_promote(
+        &mut self,
+        from_square: u64,
+        to_square: u64,
+        expected_capture: Option<Capture>,
+        promote_to_piece: Piece,
+    ) -> BoardMoveResult {
+        match self.apply_standard(from_square, to_square, expected_capture) {
+            Ok(maybe_capture) => {
+                let (_piece, color) = self.remove(to_square).unwrap();
+                self.put(to_square, promote_to_piece, color).unwrap();
+                Ok(maybe_capture)
+            }
+            error => error,
+        }
+    }
+
     pub fn undo(&mut self, cm: ChessMove) -> BoardMoveResult {
         match cm.op() {
             Op::Standard => self.undo_standard(cm.from_square(), cm.to_square(), cm.capture()),
             Op::EnPassant => self.undo_en_passant(cm.from_square(), cm.to_square()),
+            Op::Promote { to_piece } => {
+                self.undo_promote(cm.from_square(), cm.to_square(), cm.capture(), to_piece)
+            }
         }
     }
 
@@ -151,6 +174,23 @@ impl Board {
         self.pop_en_passant_target();
 
         Ok(None)
+    }
+
+    fn undo_promote(
+        &mut self,
+        from_square: u64,
+        to_square: u64,
+        expected_capture: Option<Capture>,
+        _promote_to_piece: Piece,
+    ) -> BoardMoveResult {
+        match self.undo_standard(from_square, to_square, expected_capture) {
+            Ok(maybe_capture) => {
+                let (_piece, color) = self.remove(from_square).unwrap();
+                self.put(from_square, Piece::Pawn, color).unwrap();
+                Ok(maybe_capture)
+            }
+            error => error,
+        }
     }
 }
 
@@ -266,5 +306,49 @@ mod tests {
         assert_eq!(Some((Piece::Pawn, Color::White)), board.get(square::D4));
         assert_eq!(Some((Piece::Pawn, Color::Black)), board.get(square::E4));
         assert_eq!(square::D3, board.peek_en_passant_target());
+    }
+
+    #[test]
+    fn test_apply_and_undo_promote() {
+        let mut board = Board::new();
+        board.put(square::A7, Piece::Pawn, Color::White).unwrap();
+        println!("Testing board:\n{}", board.to_ascii());
+
+        let promotion = ChessMove::promote(square::A7, square::A8, None, Piece::Queen);
+
+        board.apply(promotion).unwrap();
+        println!("After applying promotion:\n{}", board.to_ascii());
+        assert_eq!(None, board.get(square::A7));
+        assert_eq!(Some((Piece::Queen, Color::White)), board.get(square::A8));
+
+        board.undo(promotion).unwrap();
+        println!("After undoing promotion:\n{}", board.to_ascii());
+        assert_eq!(Some((Piece::Pawn, Color::White)), board.get(square::A7));
+        assert_eq!(None, board.get(square::A8));
+    }
+
+    #[test]
+    fn test_apply_and_undo_promote_with_capture() {
+        let mut board = Board::new();
+        board.put(square::A7, Piece::Pawn, Color::White).unwrap();
+        board.put(square::B8, Piece::Rook, Color::Black).unwrap();
+        println!("Testing board:\n{}", board.to_ascii());
+
+        let promotion = ChessMove::promote(
+            square::A7,
+            square::B8,
+            Some((Piece::Rook, Color::Black)),
+            Piece::Queen,
+        );
+
+        board.apply(promotion).unwrap();
+        println!("After applying promotion:\n{}", board.to_ascii());
+        assert_eq!(None, board.get(square::A7));
+        assert_eq!(Some((Piece::Queen, Color::White)), board.get(square::B8));
+
+        board.undo(promotion).unwrap();
+        println!("After undoing promotion:\n{}", board.to_ascii());
+        assert_eq!(Some((Piece::Pawn, Color::White)), board.get(square::A7));
+        assert_eq!(Some((Piece::Rook, Color::Black)), board.get(square::B8));
     }
 }

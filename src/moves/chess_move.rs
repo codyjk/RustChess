@@ -7,6 +7,7 @@ use std::fmt;
 pub enum ChessOperation {
     Standard, // moves and captures
     EnPassant,
+    Promote { to_piece: Piece },
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -35,6 +36,22 @@ impl ChessMove {
             from_square: from_square,
             to_square: to_square,
             capture: Some(capture),
+        }
+    }
+
+    pub fn promote(
+        from_square: u64,
+        to_square: u64,
+        capture: Option<Capture>,
+        promote_to_piece: Piece,
+    ) -> Self {
+        Self {
+            op: ChessOperation::Promote {
+                to_piece: promote_to_piece,
+            },
+            from_square: from_square,
+            to_square: to_square,
+            capture: capture,
         }
     }
 
