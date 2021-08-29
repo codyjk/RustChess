@@ -205,6 +205,8 @@ mod tests {
         board.put(square::B7, Piece::Pawn, Color::White).unwrap();
         board.put(square::C8, Piece::Rook, Color::Black).unwrap();
         board.put(square::A2, Piece::Pawn, Color::Black).unwrap();
+        board.put(square::F2, Piece::Pawn, Color::White).unwrap();
+        board.put(square::F3, Piece::Rook, Color::Black).unwrap();
         println!("Testing board:\n{}", board.to_ascii());
 
         let mut expected_white_moves: Vec<ChessMove> = vec![
