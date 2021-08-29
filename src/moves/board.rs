@@ -1,28 +1,21 @@
-use super::ChessMove;
 use crate::board::bitboard::{EMPTY, RANK_2, RANK_4, RANK_5, RANK_7};
 use crate::board::color::Color;
 use crate::board::piece::Piece;
 use crate::board::Board;
+use crate::moves::chess_move::{ChessMove, ChessOperation as Op};
 
 type Capture = (Piece, Color);
 type BoardMoveResult = Result<Option<Capture>, &'static str>;
 
 impl Board {
-    pub fn apply(&mut self, chessmove: ChessMove) -> BoardMoveResult {
-        match chessmove {
-            ChessMove::Basic {
-                from_square,
-                to_square,
-                capture,
-            } => self.apply_basic(from_square, to_square, capture),
-            ChessMove::EnPassant {
-                from_square,
-                to_square,
-            } => self.apply_en_passant(from_square, to_square),
+    pub fn apply(&mut self, cm: ChessMove) -> BoardMoveResult {
+        match cm.op() {
+            Op::Standard => self.apply_standard(cm.from_square(), cm.to_square(), cm.capture()),
+            Op::EnPassant => self.apply_en_passant(cm.from_square(), cm.to_square()),
         }
     }
 
-    fn apply_basic(
+    fn apply_standard(
         &mut self,
         from_square: u64,
         to_square: u64,
@@ -95,21 +88,14 @@ impl Board {
         Ok(Some(capture))
     }
 
-    pub fn undo(&mut self, chessmove: ChessMove) -> BoardMoveResult {
-        match chessmove {
-            ChessMove::Basic {
-                from_square,
-                to_square,
-                capture,
-            } => self.undo_basic(from_square, to_square, capture),
-            ChessMove::EnPassant {
-                from_square,
-                to_square,
-            } => self.undo_en_passant(from_square, to_square),
+    pub fn undo(&mut self, cm: ChessMove) -> BoardMoveResult {
+        match cm.op() {
+            Op::Standard => self.undo_standard(cm.from_square(), cm.to_square(), cm.capture()),
+            Op::EnPassant => self.undo_en_passant(cm.from_square(), cm.to_square()),
         }
     }
 
-    fn undo_basic(
+    fn undo_standard(
         &mut self,
         from_square: u64,
         to_square: u64,
@@ -193,11 +179,7 @@ mod tests {
 
         for (from_square, to_square, moved, expected_capture) in &moves {
             let captured = board
-                .apply(ChessMove::basic(
-                    *from_square,
-                    *to_square,
-                    *expected_capture,
-                ))
+                .apply(ChessMove::new(*from_square, *to_square, *expected_capture))
                 .unwrap();
             assert_eq!(board.get(*to_square).unwrap(), *moved);
             assert_eq!(captured, *expected_capture);
@@ -211,7 +193,7 @@ mod tests {
         let original_board = board.to_ascii();
         println!("Testing board:\n{}", board.to_ascii());
 
-        let chessmove = ChessMove::basic(square::A2, square::A4, None);
+        let chessmove = ChessMove::new(square::A2, square::A4, None);
         board.apply(chessmove).unwrap();
         println!("Result after applying move:\n{}", board.to_ascii());
         board.undo(chessmove).unwrap();
@@ -227,13 +209,13 @@ mod tests {
         let original_board = board.to_ascii();
         println!("Testing board:\n{}", board.to_ascii());
 
-        let chessmove = ChessMove::basic(square::B1, square::C3, None);
+        let chessmove = ChessMove::new(square::B1, square::C3, None);
         board.apply(chessmove).unwrap();
         println!("Result after applying move:\n{}", board.to_ascii());
         board.undo(chessmove).unwrap();
         println!("Result after undoing move:\n{}", board.to_ascii());
 
-        let chessmove2 = ChessMove::basic(square::B1, square::A3, None);
+        let chessmove2 = ChessMove::new(square::B1, square::A3, None);
         board.apply(chessmove2).unwrap();
         println!("Result after applying move:\n{}", board.to_ascii());
         board.undo(chessmove2).unwrap();
@@ -248,7 +230,7 @@ mod tests {
         let mut board = Board::new();
         board.put(square::A2, Piece::Knight, Color::White).unwrap();
         board.put(square::B4, Piece::Pawn, Color::Black).unwrap();
-        let capture = ChessMove::basic(square::A2, square::B4, Some((Piece::Pawn, Color::Black)));
+        let capture = ChessMove::new(square::A2, square::B4, Some((Piece::Pawn, Color::Black)));
 
         board.apply(capture).unwrap();
         board.undo(capture).unwrap();
@@ -265,13 +247,13 @@ mod tests {
         println!("Testing board:\n{}", board.to_ascii());
 
         board
-            .apply(ChessMove::basic(square::D2, square::D4, None))
+            .apply(ChessMove::new(square::D2, square::D4, None))
             .unwrap();
         println!("After move that reveals en passant:\n{}", board.to_ascii());
         assert_eq!(Some((Piece::Pawn, Color::White)), board.get(square::D4));
         assert_eq!(square::D3, board.peek_en_passant_target());
 
-        let en_passant = ChessMove::en_passant(square::E4, square::D3);
+        let en_passant = ChessMove::en_passant(square::E4, square::D3, (Piece::Pawn, Color::White));
 
         board.apply(en_passant).unwrap();
         println!("After en passant:\n{}", board.to_ascii());

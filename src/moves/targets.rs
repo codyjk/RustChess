@@ -380,16 +380,16 @@ mod tests {
 
         let mut board = Board::starting_position();
         board
-            .apply(ChessMove::basic(square::E2, square::E4, None))
+            .apply(ChessMove::new(square::E2, square::E4, None))
             .unwrap();
         board
-            .apply(ChessMove::basic(square::F7, square::F5, None))
+            .apply(ChessMove::new(square::F7, square::F5, None))
             .unwrap();
         board
-            .apply(ChessMove::basic(square::D1, square::H5, None))
+            .apply(ChessMove::new(square::D1, square::H5, None))
             .unwrap();
         board
-            .apply(ChessMove::basic(square::G7, square::G6, None))
+            .apply(ChessMove::new(square::G7, square::G6, None))
             .unwrap();
         println!("Testing board:\n{}", board.to_ascii());
 
