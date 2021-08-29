@@ -3,7 +3,7 @@ use crate::board::piece::Piece;
 use crate::board::square;
 use std::fmt;
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub enum ChessOperation {
     Standard, // moves and captures
     EnPassant,
@@ -72,6 +72,17 @@ impl ChessMove {
     }
 }
 
+impl fmt::Display for ChessOperation {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let msg = match self {
+            Self::Standard => "move".to_string(),
+            Self::EnPassant => "en passant".to_string(),
+            Self::Promote { to_piece } => format!("promote to {}", to_piece),
+        };
+        write!(f, "{}", msg)
+    }
+}
+
 impl fmt::Display for ChessMove {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let capture_msg = match self.capture {
@@ -81,7 +92,8 @@ impl fmt::Display for ChessMove {
 
         write!(
             f,
-            "{}{}{}",
+            "{} {}{}{}",
+            self.op,
             square::to_algebraic(self.from_square).to_lowercase(),
             square::to_algebraic(self.to_square).to_lowercase(),
             capture_msg
@@ -98,7 +110,8 @@ impl fmt::Debug for ChessMove {
 
         write!(
             f,
-            "{}{}{}",
+            "{} {}{}{}",
+            self.op,
             square::to_algebraic(self.from_square).to_lowercase(),
             square::to_algebraic(self.to_square).to_lowercase(),
             capture_msg

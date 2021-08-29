@@ -3,7 +3,7 @@ mod chess_move;
 pub mod ray_table;
 mod targets;
 
-use crate::board::bitboard::{A_FILE, H_FILE};
+use crate::board::bitboard::{A_FILE, H_FILE, RANK_1, RANK_8};
 use crate::board::color::Color;
 use crate::board::piece::Piece;
 use crate::board::square;
@@ -11,6 +11,8 @@ use crate::board::Board;
 use chess_move::ChessMove;
 use ray_table::RayTable;
 use targets::PieceTarget;
+
+pub const PAWN_PROMOTIONS: [Piece; 4] = [Piece::Queen, Piece::Rook, Piece::Bishop, Piece::Knight];
 
 pub fn generate(board: &mut Board, color: Color, ray_table: &RayTable) -> Vec<ChessMove> {
     let mut moves = vec![];
@@ -28,10 +30,36 @@ pub fn generate(board: &mut Board, color: Color, ray_table: &RayTable) -> Vec<Ch
 }
 
 fn generate_pawn_moves(board: &Board, color: Color) -> Vec<ChessMove> {
-    let piece_targets = targets::generate_pawn_targets(board, color);
     let mut moves = vec![];
 
-    moves.append(&mut expand_piece_targets(board, color, piece_targets));
+    // `generate_pawn_targets` blindly generates all pawn "targets": squares
+    // that pawns can either move or capture. to get promotions, we will apply
+    // some special logic to find the targets that are at the end of the board,
+    // and then expand those targets into the candidate promotion pieces.
+    let piece_targets = targets::generate_pawn_targets(board, color);
+    let all_pawn_moves = expand_piece_targets(board, color, piece_targets);
+
+    let promotion_rank = match color {
+        Color::White => RANK_8,
+        Color::Black => RANK_1,
+    };
+    let (partial_promotions, mut standard_pawn_moves): (Vec<ChessMove>, Vec<ChessMove>) =
+        all_pawn_moves
+            .iter()
+            .partition(|&chessmove| chessmove.to_square() & promotion_rank > 0);
+
+    for pawn_move in partial_promotions.iter() {
+        for promote_to_piece in &PAWN_PROMOTIONS {
+            moves.push(ChessMove::promote(
+                pawn_move.from_square(),
+                pawn_move.to_square(),
+                pawn_move.capture(),
+                *promote_to_piece,
+            ));
+        }
+    }
+
+    moves.append(&mut standard_pawn_moves);
     moves.append(&mut generate_en_passant_moves(board, color));
 
     moves
@@ -174,6 +202,9 @@ mod tests {
         board.put(square::D7, Piece::Pawn, Color::Black).unwrap();
         board.put(square::G6, Piece::Pawn, Color::White).unwrap();
         board.put(square::H7, Piece::Pawn, Color::Black).unwrap();
+        board.put(square::B7, Piece::Pawn, Color::White).unwrap();
+        board.put(square::C8, Piece::Rook, Color::Black).unwrap();
+        board.put(square::A2, Piece::Pawn, Color::Black).unwrap();
         println!("Testing board:\n{}", board.to_ascii());
 
         let mut expected_white_moves: Vec<ChessMove> = vec![
@@ -181,6 +212,34 @@ mod tests {
             ChessMove::new(square::D2, square::D4, None),
             ChessMove::new(square::G6, square::G7, None),
             ChessMove::new(square::G6, square::H7, Some((Piece::Pawn, Color::Black))),
+            ChessMove::promote(square::B7, square::B8, None, Piece::Queen),
+            ChessMove::promote(square::B7, square::B8, None, Piece::Rook),
+            ChessMove::promote(square::B7, square::B8, None, Piece::Knight),
+            ChessMove::promote(square::B7, square::B8, None, Piece::Bishop),
+            ChessMove::promote(
+                square::B7,
+                square::C8,
+                Some((Piece::Rook, Color::Black)),
+                Piece::Queen,
+            ),
+            ChessMove::promote(
+                square::B7,
+                square::C8,
+                Some((Piece::Rook, Color::Black)),
+                Piece::Rook,
+            ),
+            ChessMove::promote(
+                square::B7,
+                square::C8,
+                Some((Piece::Rook, Color::Black)),
+                Piece::Knight,
+            ),
+            ChessMove::promote(
+                square::B7,
+                square::C8,
+                Some((Piece::Rook, Color::Black)),
+                Piece::Bishop,
+            ),
         ];
         expected_white_moves.sort();
 
@@ -190,6 +249,10 @@ mod tests {
             ChessMove::new(square::H7, square::H6, None),
             ChessMove::new(square::H7, square::H5, None),
             ChessMove::new(square::H7, square::G6, Some((Piece::Pawn, Color::White))),
+            ChessMove::promote(square::A2, square::A1, None, Piece::Queen),
+            ChessMove::promote(square::A2, square::A1, None, Piece::Rook),
+            ChessMove::promote(square::A2, square::A1, None, Piece::Knight),
+            ChessMove::promote(square::A2, square::A1, None, Piece::Bishop),
         ];
         expected_black_moves.sort();
 
