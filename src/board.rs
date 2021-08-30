@@ -97,7 +97,7 @@ impl Board {
     }
 
     pub fn turn(&self) -> Color {
-        return self.turn;
+        self.turn
     }
 
     pub fn next_turn(&mut self) -> Color {
