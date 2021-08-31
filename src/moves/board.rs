@@ -3,9 +3,26 @@ use crate::board::color::Color;
 use crate::board::piece::Piece;
 use crate::board::Board;
 use crate::moves::chess_move::{ChessMove, ChessOperation as Op};
+use thiserror::Error;
 
 type Capture = (Piece, Color);
-type BoardMoveResult = Result<Option<Capture>, &'static str>;
+type BoardMoveResult = Result<Option<Capture>, BoardMoveError>;
+
+#[derive(Error, Debug)]
+pub enum BoardMoveError {
+    #[error("cannot {op:?} chess move, the `from` square is empty")]
+    FromSquareIsEmpty { op: &'static str },
+    #[error("cannot {op:?} chess move, the `to` square is empty")]
+    ToSquareIsEmpty { op: &'static str },
+    #[error("the expected capture result is different than what is on the target square")]
+    UnexpectedCaptureResult,
+    #[error("cannot {op:?} en passant, the piece is not a pawn")]
+    EnPassantNonPawn { op: &'static str },
+    #[error("en passant didn't result in a capture")]
+    EnPassantNonCapture,
+    #[error("board error: {msg:?}")]
+    BoardError { msg: &'static str },
+}
 
 impl Board {
     pub fn apply(&mut self, cm: ChessMove) -> BoardMoveResult {
@@ -26,14 +43,12 @@ impl Board {
     ) -> BoardMoveResult {
         let maybe_piece = self.remove(from_square);
         let (piece_to_move, color) = match maybe_piece {
-            None => return Err("cannot apply chess move, the `from` square is empty"),
+            None => return Err(BoardMoveError::FromSquareIsEmpty { op: "apply" }),
             Some((piece, color)) => (piece, color),
         };
 
         if self.get(to_square) != expected_capture {
-            return Err(
-                "the expected capture result is different than what is on the target square",
-            );
+            return Err(BoardMoveError::UnexpectedCaptureResult);
         }
 
         // check for en passant
@@ -58,19 +73,19 @@ impl Board {
         let captured_piece = self.remove(to_square);
         match self.put(to_square, piece_to_move, color) {
             Ok(()) => return Ok(captured_piece),
-            Err(error) => return Err(error),
+            Err(error) => return Err(BoardMoveError::BoardError { msg: error }),
         }
     }
 
     fn apply_en_passant(&mut self, from_square: u64, to_square: u64) -> BoardMoveResult {
         let maybe_piece = self.remove(from_square);
         let (piece_to_move, color) = match maybe_piece {
-            None => return Err("cannot apply chess move, the `from` square is empty"),
+            None => return Err(BoardMoveError::FromSquareIsEmpty { op: "apply" }),
             Some((piece, color)) => (piece, color),
         };
 
         if piece_to_move != Piece::Pawn {
-            return Err("cannot apply en passant, the piece is not a pawn");
+            return Err(BoardMoveError::EnPassantNonPawn { op: "apply" });
         }
 
         // the captured pawn is "behind" the target square
@@ -81,7 +96,7 @@ impl Board {
 
         let capture = match self.remove(capture_square) {
             Some((piece, color)) => (piece, color),
-            None => return Err("en passant didn't result in a capture"),
+            None => return Err(BoardMoveError::EnPassantNonCapture),
         };
 
         self.put(to_square, piece_to_move, color).unwrap();
@@ -127,7 +142,7 @@ impl Board {
         // remove the moved piece
         let maybe_piece = self.remove(to_square);
         let (piece_to_move_back, piece_color) = match maybe_piece {
-            None => return Err("cannot undo chess move, the `to` square is empty"),
+            None => return Err(BoardMoveError::ToSquareIsEmpty { op: "undo" }),
             Some((piece, color)) => (piece, color),
         };
 
@@ -142,7 +157,7 @@ impl Board {
 
         match self.put(from_square, piece_to_move_back, piece_color) {
             Ok(()) => return Ok(None),
-            Err(error) => return Err(error),
+            Err(error) => return Err(BoardMoveError::BoardError { msg: error }),
         }
     }
 
@@ -150,12 +165,12 @@ impl Board {
         // remove the moved pawn
         let maybe_piece = self.remove(to_square);
         let (piece_to_move_back, piece_color) = match maybe_piece {
-            None => return Err("cannot undo chess move, the `to` square is empty"),
+            None => return Err(BoardMoveError::ToSquareIsEmpty { op: "undo" }),
             Some((piece, color)) => (piece, color),
         };
 
         if piece_to_move_back != Piece::Pawn {
-            return Err("cannot undo en passant, the piece is not a pawn");
+            return Err(BoardMoveError::EnPassantNonPawn { op: "undo" });
         }
 
         // return the pawn to its original square

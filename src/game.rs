@@ -3,6 +3,7 @@ pub mod command;
 use crate::board::color::Color;
 use crate::board::Board;
 use crate::moves;
+use crate::moves::board::BoardMoveError;
 use crate::moves::ray_table::RayTable;
 use rand::{self, Rng};
 use thiserror::Error;
@@ -18,8 +19,8 @@ pub enum GameError {
     InvalidMove,
     #[error("no available moves")]
     NoAvailableMoves,
-    #[error("board error: {msg:?}")]
-    BoardError { msg: &'static str },
+    #[error("board error: {error:?}")]
+    BoardMoveError { error: BoardMoveError },
 }
 
 impl Game {
@@ -57,7 +58,7 @@ impl Game {
         };
         match self.board.apply(chessmove) {
             Ok(_capture) => Ok(()),
-            Err(error) => Err(GameError::BoardError { msg: error }),
+            Err(error) => Err(GameError::BoardMoveError { error: error }),
         }
     }
 
@@ -73,7 +74,7 @@ impl Game {
         };
         match self.board.apply(chessmove) {
             Ok(_capture) => Ok(()),
-            Err(error) => Err(GameError::BoardError { msg: error }),
+            Err(error) => Err(GameError::BoardMoveError { error: error }),
         }
     }
 }

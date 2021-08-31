@@ -1,4 +1,4 @@
-mod board;
+pub mod board;
 mod chess_move;
 pub mod ray_table;
 mod targets;
