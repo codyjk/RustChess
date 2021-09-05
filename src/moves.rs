@@ -1,5 +1,5 @@
 pub mod board;
-mod chess_move;
+pub mod chess_move;
 pub mod ray_table;
 mod targets;
 
@@ -7,7 +7,10 @@ use crate::board::bitboard::{A_FILE, H_FILE, RANK_1, RANK_8};
 use crate::board::color::Color;
 use crate::board::piece::Piece;
 use crate::board::square;
-use crate::board::Board;
+use crate::board::{
+    Board, BLACK_KINGSIDE_RIGHTS, BLACK_QUEENSIDE_RIGHTS, WHITE_KINGSIDE_RIGHTS,
+    WHITE_QUEENSIDE_RIGHTS,
+};
 use chess_move::ChessMove;
 use ray_table::RayTable;
 use targets::PieceTarget;
@@ -20,6 +23,7 @@ pub fn generate(board: &mut Board, color: Color, ray_table: &RayTable) -> Vec<Ch
     moves.append(&mut generate_pawn_moves(board, color));
     moves.append(&mut generate_knight_moves(board, color));
     moves.append(&mut generate_king_moves(board, color));
+    moves.append(&mut generate_castle_moves(board, color, ray_table));
     moves.append(&mut generate_rook_moves(board, color, ray_table));
     moves.append(&mut generate_bishop_moves(board, color, ray_table));
     moves.append(&mut generate_queen_moves(board, color, ray_table));
@@ -161,6 +165,65 @@ fn expand_piece_targets(
 fn generate_king_moves(board: &Board, color: Color) -> Vec<ChessMove> {
     let targets = targets::generate_king_targets(board, color);
     expand_piece_targets(board, color, targets)
+}
+
+fn generate_castle_moves(board: &Board, color: Color, ray_table: &RayTable) -> Vec<ChessMove> {
+    let mut moves: Vec<ChessMove> = vec![];
+    let attacked_squares = targets::generate_attack_targets(board, color.opposite(), ray_table);
+
+    if board.pieces(color).locate(Piece::King) & attacked_squares > 0 {
+        return moves;
+    }
+
+    let castle_rights = board.peek_castle_rights();
+    let (kingside_rights, queenside_rights) = match color {
+        Color::White => (
+            WHITE_KINGSIDE_RIGHTS & castle_rights,
+            WHITE_QUEENSIDE_RIGHTS & castle_rights,
+        ),
+        Color::Black => (
+            BLACK_KINGSIDE_RIGHTS & castle_rights,
+            BLACK_QUEENSIDE_RIGHTS & castle_rights,
+        ),
+    };
+
+    let (kingside_transit_square, queenside_transit_square) = match color {
+        Color::White => (square::F1, square::D1),
+        Color::Black => (square::F8, square::D8),
+    };
+
+    let queenside_rook_transit_square = match color {
+        Color::White => square::B1,
+        Color::Black => square::B8,
+    };
+
+    let (kingside_target_square, queenside_target_square) = match color {
+        Color::White => (square::G1, square::C1),
+        Color::Black => (square::G8, square::C8),
+    };
+
+    let occupied = board.occupied();
+
+    if kingside_rights > 0
+        && board.get(kingside_transit_square).is_none()
+        && kingside_transit_square & attacked_squares == 0
+        && kingside_transit_square & occupied == 0
+        && kingside_target_square & occupied == 0
+    {
+        moves.push(ChessMove::castle_kingside(color));
+    }
+
+    if queenside_rights > 0
+        && board.get(queenside_transit_square).is_none()
+        && queenside_transit_square & attacked_squares == 0
+        && queenside_transit_square & occupied == 0
+        && queenside_rook_transit_square & occupied == 0
+        && queenside_target_square & occupied == 0
+    {
+        moves.push(ChessMove::castle_queenside(color));
+    }
+
+    moves
 }
 
 fn remove_invalid_moves(
@@ -514,5 +577,94 @@ mod tests {
         moves.sort();
 
         assert_eq!(expected_black_moves, moves);
+    }
+
+    #[test]
+    fn test_generate_castle_moves_with_all_rights() {
+        let mut board = Board::new();
+        board.put(square::E1, Piece::King, Color::White).unwrap();
+        board.put(square::A1, Piece::Rook, Color::White).unwrap();
+        board.put(square::H1, Piece::Rook, Color::White).unwrap();
+        board.put(square::E8, Piece::King, Color::Black).unwrap();
+        board.put(square::A8, Piece::Rook, Color::Black).unwrap();
+        board.put(square::H8, Piece::Rook, Color::Black).unwrap();
+        println!("Testing board:\n{}", board.to_ascii());
+
+        let mut expected_white_moves: Vec<ChessMove> = vec![
+            ChessMove::castle_kingside(Color::White),
+            ChessMove::castle_queenside(Color::White),
+        ];
+        expected_white_moves.sort();
+
+        let mut expected_black_moves: Vec<ChessMove> = vec![
+            ChessMove::castle_kingside(Color::Black),
+            ChessMove::castle_queenside(Color::Black),
+        ];
+        expected_black_moves.sort();
+
+        let mut ray_table = RayTable::new();
+        ray_table.populate();
+
+        let mut white_moves = generate_castle_moves(&mut board, Color::White, &ray_table);
+        white_moves.sort();
+
+        let mut black_moves = generate_castle_moves(&mut board, Color::Black, &ray_table);
+        black_moves.sort();
+
+        assert_eq!(expected_white_moves, white_moves);
+        assert_eq!(expected_black_moves, black_moves);
+    }
+
+    #[test]
+    fn test_generate_castle_moves_under_attack() {
+        let mut board = Board::new();
+        board.put(square::E1, Piece::King, Color::White).unwrap();
+        board.put(square::A1, Piece::Rook, Color::White).unwrap();
+        board.put(square::H1, Piece::Rook, Color::White).unwrap();
+        board.put(square::D7, Piece::Rook, Color::Black).unwrap(); // this makes white queenside castle impossible
+
+        board.put(square::E8, Piece::King, Color::Black).unwrap();
+        board.put(square::A8, Piece::Rook, Color::Black).unwrap();
+        board.put(square::H8, Piece::Rook, Color::Black).unwrap();
+        board.put(square::A3, Piece::Bishop, Color::White).unwrap(); // this makes black kingside castle impossible
+
+        println!("Testing board:\n{}", board.to_ascii());
+
+        let mut expected_white_moves: Vec<ChessMove> =
+            vec![ChessMove::castle_kingside(Color::White)];
+        expected_white_moves.sort();
+
+        let mut expected_black_moves: Vec<ChessMove> =
+            vec![ChessMove::castle_queenside(Color::Black)];
+        expected_black_moves.sort();
+
+        let mut ray_table = RayTable::new();
+        ray_table.populate();
+        targets::generate_attack_targets(&board, Color::Black, &ray_table);
+
+        let mut white_moves = generate_castle_moves(&mut board, Color::White, &ray_table);
+        white_moves.sort();
+        let mut black_moves = generate_castle_moves(&mut board, Color::Black, &ray_table);
+        black_moves.sort();
+
+        assert_eq!(expected_white_moves, white_moves);
+        assert_eq!(expected_black_moves, black_moves);
+    }
+
+    #[test]
+    pub fn test_generate_castle_moves_blocked() {
+        let mut board = Board::new();
+        board.put(square::E1, Piece::King, Color::White).unwrap();
+        board.put(square::A1, Piece::Rook, Color::White).unwrap();
+        board.put(square::H1, Piece::Rook, Color::White).unwrap();
+        board.put(square::B1, Piece::Bishop, Color::White).unwrap();
+        board.put(square::G1, Piece::Knight, Color::Black).unwrap();
+        println!("Testing board:\n{}", board.to_ascii());
+
+        let expected_white_moves: Vec<ChessMove> = vec![];
+        let white_moves =
+            generate_castle_moves(&mut board, Color::White, &RayTable::new().populate());
+
+        assert_eq!(expected_white_moves, white_moves);
     }
 }

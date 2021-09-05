@@ -56,13 +56,27 @@ impl ChessMove {
         }
     }
 
-    pub fn castle(from_square: u64, to_square: u64) -> Self {
+    fn castle(from_square: u64, to_square: u64) -> Self {
         Self {
             op: ChessOperation::Castle,
             // from and to square refers to the king's square. rook is handled in a special way
             from_square: from_square,
             to_square: to_square,
             capture: None,
+        }
+    }
+
+    pub fn castle_kingside(color: Color) -> Self {
+        match color {
+            Color::White => Self::castle(square::E1, square::G1),
+            Color::Black => Self::castle(square::E8, square::G8),
+        }
+    }
+
+    pub fn castle_queenside(color: Color) -> Self {
+        match color {
+            Color::White => Self::castle(square::E1, square::C1),
+            Color::Black => Self::castle(square::E8, square::C8),
         }
     }
 

@@ -12,11 +12,18 @@ use color::Color;
 use piece::Piece;
 use pieces::Pieces;
 
+type CastleRightsBitmask = u8;
+pub const WHITE_KINGSIDE_RIGHTS: CastleRightsBitmask = 0b1000;
+pub const BLACK_KINGSIDE_RIGHTS: CastleRightsBitmask = 0b0100;
+pub const WHITE_QUEENSIDE_RIGHTS: CastleRightsBitmask = 0b0010;
+pub const BLACK_QUEENSIDE_RIGHTS: CastleRightsBitmask = 0b0001;
+
 pub struct Board {
     white: Pieces,
     black: Pieces,
     turn: Color,
     en_passant_target_stack: Vec<u64>,
+    castle_rights_stack: Vec<CastleRightsBitmask>,
 }
 
 impl Board {
@@ -26,6 +33,12 @@ impl Board {
             black: Pieces::new(),
             turn: Color::White,
             en_passant_target_stack: vec![EMPTY],
+            castle_rights_stack: vec![
+                WHITE_KINGSIDE_RIGHTS
+                    | BLACK_KINGSIDE_RIGHTS
+                    | WHITE_QUEENSIDE_RIGHTS
+                    | BLACK_QUEENSIDE_RIGHTS,
+            ],
         }
     }
 
@@ -116,6 +129,27 @@ impl Board {
 
     pub fn pop_en_passant_target(&mut self) -> u64 {
         self.en_passant_target_stack.pop().unwrap()
+    }
+
+    pub fn preserve_castle_rights(&mut self) -> CastleRightsBitmask {
+        let rights = self.peek_castle_rights();
+        self.castle_rights_stack.push(rights);
+        rights
+    }
+
+    pub fn lose_castle_rights(&mut self, lost_rights: CastleRightsBitmask) -> CastleRightsBitmask {
+        let old_rights = self.peek_castle_rights();
+        let new_rights = old_rights ^ (old_rights & lost_rights);
+        self.castle_rights_stack.push(new_rights);
+        new_rights
+    }
+
+    pub fn peek_castle_rights(&self) -> u8 {
+        *self.castle_rights_stack.last().unwrap()
+    }
+
+    pub fn pop_castle_rights(&mut self) -> CastleRightsBitmask {
+        self.castle_rights_stack.pop().unwrap()
     }
 
     pub fn material_value(&self) -> u16 {
