@@ -161,6 +161,11 @@ impl Board {
         self.fullmove_clock
     }
 
+    pub fn decrement_fullmove_clock(&mut self) -> u8 {
+        self.fullmove_clock -= 1;
+        self.fullmove_clock
+    }
+
     pub fn set_fullmove_clock(&mut self, clock: u8) -> u8 {
         self.fullmove_clock = clock;
         clock

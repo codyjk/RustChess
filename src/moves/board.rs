@@ -40,14 +40,21 @@ pub enum BoardMoveError {
 
 impl Board {
     pub fn apply(&mut self, cm: ChessMove) -> BoardMoveResult {
-        match cm.op() {
+        let result = match cm.op() {
             Op::Standard => self.apply_standard(cm.from_square(), cm.to_square(), cm.capture()),
             Op::EnPassant => self.apply_en_passant(cm.from_square(), cm.to_square()),
             Op::Promote { to_piece } => {
                 self.apply_promote(cm.from_square(), cm.to_square(), cm.capture(), to_piece)
             }
             Op::Castle => self.apply_castle(cm.from_square(), cm.to_square()),
-        }
+        };
+        match result {
+            Ok(Some(_capture)) => self.reset_halfmove_clock(),
+            Ok(None) => self.increment_halfmove_clock(),
+            _ => return result,
+        };
+        self.increment_fullmove_clock();
+        result
     }
 
     fn apply_standard(
@@ -218,14 +225,17 @@ impl Board {
     }
 
     pub fn undo(&mut self, cm: ChessMove) -> BoardMoveResult {
-        match cm.op() {
+        let result = match cm.op() {
             Op::Standard => self.undo_standard(cm.from_square(), cm.to_square(), cm.capture()),
             Op::EnPassant => self.undo_en_passant(cm.from_square(), cm.to_square()),
             Op::Promote { to_piece } => {
                 self.undo_promote(cm.from_square(), cm.to_square(), cm.capture(), to_piece)
             }
             Op::Castle => self.undo_castle(cm.from_square(), cm.to_square()),
-        }
+        };
+        self.pop_halfmove_clock();
+        self.decrement_fullmove_clock();
+        result
     }
 
     fn undo_standard(
