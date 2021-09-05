@@ -7,8 +7,8 @@ use termion::clear;
 fn main() {
     let game = &mut Game::new();
     let player_color = Color::White;
+    println!("{}", clear::All);
     loop {
-        println!("{}", clear::All);
         println!("{}", game.render_board());
         let command = if player_color == game.turn() {
             match input_handler::parse_command() {
@@ -23,7 +23,9 @@ fn main() {
         };
 
         match command.execute(game) {
-            Ok(()) => {
+            Ok(chessmove) => {
+                println!("{}", clear::All);
+                println!("computer chose {} for {}", chessmove, game.turn());
                 game.next_turn();
                 continue;
             }

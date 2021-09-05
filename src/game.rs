@@ -47,7 +47,7 @@ impl Game {
         self.board.to_ascii()
     }
 
-    pub fn make_move(&mut self, from_square: u64, to_square: u64) -> Result<(), GameError> {
+    pub fn make_move(&mut self, from_square: u64, to_square: u64) -> Result<ChessMove, GameError> {
         let turn = self.turn();
         let candidates = moves::generate(&mut self.board, turn, &self.ray_table);
         let maybe_chessmove = candidates
@@ -58,12 +58,12 @@ impl Game {
             None => return Err(GameError::InvalidMove),
         };
         match self.board.apply(chessmove) {
-            Ok(_capture) => Ok(()),
+            Ok(_capture) => Ok(chessmove),
             Err(error) => Err(GameError::BoardMoveError { error: error }),
         }
     }
 
-    pub fn make_random_move(&mut self) -> Result<(), GameError> {
+    pub fn make_random_move(&mut self) -> Result<ChessMove, GameError> {
         let turn = self.turn();
         let candidates = moves::generate(&mut self.board, turn, &self.ray_table);
         let chessmove = match candidates.len() {
@@ -74,12 +74,12 @@ impl Game {
             }
         };
         match self.board.apply(chessmove) {
-            Ok(_capture) => Ok(()),
+            Ok(_capture) => Ok(chessmove),
             Err(error) => Err(GameError::BoardMoveError { error: error }),
         }
     }
 
-    pub fn make_shallow_material_optimal_move(&mut self) -> Result<(), GameError> {
+    pub fn make_shallow_material_optimal_move(&mut self) -> Result<ChessMove, GameError> {
         let turn = self.turn();
         let candidates = moves::generate(&mut self.board, turn, &self.ray_table);
         if candidates.len() == 0 {
@@ -110,7 +110,7 @@ impl Game {
         let best_move = best_moves[rng];
 
         match self.board.apply(*best_move) {
-            Ok(_capture) => Ok(()),
+            Ok(_capture) => Ok(*best_move),
             Err(error) => Err(GameError::BoardMoveError { error: error }),
         }
     }
