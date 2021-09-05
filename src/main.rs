@@ -1,6 +1,6 @@
 use chess::board::color::Color;
 use chess::board::Board;
-use chess::game::command::MakeShallowOptimalMove;
+use chess::game::command::MakeMinimaxOptimalMove;
 use chess::game::Game;
 use chess::input_handler;
 use chess::moves;
@@ -77,7 +77,7 @@ fn play_computer() {
                 }
             }
         } else {
-            Box::new(MakeShallowOptimalMove {})
+            Box::new(MakeMinimaxOptimalMove {})
         };
 
         match command.execute(game) {

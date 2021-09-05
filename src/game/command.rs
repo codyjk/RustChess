@@ -42,3 +42,10 @@ impl Command for MakeShallowOptimalMove {
         game.make_shallow_material_optimal_move()
     }
 }
+
+pub struct MakeMinimaxOptimalMove {}
+impl Command for MakeMinimaxOptimalMove {
+    fn execute(&self, game: &mut Game) -> CommandResult {
+        game.make_minimax_best_move()
+    }
+}

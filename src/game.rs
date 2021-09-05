@@ -114,4 +114,58 @@ impl Game {
             Err(error) => Err(GameError::BoardMoveError { error: error }),
         }
     }
+
+    pub fn make_minimax_best_move(&mut self) -> Result<ChessMove, GameError> {
+        let turn = self.turn();
+        let (maybe_chessmove, _score) =
+            minimax_select_move(3, &mut self.board, &self.ray_table, turn);
+
+        let best_move = match maybe_chessmove {
+            Some(chessmove) => chessmove,
+            None => return Err(GameError::NoAvailableMoves),
+        };
+
+        match self.board.apply(best_move) {
+            Ok(_capture) => Ok(best_move),
+            Err(error) => Err(GameError::BoardMoveError { error: error }),
+        }
+    }
+}
+
+fn minimax_select_move(
+    depth: u8,
+    board: &mut Board,
+    ray_table: &RayTable,
+    current_turn: Color,
+) -> (Option<ChessMove>, i32) {
+    if depth == 0 {
+        let score = board.material_value();
+        return (None, score);
+    }
+
+    let mut best_score = match current_turn {
+        Color::White => i32::MIN,
+        Color::Black => i32::MAX,
+    };
+    let mut best_move = None;
+
+    let candidates = moves::generate(board, current_turn, ray_table);
+    for chessmove in candidates {
+        board.apply(chessmove).unwrap();
+        let (_deep_best_move, score) =
+            minimax_select_move(depth - 1, board, ray_table, current_turn.opposite());
+        board.undo(chessmove).unwrap();
+
+        let is_best_move = match current_turn {
+            Color::White => score > best_score,
+            Color::Black => score < best_score,
+        };
+
+        if is_best_move {
+            best_score = score;
+            best_move = Some(chessmove);
+        }
+    }
+
+    (best_move, best_score)
 }
