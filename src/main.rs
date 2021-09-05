@@ -1,5 +1,5 @@
 use chess::board::color::Color;
-use chess::game::command::MakeRandomMove;
+use chess::game::command::MakeShallowOptimalMove;
 use chess::game::Game;
 use chess::input_handler;
 use termion::clear;
@@ -19,7 +19,7 @@ fn main() {
                 }
             }
         } else {
-            Box::new(MakeRandomMove {})
+            Box::new(MakeShallowOptimalMove {})
         };
 
         match command.execute(game) {

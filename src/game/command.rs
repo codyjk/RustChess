@@ -33,3 +33,11 @@ impl Command for MakeRandomMove {
         game.make_random_move()
     }
 }
+
+pub struct MakeShallowOptimalMove {}
+
+impl Command for MakeShallowOptimalMove {
+    fn execute(&self, game: &mut Game) -> CommandResult {
+        game.make_shallow_material_optimal_move()
+    }
+}

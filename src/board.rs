@@ -152,8 +152,8 @@ impl Board {
         self.castle_rights_stack.pop().unwrap()
     }
 
-    pub fn material_value(&self) -> u16 {
-        self.white.material_value() - self.black.material_value()
+    pub fn material_value(&self) -> i32 {
+        i32::from(self.white.material_value()) - i32::from(self.black.material_value())
     }
 }
 
