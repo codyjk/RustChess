@@ -1,7 +1,10 @@
 use super::color::Color;
 use super::piece::Piece;
 use super::square;
-use super::Board;
+use super::{
+    Board, BLACK_KINGSIDE_RIGHTS, BLACK_QUEENSIDE_RIGHTS, WHITE_KINGSIDE_RIGHTS,
+    WHITE_QUEENSIDE_RIGHTS,
+};
 use regex::Regex;
 
 pub const STARTING_POSITION_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -32,29 +35,41 @@ impl Board {
     ///
     /// Starting position FEN: `rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1`
     pub fn from_fen(fen: &str) -> Result<Self, String> {
-        let rank_partial_regex = "([pnbrqkPNBRQK1-8]{1,8})";
-        let color_partial_regex = "(b|w)";
-        let castling_partial_regex = "([kqKQ]{1,4}|-)";
-        let en_passant_partial_regex = "([a-h][1-8]|-)";
-        let halfmove_partial_regex = "(0|[1-9][0-9]*)";
-        let fullmove_partial_regex = "([1-9][0-9]*)";
-        let full_fen_regex = format!(
-            "^{}/{}/{}/{}/{}/{}/{}/{} {} {} {} {} {}$",
-            rank_partial_regex,
-            rank_partial_regex,
-            rank_partial_regex,
-            rank_partial_regex,
-            rank_partial_regex,
-            rank_partial_regex,
-            rank_partial_regex,
-            rank_partial_regex,
-            color_partial_regex,
-            castling_partial_regex,
-            en_passant_partial_regex,
-            halfmove_partial_regex,
-            fullmove_partial_regex
-        );
-        let re = Regex::new(&full_fen_regex).unwrap();
+        let re = Regex::new(
+            r"(?x)
+            # `(?x)` - insignificant whitespace mode. makes it easier to comment
+            # `\x20` - character code for a single space ` `
+            ^
+            ([pnbrqkPNBRQK1-8]{1,8}) # first rank
+            /
+            ([pnbrqkPNBRQK1-8]{1,8}) # second rank
+            /
+            ([pnbrqkPNBRQK1-8]{1,8}) # third rank
+            /
+            ([pnbrqkPNBRQK1-8]{1,8}) # fourth rank
+            /
+            ([pnbrqkPNBRQK1-8]{1,8}) # fifth rank
+            /
+            ([pnbrqkPNBRQK1-8]{1,8}) # sixth rank
+            /
+            ([pnbrqkPNBRQK1-8]{1,8}) # seventh rank
+            /
+            ([pnbrqkPNBRQK1-8]{1,8}) # eighth rank
+            \x20
+            (b|w)                    # current turn
+            \x20
+            ([kqKQ]{1,4}|-)          # castling rights
+            \x20
+            ([a-h][1-8]|-)           # en passant target square
+            \x20
+            (0|[1-9][0-9]*)          # halfmove count
+            \x20
+            ([1-9][0-9]*)            # fullmove count
+            $
+
+        ",
+        )
+        .unwrap();
 
         let caps = match re.captures(&fen) {
             Some(captures) => captures,
@@ -94,6 +109,48 @@ impl Board {
             _ => None,
         }
         .unwrap();
+
+        // parse castling rights
+        let raw_rights = &caps[10];
+        let mut lost_rights = 0b000;
+
+        if raw_rights != "-" {
+            if !raw_rights.contains('K') {
+                lost_rights |= WHITE_KINGSIDE_RIGHTS;
+            }
+
+            if !raw_rights.contains('Q') {
+                lost_rights |= WHITE_QUEENSIDE_RIGHTS;
+            }
+
+            if !raw_rights.contains('k') {
+                lost_rights |= BLACK_KINGSIDE_RIGHTS;
+            }
+
+            if !raw_rights.contains('q') {
+                lost_rights |= BLACK_QUEENSIDE_RIGHTS;
+            }
+        }
+
+        board.lose_castle_rights(lost_rights);
+
+        // parse en passant target square
+        let en_passant_target = &caps[11];
+
+        if !en_passant_target.contains('-') {
+            let square = square::from_algebraic(en_passant_target);
+            board.push_en_passant_target(square);
+        }
+
+        // halfmove clock
+        let raw_halfmove_clock = &caps[12];
+        let halfmove_clock = raw_halfmove_clock.parse::<u8>().unwrap();
+        board.push_halfmove_clock(halfmove_clock);
+
+        // fullmove clock
+        let raw_fullmove_clock = &caps[13];
+        let fullmove_clock = raw_fullmove_clock.parse::<u8>().unwrap();
+        board.set_fullmove_clock(fullmove_clock);
 
         Ok(board)
     }
@@ -143,7 +200,7 @@ mod tests {
     #[test]
     fn test_parse_fen() {
         // based off of examples from https://www.chess.com/terms/fen-chess
-        let board = Board::from_fen("8/8/8/4p1K1/2k1P3/8/8/8 b - - 0 1").unwrap();
+        let board = Board::from_fen("8/8/8/4p1K1/2k1P3/8/8/8 b - - 4 11").unwrap();
         println!("Testing board:\n{}", board.to_ascii());
         let tests = vec![
             (square::C4, Piece::King, Color::Black),
@@ -166,5 +223,18 @@ mod tests {
             }
             assert!(matches!(board.get(*square), None));
         }
+
+        assert_eq!(Color::Black, board.turn());
+        assert_eq!(
+            0b0000
+                | WHITE_KINGSIDE_RIGHTS
+                | WHITE_QUEENSIDE_RIGHTS
+                | BLACK_KINGSIDE_RIGHTS
+                | BLACK_QUEENSIDE_RIGHTS,
+            board.peek_castle_rights()
+        );
+        assert_eq!(0, board.peek_en_passant_target());
+        assert_eq!(4, board.peek_halfmove_clock());
+        assert_eq!(11, board.fullmove_clock());
     }
 }

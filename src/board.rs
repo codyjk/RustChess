@@ -22,8 +22,10 @@ pub struct Board {
     white: Pieces,
     black: Pieces,
     turn: Color,
+    fullmove_clock: u8,
     en_passant_target_stack: Vec<u64>,
     castle_rights_stack: Vec<CastleRightsBitmask>,
+    halfmove_clock_stack: Vec<u8>,
 }
 
 impl Board {
@@ -39,6 +41,8 @@ impl Board {
                     | WHITE_QUEENSIDE_RIGHTS
                     | BLACK_QUEENSIDE_RIGHTS,
             ],
+            halfmove_clock_stack: vec![0],
+            fullmove_clock: 1,
         }
     }
 
@@ -150,6 +154,45 @@ impl Board {
 
     pub fn pop_castle_rights(&mut self) -> CastleRightsBitmask {
         self.castle_rights_stack.pop().unwrap()
+    }
+
+    pub fn increment_fullmove_clock(&mut self) -> u8 {
+        self.fullmove_clock += 1;
+        self.fullmove_clock
+    }
+
+    pub fn set_fullmove_clock(&mut self, clock: u8) -> u8 {
+        self.fullmove_clock = clock;
+        clock
+    }
+
+    pub fn fullmove_clock(&self) -> u8 {
+        self.fullmove_clock
+    }
+
+    pub fn push_halfmove_clock(&mut self, clock: u8) -> u8 {
+        self.halfmove_clock_stack.push(clock);
+        clock
+    }
+
+    pub fn increment_halfmove_clock(&mut self) -> u8 {
+        let old_clock = self.halfmove_clock_stack.last().unwrap();
+        let new_clock = old_clock + 1;
+        self.halfmove_clock_stack.push(new_clock);
+        new_clock
+    }
+
+    pub fn reset_halfmove_clock(&mut self) -> u8 {
+        self.halfmove_clock_stack.push(0);
+        0
+    }
+
+    pub fn peek_halfmove_clock(&self) -> u8 {
+        *self.halfmove_clock_stack.last().unwrap()
+    }
+
+    pub fn pop_halfmove_clock(&mut self) -> u8 {
+        self.halfmove_clock_stack.pop().unwrap()
     }
 
     pub fn material_value(&self) -> i32 {
