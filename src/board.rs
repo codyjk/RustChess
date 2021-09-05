@@ -117,4 +117,19 @@ impl Board {
     pub fn pop_en_passant_target(&mut self) -> u64 {
         self.en_passant_target_stack.pop().unwrap()
     }
+
+    pub fn material_value(&self) -> u16 {
+        self.white.material_value() - self.black.material_value()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_starting_material_value() {
+        let board = Board::starting_position();
+        assert_eq!(0, board.material_value());
+    }
 }

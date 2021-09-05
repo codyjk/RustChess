@@ -10,6 +10,28 @@ pub enum Piece {
     Rook,
 }
 
+pub const ALL_PIECES: [Piece; 6] = [
+    Piece::Bishop,
+    Piece::King,
+    Piece::Knight,
+    Piece::Pawn,
+    Piece::Queen,
+    Piece::Rook,
+];
+
+impl Piece {
+    pub fn material_value(self) -> u8 {
+        match self {
+            Piece::Pawn => 1,
+            Piece::Knight => 3,
+            Piece::Bishop => 3,
+            Piece::Rook => 5,
+            Piece::Queen => 9,
+            Piece::King => u8::MAX,
+        }
+    }
+}
+
 impl fmt::Display for Piece {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let msg = match self {
