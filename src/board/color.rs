@@ -7,6 +7,13 @@ pub enum Color {
 }
 
 impl Color {
+    pub fn color(&self) -> Self {
+        match self {
+            Color::Black => Color::Black,
+            Color::White => Color::White,
+        }
+    }
+
     pub fn opposite(&self) -> Self {
         match self {
             Color::Black => Color::White,

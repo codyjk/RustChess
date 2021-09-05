@@ -1,6 +1,7 @@
-use crate::board::bitboard::{EMPTY, RANK_2, RANK_4, RANK_5, RANK_7};
+use crate::board::bitboard::{EMPTY, RANK_1, RANK_2, RANK_4, RANK_5, RANK_7, RANK_8};
 use crate::board::color::Color;
 use crate::board::piece::Piece;
+use crate::board::square;
 use crate::board::Board;
 use crate::moves::chess_move::{ChessMove, ChessOperation as Op};
 use thiserror::Error;
@@ -22,6 +23,16 @@ pub enum BoardMoveError {
     EnPassantNonCapture,
     #[error("board error: {msg:?}")]
     BoardError { msg: &'static str },
+    #[error(
+        "invalid castle move, king can only move 2 squares to left or right on its original rank"
+    )]
+    InvalidCastleMoveError,
+    #[error("invalid castle state: {msg:?}")]
+    InvalidCastleStateError { msg: &'static str },
+    #[error("castle operation was not applied to a king")]
+    CastleNonKingError,
+    #[error("castle operation was not applied to a rook")]
+    CastleNonRookError,
 }
 
 impl Board {
@@ -32,6 +43,7 @@ impl Board {
             Op::Promote { to_piece } => {
                 self.apply_promote(cm.from_square(), cm.to_square(), cm.capture(), to_piece)
             }
+            Op::Castle => self.apply_castle(cm.from_square(), cm.to_square()),
         }
     }
 
@@ -123,6 +135,60 @@ impl Board {
         }
     }
 
+    fn apply_castle(&mut self, king_from: u64, king_to: u64) -> BoardMoveResult {
+        let kingside = match king_to {
+            b if b == king_from << 2 => true,
+            b if b == king_from >> 2 => false,
+            _ => return Err(BoardMoveError::InvalidCastleMoveError),
+        };
+
+        let color = match ((king_from & RANK_1 > 0), (king_from & RANK_8 > 0)) {
+            (true, false) => Color::White,
+            (false, true) => Color::Black,
+            _ => return Err(BoardMoveError::InvalidCastleMoveError),
+        };
+
+        let (rook_from, rook_to) = match (color, kingside) {
+            (Color::White, true) => (square::H1, square::F1),
+            (Color::White, false) => (square::A1, square::D1),
+            (Color::Black, true) => (square::H8, square::F8),
+            (Color::Black, false) => (square::A8, square::D8),
+        };
+
+        if self.get(king_from) != Some((Piece::King, color)) {
+            return Err(BoardMoveError::InvalidCastleStateError {
+                msg: "king_from is not a king",
+            });
+        }
+
+        if self.get(king_to) != None {
+            return Err(BoardMoveError::InvalidCastleStateError {
+                msg: "king_to is not empty",
+            });
+        }
+
+        if self.get(rook_from) != Some((Piece::Rook, color)) {
+            return Err(BoardMoveError::InvalidCastleStateError {
+                msg: "rook_from is not a rook",
+            });
+        }
+
+        if self.get(rook_to) != None {
+            return Err(BoardMoveError::InvalidCastleStateError {
+                msg: "rook_to is not empty",
+            });
+        }
+
+        self.remove(king_from).unwrap();
+        self.put(king_to, Piece::King, color).unwrap();
+        self.remove(rook_from).unwrap();
+        self.put(rook_to, Piece::Rook, color).unwrap();
+
+        self.push_en_passant_target(EMPTY);
+
+        Ok(None)
+    }
+
     pub fn undo(&mut self, cm: ChessMove) -> BoardMoveResult {
         match cm.op() {
             Op::Standard => self.undo_standard(cm.from_square(), cm.to_square(), cm.capture()),
@@ -130,6 +196,7 @@ impl Board {
             Op::Promote { to_piece } => {
                 self.undo_promote(cm.from_square(), cm.to_square(), cm.capture(), to_piece)
             }
+            Op::Castle => self.undo_castle(cm.from_square(), cm.to_square()),
         }
     }
 
@@ -206,6 +273,60 @@ impl Board {
             }
             error => error,
         }
+    }
+
+    fn undo_castle(&mut self, king_from: u64, king_to: u64) -> BoardMoveResult {
+        let kingside = match king_to {
+            b if b == king_from << 2 => true,
+            b if b == king_from >> 2 => false,
+            _ => return Err(BoardMoveError::InvalidCastleMoveError),
+        };
+
+        let color = match ((king_from & RANK_1 > 0), (king_from & RANK_8 > 0)) {
+            (true, false) => Color::White,
+            (false, true) => Color::Black,
+            _ => return Err(BoardMoveError::InvalidCastleMoveError),
+        };
+
+        let (rook_from, rook_to) = match (color, kingside) {
+            (Color::White, true) => (square::H1, square::F1),
+            (Color::White, false) => (square::A1, square::D1),
+            (Color::Black, true) => (square::H8, square::F8),
+            (Color::Black, false) => (square::A8, square::D8),
+        };
+
+        if self.get(king_to) != Some((Piece::King, color)) {
+            return Err(BoardMoveError::InvalidCastleStateError {
+                msg: "king_to is not a king",
+            });
+        }
+
+        if self.get(king_from) != None {
+            return Err(BoardMoveError::InvalidCastleStateError {
+                msg: "king_from is not empty",
+            });
+        }
+
+        if self.get(rook_to) != Some((Piece::Rook, color)) {
+            return Err(BoardMoveError::InvalidCastleStateError {
+                msg: "rook_to is not a rook",
+            });
+        }
+
+        if self.get(rook_from) != None {
+            return Err(BoardMoveError::InvalidCastleStateError {
+                msg: "rook_from is not empty",
+            });
+        }
+
+        self.remove(king_to).unwrap();
+        self.put(king_from, Piece::King, color).unwrap();
+        self.remove(rook_to).unwrap();
+        self.put(rook_from, Piece::Rook, color).unwrap();
+
+        self.pop_en_passant_target();
+
+        Ok(None)
     }
 }
 
@@ -365,5 +486,85 @@ mod tests {
         println!("After undoing promotion:\n{}", board.to_ascii());
         assert_eq!(Some((Piece::Pawn, Color::White)), board.get(square::A7));
         assert_eq!(Some((Piece::Rook, Color::Black)), board.get(square::B8));
+    }
+
+    #[test]
+    fn test_apply_and_undo_castle_white_kingside() {
+        let mut board = Board::new();
+        board.put(square::E1, Piece::King, Color::White).unwrap();
+        board.put(square::H1, Piece::Rook, Color::White).unwrap();
+        println!("Testing board:\n{}", board.to_ascii());
+
+        let castle = ChessMove::castle(square::E1, square::G1);
+
+        board.apply(castle).unwrap();
+        println!("After applying castle:\n{}", board.to_ascii());
+        assert_eq!(Some((Piece::King, Color::White)), board.get(square::G1));
+        assert_eq!(Some((Piece::Rook, Color::White)), board.get(square::F1));
+
+        board.undo(castle).unwrap();
+        println!("After undoing castle:\n{}", board.to_ascii());
+        assert_eq!(Some((Piece::King, Color::White)), board.get(square::E1));
+        assert_eq!(Some((Piece::Rook, Color::White)), board.get(square::H1));
+    }
+
+    #[test]
+    fn test_apply_and_undo_castle_black_kingside() {
+        let mut board = Board::new();
+        board.put(square::E8, Piece::King, Color::Black).unwrap();
+        board.put(square::H8, Piece::Rook, Color::Black).unwrap();
+        println!("Testing board:\n{}", board.to_ascii());
+
+        let castle = ChessMove::castle(square::E8, square::G8);
+
+        board.apply(castle).unwrap();
+        println!("After applying castle:\n{}", board.to_ascii());
+        assert_eq!(Some((Piece::King, Color::Black)), board.get(square::G8));
+        assert_eq!(Some((Piece::Rook, Color::Black)), board.get(square::F8));
+
+        board.undo(castle).unwrap();
+        println!("After undoing castle:\n{}", board.to_ascii());
+        assert_eq!(Some((Piece::King, Color::Black)), board.get(square::E8));
+        assert_eq!(Some((Piece::Rook, Color::Black)), board.get(square::H8));
+    }
+
+    #[test]
+    fn test_apply_and_undo_castle_white_queenside() {
+        let mut board = Board::new();
+        board.put(square::E1, Piece::King, Color::White).unwrap();
+        board.put(square::A1, Piece::Rook, Color::White).unwrap();
+        println!("Testing board:\n{}", board.to_ascii());
+
+        let castle = ChessMove::castle(square::E1, square::C1);
+
+        board.apply(castle).unwrap();
+        println!("After applying castle:\n{}", board.to_ascii());
+        assert_eq!(Some((Piece::King, Color::White)), board.get(square::C1));
+        assert_eq!(Some((Piece::Rook, Color::White)), board.get(square::D1));
+
+        board.undo(castle).unwrap();
+        println!("After undoing castle:\n{}", board.to_ascii());
+        assert_eq!(Some((Piece::King, Color::White)), board.get(square::E1));
+        assert_eq!(Some((Piece::Rook, Color::White)), board.get(square::A1));
+    }
+
+    #[test]
+    fn test_apply_and_undo_castle_black_queenside() {
+        let mut board = Board::new();
+        board.put(square::E8, Piece::King, Color::Black).unwrap();
+        board.put(square::A8, Piece::Rook, Color::Black).unwrap();
+        println!("Testing board:\n{}", board.to_ascii());
+
+        let castle = ChessMove::castle(square::E8, square::C8);
+
+        board.apply(castle).unwrap();
+        println!("After applying castle:\n{}", board.to_ascii());
+        assert_eq!(Some((Piece::King, Color::Black)), board.get(square::C8));
+        assert_eq!(Some((Piece::Rook, Color::Black)), board.get(square::D8));
+
+        board.undo(castle).unwrap();
+        println!("After undoing castle:\n{}", board.to_ascii());
+        assert_eq!(Some((Piece::King, Color::Black)), board.get(square::E8));
+        assert_eq!(Some((Piece::Rook, Color::Black)), board.get(square::A8));
     }
 }

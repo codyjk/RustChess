@@ -8,6 +8,7 @@ pub enum ChessOperation {
     Standard, // moves and captures
     EnPassant,
     Promote { to_piece: Piece },
+    Castle,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -55,6 +56,16 @@ impl ChessMove {
         }
     }
 
+    pub fn castle(from_square: u64, to_square: u64) -> Self {
+        Self {
+            op: ChessOperation::Castle,
+            // from and to square refers to the king's square. rook is handled in a special way
+            from_square: from_square,
+            to_square: to_square,
+            capture: None,
+        }
+    }
+
     pub fn op(&self) -> ChessOperation {
         self.op
     }
@@ -78,6 +89,7 @@ impl fmt::Display for ChessOperation {
             Self::Standard => "move".to_string(),
             Self::EnPassant => "en passant".to_string(),
             Self::Promote { to_piece } => format!("promote to {}", to_piece),
+            Self::Castle => "castle".to_string(),
         };
         write!(f, "{}", msg)
     }
