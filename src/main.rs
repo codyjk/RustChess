@@ -12,7 +12,10 @@ enum Chess {
         #[structopt(short, long, default_value = "3")]
         depth: u8,
     },
-    Play,
+    Play {
+        #[structopt(short, long, default_value = "3")]
+        depth: u8,
+    },
     Watch,
 }
 
@@ -20,7 +23,7 @@ fn main() {
     let args = Chess::from_args();
     match args {
         Chess::CountPositions { depth } => run_count_positions(depth),
-        Chess::Play => play_computer(),
+        Chess::Play { depth } => play_computer(depth),
         Chess::Watch => computer_vs_computer(),
     }
 }

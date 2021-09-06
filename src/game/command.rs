@@ -43,9 +43,20 @@ impl Command for MakeShallowOptimalMove {
     }
 }
 
-pub struct MakeMinimaxOptimalMove {}
+pub struct MakeMinimaxOptimalMove {
+    pub depth: u8,
+}
 impl Command for MakeMinimaxOptimalMove {
     fn execute(&self, game: &mut Game) -> CommandResult {
-        game.make_minimax_best_move()
+        game.make_minimax_best_move(self.depth)
+    }
+}
+
+pub struct MakeAlphaBetaOptimalMove {
+    pub depth: u8,
+}
+impl Command for MakeAlphaBetaOptimalMove {
+    fn execute(&self, game: &mut Game) -> CommandResult {
+        game.make_minimax_best_move(self.depth)
     }
 }

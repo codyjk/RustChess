@@ -1,13 +1,13 @@
-use super::command::MakeMinimaxOptimalMove;
+use super::command::MakeAlphaBetaOptimalMove;
 use super::Game;
 use crate::board::color::Color;
 use crate::input_handler;
-use rand;
+use rand::{self, Rng};
 use termion::clear;
 
-pub fn play_computer() {
+pub fn play_computer(depth: u8) {
     let game = &mut Game::new();
-    let rand: u8 = rand::random();
+    let rand: u8 = rand::thread_rng().gen();
     let player_color = match rand % 2 {
         0 => Color::White,
         _ => Color::Black,
@@ -24,7 +24,7 @@ pub fn play_computer() {
                 }
             }
         } else {
-            Box::new(MakeMinimaxOptimalMove {})
+            Box::new(MakeAlphaBetaOptimalMove { depth: depth })
         };
 
         match command.execute(game) {

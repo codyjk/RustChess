@@ -116,10 +116,32 @@ impl Game {
         }
     }
 
-    pub fn make_minimax_best_move(&mut self) -> Result<ChessMove, GameError> {
+    pub fn make_minimax_best_move(&mut self, depth: u8) -> Result<ChessMove, GameError> {
         let turn = self.turn();
         let (maybe_chessmove, _score) =
-            minimax_select_move(3, &mut self.board, &self.ray_table, turn);
+            minimax_select_move(depth, &mut self.board, &self.ray_table, turn);
+
+        let best_move = match maybe_chessmove {
+            Some(chessmove) => chessmove,
+            None => return Err(GameError::NoAvailableMoves),
+        };
+
+        match self.board.apply(best_move) {
+            Ok(_capture) => Ok(best_move),
+            Err(error) => Err(GameError::BoardError { error: error }),
+        }
+    }
+
+    pub fn make_alpha_beta_best_move(&mut self, depth: u8) -> Result<ChessMove, GameError> {
+        let turn = self.turn();
+        let (maybe_chessmove, _score) = alpha_beta_max(
+            i32::MIN,
+            i32::MAX,
+            depth,
+            &mut self.board,
+            &self.ray_table,
+            turn,
+        );
 
         let best_move = match maybe_chessmove {
             Some(chessmove) => chessmove,
@@ -140,7 +162,7 @@ fn minimax_select_move(
     current_turn: Color,
 ) -> (Option<ChessMove>, i32) {
     if depth == 0 {
-        let score = board.material_value();
+        let score = board.score();
         return (None, score);
     }
 
@@ -149,8 +171,8 @@ fn minimax_select_move(
         Color::Black => i32::MAX,
     };
     let mut best_move = None;
-
     let candidates = moves::generate(board, current_turn, ray_table);
+
     for chessmove in candidates {
         board.apply(chessmove).unwrap();
         let (_deep_best_move, score) =
@@ -169,4 +191,88 @@ fn minimax_select_move(
     }
 
     (best_move, best_score)
+}
+
+fn alpha_beta_max(
+    alpha: i32,
+    beta: i32,
+    depth: u8,
+    board: &mut Board,
+    ray_table: &RayTable,
+    current_turn: Color,
+) -> (Option<ChessMove>, i32) {
+    if depth == 0 {
+        return (None, board.score());
+    }
+
+    let mut new_alpha = alpha;
+    let mut best_move = None;
+
+    let candidates = moves::generate(board, current_turn, ray_table);
+
+    for chessmove in candidates {
+        board.apply(chessmove).unwrap();
+        let (_deep_best_move, score) = alpha_beta_min(
+            new_alpha,
+            beta,
+            depth - 1,
+            board,
+            ray_table,
+            current_turn.opposite(),
+        );
+        board.undo(chessmove).unwrap();
+
+        if score >= beta {
+            return (None, beta);
+        }
+
+        if score > new_alpha {
+            new_alpha = score;
+            best_move = Some(chessmove);
+        }
+    }
+
+    (best_move, new_alpha)
+}
+
+fn alpha_beta_min(
+    alpha: i32,
+    beta: i32,
+    depth: u8,
+    board: &mut Board,
+    ray_table: &RayTable,
+    current_turn: Color,
+) -> (Option<ChessMove>, i32) {
+    if depth == 0 {
+        return (None, -1 * board.score());
+    }
+
+    let mut new_beta = beta;
+    let mut best_move = None;
+
+    let candidates = moves::generate(board, current_turn, ray_table);
+
+    for chessmove in candidates {
+        board.apply(chessmove).unwrap();
+        let (_deep_best_move, score) = alpha_beta_max(
+            alpha,
+            new_beta,
+            depth - 1,
+            board,
+            ray_table,
+            current_turn.opposite(),
+        );
+        board.undo(chessmove).unwrap();
+
+        if score <= alpha {
+            return (None, alpha);
+        }
+
+        if score < new_beta {
+            new_beta = score;
+            best_move = Some(chessmove);
+        }
+    }
+
+    (best_move, new_beta)
 }
