@@ -12,3 +12,13 @@ rand = "0.8.4"
 termion = "1"
 thiserror = "1.0"
 structopt = "0.3"
+
+[profile.release]
+debug = true
+
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "computer_vs_computer_benchmark"
+harness = false

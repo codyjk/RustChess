@@ -252,6 +252,25 @@ fn remove_invalid_moves(
     moves
 }
 
+pub fn count_positions(depth: u8, board: &mut Board, ray_table: &RayTable, color: Color) -> usize {
+    let candidates = generate(board, color, ray_table);
+    let mut count = candidates.len();
+
+    if depth == 0 {
+        return count;
+    }
+
+    let next_color = color.opposite();
+
+    for chessmove in candidates {
+        board.apply(chessmove).unwrap();
+        count += count_positions(depth - 1, board, ray_table, next_color);
+        board.undo(chessmove).unwrap();
+    }
+
+    count
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

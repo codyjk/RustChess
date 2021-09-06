@@ -92,8 +92,10 @@ impl Board {
             self.push_en_passant_target(EMPTY);
         }
 
+        let captured_piece = self.remove(to_square);
+
         // adjust castle rights if a rook or king moved
-        let lost_castle_rights = match (piece_to_move, color, from_square) {
+        let mut lost_castle_rights = match (piece_to_move, color, from_square) {
             (Piece::Rook, Color::White, square::A1) => WHITE_QUEENSIDE_RIGHTS,
             (Piece::Rook, Color::White, square::H1) => WHITE_KINGSIDE_RIGHTS,
             (Piece::Rook, Color::Black, square::A8) => BLACK_QUEENSIDE_RIGHTS,
@@ -107,9 +109,17 @@ impl Board {
             _ => 0,
         };
 
+        // adjust castle rights if a rook is taken
+        lost_castle_rights |= match (captured_piece, to_square) {
+            (Some((Piece::Rook, Color::White)), square::A1) => WHITE_QUEENSIDE_RIGHTS,
+            (Some((Piece::Rook, Color::White)), square::H1) => WHITE_KINGSIDE_RIGHTS,
+            (Some((Piece::Rook, Color::Black)), square::A8) => BLACK_QUEENSIDE_RIGHTS,
+            (Some((Piece::Rook, Color::Black)), square::H8) => BLACK_KINGSIDE_RIGHTS,
+            _ => 0,
+        };
+
         self.lose_castle_rights(lost_castle_rights);
 
-        let captured_piece = self.remove(to_square);
         match self.put(to_square, piece_to_move, color) {
             Ok(()) => return Ok(captured_piece),
             Err(error) => return Err(BoardMoveError::BoardError { msg: error }),
@@ -670,6 +680,86 @@ mod tests {
             .apply(ChessMove::new(square::A8, square::A2, None))
             .unwrap();
         assert_eq!(0, board.peek_castle_rights() & BLACK_QUEENSIDE_RIGHTS);
+    }
+
+    #[test]
+    fn test_white_lose_queenside_castle_rights_from_capture() {
+        let mut board = Board::new();
+        board.put(square::E1, Piece::King, Color::White).unwrap();
+        board.put(square::A1, Piece::Rook, Color::White).unwrap();
+        board.put(square::H1, Piece::Rook, Color::White).unwrap();
+        board.put(square::H8, Piece::Bishop, Color::Black).unwrap();
+        println!("Testing board:\n{}", board.to_ascii());
+
+        assert!(board.peek_castle_rights() & WHITE_QUEENSIDE_RIGHTS > 0);
+        board
+            .apply(ChessMove::new(
+                square::H8,
+                square::A1,
+                Some((Piece::Rook, Color::White)),
+            ))
+            .unwrap();
+        assert_eq!(0, board.peek_castle_rights() & WHITE_QUEENSIDE_RIGHTS);
+    }
+
+    #[test]
+    fn test_white_lose_kingside_castle_rights_from_capture() {
+        let mut board = Board::new();
+        board.put(square::E1, Piece::King, Color::White).unwrap();
+        board.put(square::A1, Piece::Rook, Color::White).unwrap();
+        board.put(square::H1, Piece::Rook, Color::White).unwrap();
+        board.put(square::A8, Piece::Bishop, Color::Black).unwrap();
+        println!("Testing board:\n{}", board.to_ascii());
+
+        assert!(board.peek_castle_rights() & WHITE_KINGSIDE_RIGHTS > 0);
+        board
+            .apply(ChessMove::new(
+                square::A8,
+                square::H1,
+                Some((Piece::Rook, Color::White)),
+            ))
+            .unwrap();
+        assert_eq!(0, board.peek_castle_rights() & WHITE_KINGSIDE_RIGHTS);
+    }
+
+    #[test]
+    fn test_black_lose_queenside_castle_rights_from_capture() {
+        let mut board = Board::new();
+        board.put(square::E8, Piece::King, Color::Black).unwrap();
+        board.put(square::A8, Piece::Rook, Color::Black).unwrap();
+        board.put(square::H8, Piece::Rook, Color::Black).unwrap();
+        board.put(square::H1, Piece::Bishop, Color::White).unwrap();
+        println!("Testing board:\n{}", board.to_ascii());
+
+        assert!(board.peek_castle_rights() & BLACK_QUEENSIDE_RIGHTS > 0);
+        board
+            .apply(ChessMove::new(
+                square::H1,
+                square::A8,
+                Some((Piece::Rook, Color::Black)),
+            ))
+            .unwrap();
+        assert_eq!(0, board.peek_castle_rights() & BLACK_QUEENSIDE_RIGHTS);
+    }
+
+    #[test]
+    fn test_black_lose_kingside_castle_rights_from_capture() {
+        let mut board = Board::new();
+        board.put(square::E8, Piece::King, Color::Black).unwrap();
+        board.put(square::A8, Piece::Rook, Color::Black).unwrap();
+        board.put(square::H8, Piece::Rook, Color::Black).unwrap();
+        board.put(square::A1, Piece::Bishop, Color::White).unwrap();
+        println!("Testing board:\n{}", board.to_ascii());
+
+        assert!(board.peek_castle_rights() & BLACK_KINGSIDE_RIGHTS > 0);
+        board
+            .apply(ChessMove::new(
+                square::A1,
+                square::H8,
+                Some((Piece::Rook, Color::Black)),
+            ))
+            .unwrap();
+        assert_eq!(0, board.peek_castle_rights() & BLACK_KINGSIDE_RIGHTS);
     }
 
     #[test]

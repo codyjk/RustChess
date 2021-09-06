@@ -1,4 +1,5 @@
 pub mod command;
+pub mod modes;
 
 use crate::board::color::Color;
 use crate::board::Board;
