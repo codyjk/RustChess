@@ -28,16 +28,28 @@ pub const BISHOP_DIRS: [Direction; 4] = [
     Direction::SouthWest,
 ];
 
-type Ray = (u64, Direction); // (square, direction)
-
 pub struct RayTable {
-    table: HashMap<Ray, u64>,
+    north: HashMap<u64, u64>,
+    east: HashMap<u64, u64>,
+    south: HashMap<u64, u64>,
+    west: HashMap<u64, u64>,
+    northeast: HashMap<u64, u64>,
+    northwest: HashMap<u64, u64>,
+    southeast: HashMap<u64, u64>,
+    southwest: HashMap<u64, u64>,
 }
 
 impl RayTable {
     pub fn new() -> Self {
         Self {
-            table: HashMap::new(),
+            north: HashMap::new(),
+            east: HashMap::new(),
+            south: HashMap::new(),
+            west: HashMap::new(),
+            northeast: HashMap::new(),
+            northwest: HashMap::new(),
+            southeast: HashMap::new(),
+            southwest: HashMap::new(),
         }
     }
 
@@ -46,23 +58,39 @@ impl RayTable {
             let square_bit = 1 << x;
             let square = square::assert(square_bit);
 
-            for dir in ROOK_DIRS.iter() {
-                self.table
-                    .insert((square, *dir), generate_rook_ray(square_bit, *dir));
-            }
-
-            for dir in BISHOP_DIRS.iter() {
-                self.table
-                    .insert((square, *dir), generate_bishop_ray(square_bit, *dir));
-            }
+            self.north
+                .insert(square, generate_rook_ray(square, Direction::North));
+            self.east
+                .insert(square, generate_rook_ray(square, Direction::East));
+            self.south
+                .insert(square, generate_rook_ray(square, Direction::South));
+            self.west
+                .insert(square, generate_rook_ray(square, Direction::West));
+            self.northeast
+                .insert(square, generate_bishop_ray(square, Direction::NorthEast));
+            self.northwest
+                .insert(square, generate_bishop_ray(square, Direction::NorthWest));
+            self.southeast
+                .insert(square, generate_bishop_ray(square, Direction::SouthEast));
+            self.southwest
+                .insert(square, generate_bishop_ray(square, Direction::SouthWest));
         }
 
         self
     }
 
     pub fn get(&self, square: u64, dir: Direction) -> u64 {
-        let ray = (square, dir);
-        *self.table.get(&ray).unwrap()
+        let inner_table = match dir {
+            Direction::North => &self.north,
+            Direction::East => &self.east,
+            Direction::South => &self.south,
+            Direction::West => &self.west,
+            Direction::NorthEast => &self.northeast,
+            Direction::NorthWest => &self.northwest,
+            Direction::SouthEast => &self.southeast,
+            Direction::SouthWest => &self.southwest,
+        };
+        *inner_table.get(&square).unwrap()
     }
 }
 
