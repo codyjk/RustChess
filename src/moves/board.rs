@@ -1,5 +1,6 @@
 use crate::board::bitboard::{EMPTY, RANK_1, RANK_2, RANK_4, RANK_5, RANK_7, RANK_8};
 use crate::board::color::Color;
+use crate::board::error::BoardError;
 use crate::board::piece::Piece;
 use crate::board::square;
 use crate::board::{
@@ -7,39 +8,11 @@ use crate::board::{
     WHITE_QUEENSIDE_RIGHTS,
 };
 use crate::moves::chess_move::{ChessMove, ChessOperation as Op};
-use thiserror::Error;
 
 type Capture = (Piece, Color);
-type BoardMoveResult = Result<Option<Capture>, BoardMoveError>;
-
-#[derive(Error, Debug)]
-pub enum BoardMoveError {
-    #[error("cannot {op:?} chess move, the `from` square is empty")]
-    FromSquareIsEmpty { op: &'static str },
-    #[error("cannot {op:?} chess move, the `to` square is empty")]
-    ToSquareIsEmpty { op: &'static str },
-    #[error("the expected capture result is different than what is on the target square")]
-    UnexpectedCaptureResult,
-    #[error("cannot {op:?} en passant, the piece is not a pawn")]
-    EnPassantNonPawn { op: &'static str },
-    #[error("en passant didn't result in a capture")]
-    EnPassantNonCapture,
-    #[error("board error: {msg:?}")]
-    BoardError { msg: &'static str },
-    #[error(
-        "invalid castle move, king can only move 2 squares to left or right on its original rank"
-    )]
-    InvalidCastleMoveError,
-    #[error("invalid castle state: {msg:?}")]
-    InvalidCastleStateError { msg: &'static str },
-    #[error("castle operation was not applied to a king")]
-    CastleNonKingError,
-    #[error("castle operation was not applied to a rook")]
-    CastleNonRookError,
-}
 
 impl Board {
-    pub fn apply(&mut self, cm: ChessMove) -> BoardMoveResult {
+    pub fn apply(&mut self, cm: ChessMove) -> Result<Option<Capture>, BoardError> {
         let result = match cm.op() {
             Op::Standard => self.apply_standard(cm.from_square(), cm.to_square(), cm.capture()),
             Op::EnPassant => self.apply_en_passant(cm.from_square(), cm.to_square()),
@@ -62,15 +35,15 @@ impl Board {
         from_square: u64,
         to_square: u64,
         expected_capture: Option<Capture>,
-    ) -> BoardMoveResult {
+    ) -> Result<Option<Capture>, BoardError> {
         let maybe_piece = self.remove(from_square);
         let (piece_to_move, color) = match maybe_piece {
-            None => return Err(BoardMoveError::FromSquareIsEmpty { op: "apply" }),
+            None => return Err(BoardError::FromSquareIsEmpty { op: "apply" }),
             Some((piece, color)) => (piece, color),
         };
 
         if self.get(to_square) != expected_capture {
-            return Err(BoardMoveError::UnexpectedCaptureResult);
+            return Err(BoardError::UnexpectedCaptureResult);
         }
 
         // check for en passant
@@ -120,21 +93,23 @@ impl Board {
 
         self.lose_castle_rights(lost_castle_rights);
 
-        match self.put(to_square, piece_to_move, color) {
-            Ok(()) => return Ok(captured_piece),
-            Err(error) => return Err(BoardMoveError::BoardError { msg: error }),
-        }
+        self.put(to_square, piece_to_move, color)
+            .map(|_| captured_piece)
     }
 
-    fn apply_en_passant(&mut self, from_square: u64, to_square: u64) -> BoardMoveResult {
+    fn apply_en_passant(
+        &mut self,
+        from_square: u64,
+        to_square: u64,
+    ) -> Result<Option<Capture>, BoardError> {
         let maybe_piece = self.remove(from_square);
         let (piece_to_move, color) = match maybe_piece {
-            None => return Err(BoardMoveError::FromSquareIsEmpty { op: "apply" }),
+            None => return Err(BoardError::FromSquareIsEmpty { op: "apply" }),
             Some((piece, color)) => (piece, color),
         };
 
         if piece_to_move != Piece::Pawn {
-            return Err(BoardMoveError::EnPassantNonPawn { op: "apply" });
+            return Err(BoardError::EnPassantNonPawn { op: "apply" });
         }
 
         // the captured pawn is "behind" the target square
@@ -145,7 +120,7 @@ impl Board {
 
         let capture = match self.remove(capture_square) {
             Some((piece, color)) => (piece, color),
-            None => return Err(BoardMoveError::EnPassantNonCapture),
+            None => return Err(BoardError::EnPassantNonCapture),
         };
 
         self.put(to_square, piece_to_move, color).unwrap();
@@ -163,28 +138,30 @@ impl Board {
         to_square: u64,
         expected_capture: Option<Capture>,
         promote_to_piece: Piece,
-    ) -> BoardMoveResult {
-        match self.apply_standard(from_square, to_square, expected_capture) {
-            Ok(maybe_capture) => {
+    ) -> Result<Option<Capture>, BoardError> {
+        self.apply_standard(from_square, to_square, expected_capture)
+            .map(|capture| {
                 let (_piece, color) = self.remove(to_square).unwrap();
                 self.put(to_square, promote_to_piece, color).unwrap();
-                Ok(maybe_capture)
-            }
-            error => error,
-        }
+                capture
+            })
     }
 
-    fn apply_castle(&mut self, king_from: u64, king_to: u64) -> BoardMoveResult {
+    fn apply_castle(
+        &mut self,
+        king_from: u64,
+        king_to: u64,
+    ) -> Result<Option<Capture>, BoardError> {
         let kingside = match king_to {
             b if b == king_from << 2 => true,
             b if b == king_from >> 2 => false,
-            _ => return Err(BoardMoveError::InvalidCastleMoveError),
+            _ => return Err(BoardError::InvalidCastleMoveError),
         };
 
         let color = match ((king_from & RANK_1 > 0), (king_from & RANK_8 > 0)) {
             (true, false) => Color::White,
             (false, true) => Color::Black,
-            _ => return Err(BoardMoveError::InvalidCastleMoveError),
+            _ => return Err(BoardError::InvalidCastleMoveError),
         };
 
         let (rook_from, rook_to) = match (color, kingside) {
@@ -195,25 +172,25 @@ impl Board {
         };
 
         if self.get(king_from) != Some((Piece::King, color)) {
-            return Err(BoardMoveError::InvalidCastleStateError {
+            return Err(BoardError::InvalidCastleStateError {
                 msg: "king_from is not a king",
             });
         }
 
         if self.get(king_to) != None {
-            return Err(BoardMoveError::InvalidCastleStateError {
+            return Err(BoardError::InvalidCastleStateError {
                 msg: "king_to is not empty",
             });
         }
 
         if self.get(rook_from) != Some((Piece::Rook, color)) {
-            return Err(BoardMoveError::InvalidCastleStateError {
+            return Err(BoardError::InvalidCastleStateError {
                 msg: "rook_from is not a rook",
             });
         }
 
         if self.get(rook_to) != None {
-            return Err(BoardMoveError::InvalidCastleStateError {
+            return Err(BoardError::InvalidCastleStateError {
                 msg: "rook_to is not empty",
             });
         }
@@ -234,7 +211,7 @@ impl Board {
         Ok(None)
     }
 
-    pub fn undo(&mut self, cm: ChessMove) -> BoardMoveResult {
+    pub fn undo(&mut self, cm: ChessMove) -> Result<Option<Capture>, BoardError> {
         let result = match cm.op() {
             Op::Standard => self.undo_standard(cm.from_square(), cm.to_square(), cm.capture()),
             Op::EnPassant => self.undo_en_passant(cm.from_square(), cm.to_square()),
@@ -253,11 +230,11 @@ impl Board {
         from_square: u64,
         to_square: u64,
         capture: Option<Capture>,
-    ) -> BoardMoveResult {
+    ) -> Result<Option<Capture>, BoardError> {
         // remove the moved piece
         let maybe_piece = self.remove(to_square);
         let (piece_to_move_back, piece_color) = match maybe_piece {
-            None => return Err(BoardMoveError::ToSquareIsEmpty { op: "undo" }),
+            None => return Err(BoardError::ToSquareIsEmpty { op: "undo" }),
             Some((piece, color)) => (piece, color),
         };
 
@@ -273,22 +250,24 @@ impl Board {
         // return to the previous castle rights state
         self.pop_castle_rights();
 
-        match self.put(from_square, piece_to_move_back, piece_color) {
-            Ok(()) => return Ok(None),
-            Err(error) => return Err(BoardMoveError::BoardError { msg: error }),
-        }
+        self.put(from_square, piece_to_move_back, piece_color)
+            .map(|_| None)
     }
 
-    fn undo_en_passant(&mut self, from_square: u64, to_square: u64) -> BoardMoveResult {
+    fn undo_en_passant(
+        &mut self,
+        from_square: u64,
+        to_square: u64,
+    ) -> Result<Option<Capture>, BoardError> {
         // remove the moved pawn
         let maybe_piece = self.remove(to_square);
         let (piece_to_move_back, piece_color) = match maybe_piece {
-            None => return Err(BoardMoveError::ToSquareIsEmpty { op: "undo" }),
+            None => return Err(BoardError::ToSquareIsEmpty { op: "undo" }),
             Some((piece, color)) => (piece, color),
         };
 
         if piece_to_move_back != Piece::Pawn {
-            return Err(BoardMoveError::EnPassantNonPawn { op: "undo" });
+            return Err(BoardError::EnPassantNonPawn { op: "undo" });
         }
 
         // return the pawn to its original square
@@ -318,28 +297,26 @@ impl Board {
         to_square: u64,
         expected_capture: Option<Capture>,
         _promote_to_piece: Piece,
-    ) -> BoardMoveResult {
-        match self.undo_standard(from_square, to_square, expected_capture) {
-            Ok(maybe_capture) => {
+    ) -> Result<Option<Capture>, BoardError> {
+        self.undo_standard(from_square, to_square, expected_capture)
+            .map(|capture| {
                 let (_piece, color) = self.remove(from_square).unwrap();
                 self.put(from_square, Piece::Pawn, color).unwrap();
-                Ok(maybe_capture)
-            }
-            error => error,
-        }
+                capture
+            })
     }
 
-    fn undo_castle(&mut self, king_from: u64, king_to: u64) -> BoardMoveResult {
+    fn undo_castle(&mut self, king_from: u64, king_to: u64) -> Result<Option<Capture>, BoardError> {
         let kingside = match king_to {
             b if b == king_from << 2 => true,
             b if b == king_from >> 2 => false,
-            _ => return Err(BoardMoveError::InvalidCastleMoveError),
+            _ => return Err(BoardError::InvalidCastleMoveError),
         };
 
         let color = match ((king_from & RANK_1 > 0), (king_from & RANK_8 > 0)) {
             (true, false) => Color::White,
             (false, true) => Color::Black,
-            _ => return Err(BoardMoveError::InvalidCastleMoveError),
+            _ => return Err(BoardError::InvalidCastleMoveError),
         };
 
         let (rook_from, rook_to) = match (color, kingside) {
@@ -350,25 +327,25 @@ impl Board {
         };
 
         if self.get(king_to) != Some((Piece::King, color)) {
-            return Err(BoardMoveError::InvalidCastleStateError {
+            return Err(BoardError::InvalidCastleStateError {
                 msg: "king_to is not a king",
             });
         }
 
         if self.get(king_from) != None {
-            return Err(BoardMoveError::InvalidCastleStateError {
+            return Err(BoardError::InvalidCastleStateError {
                 msg: "king_from is not empty",
             });
         }
 
         if self.get(rook_to) != Some((Piece::Rook, color)) {
-            return Err(BoardMoveError::InvalidCastleStateError {
+            return Err(BoardError::InvalidCastleStateError {
                 msg: "rook_to is not a rook",
             });
         }
 
         if self.get(rook_from) != None {
-            return Err(BoardMoveError::InvalidCastleStateError {
+            return Err(BoardError::InvalidCastleStateError {
                 msg: "rook_from is not empty",
             });
         }

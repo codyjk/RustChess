@@ -2,9 +2,9 @@ pub mod command;
 pub mod modes;
 
 use crate::board::color::Color;
+use crate::board::error::BoardError;
 use crate::board::Board;
 use crate::moves;
-use crate::moves::board::BoardMoveError;
 use crate::moves::chess_move::ChessMove;
 use crate::moves::ray_table::RayTable;
 use rand::{self, Rng};
@@ -22,7 +22,7 @@ pub enum GameError {
     #[error("no available moves")]
     NoAvailableMoves,
     #[error("board error: {error:?}")]
-    BoardMoveError { error: BoardMoveError },
+    BoardError { error: BoardError },
 }
 
 impl Game {
@@ -60,7 +60,7 @@ impl Game {
         };
         match self.board.apply(chessmove) {
             Ok(_capture) => Ok(chessmove),
-            Err(error) => Err(GameError::BoardMoveError { error: error }),
+            Err(error) => Err(GameError::BoardError { error: error }),
         }
     }
 
@@ -76,7 +76,7 @@ impl Game {
         };
         match self.board.apply(chessmove) {
             Ok(_capture) => Ok(chessmove),
-            Err(error) => Err(GameError::BoardMoveError { error: error }),
+            Err(error) => Err(GameError::BoardError { error: error }),
         }
     }
 
@@ -112,7 +112,7 @@ impl Game {
 
         match self.board.apply(*best_move) {
             Ok(_capture) => Ok(*best_move),
-            Err(error) => Err(GameError::BoardMoveError { error: error }),
+            Err(error) => Err(GameError::BoardError { error: error }),
         }
     }
 
@@ -128,7 +128,7 @@ impl Game {
 
         match self.board.apply(best_move) {
             Ok(_capture) => Ok(best_move),
-            Err(error) => Err(GameError::BoardMoveError { error: error }),
+            Err(error) => Err(GameError::BoardError { error: error }),
         }
     }
 }

@@ -1,5 +1,6 @@
 pub mod bitboard;
 pub mod color;
+pub mod error;
 pub mod piece;
 pub mod square;
 
@@ -9,6 +10,7 @@ mod ui;
 
 use bitboard::EMPTY;
 use color::Color;
+use error::BoardError;
 use piece::Piece;
 use pieces::Pieces;
 
@@ -17,6 +19,11 @@ pub const WHITE_KINGSIDE_RIGHTS: CastleRightsBitmask = 0b1000;
 pub const BLACK_KINGSIDE_RIGHTS: CastleRightsBitmask = 0b0100;
 pub const WHITE_QUEENSIDE_RIGHTS: CastleRightsBitmask = 0b0010;
 pub const BLACK_QUEENSIDE_RIGHTS: CastleRightsBitmask = 0b0001;
+pub const ALL_CASTLE_RIGHTS: CastleRightsBitmask = 0b0000
+    | WHITE_KINGSIDE_RIGHTS
+    | BLACK_KINGSIDE_RIGHTS
+    | WHITE_QUEENSIDE_RIGHTS
+    | BLACK_QUEENSIDE_RIGHTS;
 
 pub struct Board {
     white: Pieces,
@@ -35,12 +42,7 @@ impl Board {
             black: Pieces::new(),
             turn: Color::White,
             en_passant_target_stack: vec![EMPTY],
-            castle_rights_stack: vec![
-                WHITE_KINGSIDE_RIGHTS
-                    | BLACK_KINGSIDE_RIGHTS
-                    | WHITE_QUEENSIDE_RIGHTS
-                    | BLACK_QUEENSIDE_RIGHTS,
-            ],
+            castle_rights_stack: vec![ALL_CASTLE_RIGHTS],
             halfmove_clock_stack: vec![0],
             fullmove_clock: 1,
         }
@@ -79,15 +81,12 @@ impl Board {
             Color::Black => self.black.get(square),
         };
 
-        match maybe_piece {
-            Some(piece) => Some((piece, color)),
-            None => None,
-        }
+        maybe_piece.map(|piece| (piece, color))
     }
 
-    pub fn put(&mut self, square: u64, piece: Piece, color: Color) -> Result<(), &'static str> {
+    pub fn put(&mut self, square: u64, piece: Piece, color: Color) -> Result<(), BoardError> {
         if self.is_occupied(square) {
-            return Err("that square already has a piece on it");
+            return Err(BoardError::SquareOccupied);
         }
 
         match color {
@@ -97,20 +96,13 @@ impl Board {
     }
 
     pub fn remove(&mut self, square: u64) -> Option<(Piece, Color)> {
-        let color = match self.get(square) {
-            Some((_piece, color)) => color,
-            None => return None,
-        };
-
-        let result = match color {
-            Color::White => self.white.remove(square),
-            Color::Black => self.black.remove(square),
-        };
-
-        match result {
-            Some(piece) => Some((piece, color)),
-            None => None,
-        }
+        self.get(square).map(|(piece, color)| {
+            match color {
+                Color::White => self.white.remove(square),
+                Color::Black => self.black.remove(square),
+            };
+            (piece, color)
+        })
     }
 
     pub fn turn(&self) -> Color {

@@ -1,5 +1,6 @@
 use super::bitboard::EMPTY;
 use super::piece::{Piece, ALL_PIECES};
+use super::BoardError;
 
 #[derive(Clone, Copy, PartialEq)]
 pub struct Pieces {
@@ -63,9 +64,9 @@ impl Pieces {
         square & self.occupied > 0
     }
 
-    pub fn put(&mut self, square: u64, piece: Piece) -> Result<(), &'static str> {
+    pub fn put(&mut self, square: u64, piece: Piece) -> Result<(), BoardError> {
         if self.is_occupied(square) {
-            return Err("that square already has a piece on it");
+            return Err(BoardError::SquareOccupied);
         }
 
         match piece {
