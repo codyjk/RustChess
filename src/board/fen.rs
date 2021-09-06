@@ -9,31 +9,31 @@ use regex::Regex;
 
 pub const STARTING_POSITION_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
+// A FEN record contains six fields. The separator between fields is a space. The fields are:
+//   1. Piece placement (from White's perspective). Each rank is described, starting with rank 8
+//     and ending with rank 1; within each rank, the contents of each square are described from
+//     file `a` through file `h`. Following the Standard Algebraic Notation (SAN), each piece is
+//     identified by a single letter taken from the standard English names (pawn = `P`,
+//     knight = `N`, bishop = `B`, rook = `R`, queen = `Q` and king = `K`). White pieces are
+//     designated using upper-case letters (`PNBRQK`) while black pieces use lowercase
+//     (`pnbrqk`). Empty squares are noted using digits 1 through 8 (the number of empty
+//     squares), and `/` separates ranks.
+//   2. Active color. `w` means White moves next, `b` means Black moves next.
+//   3. Castling availability. If neither side can castle, this is `-`. Otherwise, this has one
+//     or more letters: `K` (White can castle kingside), `Q` (White can castle queenside), `k`
+//     (Black can castle kingside), and/or `q` (Black can castle queenside). A move that
+//     temporarily prevents castling does not negate this notation.
+//   4. En passant target square in algebraic notation. If there's no en passant target square,
+//     this is `-`. If a pawn has just made a two-square move, this is the position `behind` the
+//     pawn. This is recorded regardless of whether there is a pawn in position to make an en
+//     passant capture.
+//   5. Halfmove clock: The number of halfmoves since the last capture or pawn advance, used for
+//     the fifty-move rule.
+//   6. Fullmove number: The number of the full move. It starts at 1, and is incremented after
+//     Black's move.
+//
+// Starting position FEN: `rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1`
 impl Board {
-    /// A FEN record contains six fields. The separator between fields is a space. The fields are:
-    ///   1. Piece placement (from White's perspective). Each rank is described, starting with rank 8
-    ///     and ending with rank 1; within each rank, the contents of each square are described from
-    ///     file `a` through file `h`. Following the Standard Algebraic Notation (SAN), each piece is
-    ///     identified by a single letter taken from the standard English names (pawn = `P`,
-    ///     knight = `N`, bishop = `B`, rook = `R`, queen = `Q` and king = `K`). White pieces are
-    ///     designated using upper-case letters (`PNBRQK`) while black pieces use lowercase
-    ///     (`pnbrqk`). Empty squares are noted using digits 1 through 8 (the number of empty
-    ///     squares), and `/` separates ranks.
-    ///   2. Active color. `w` means White moves next, `b` means Black moves next.
-    ///   3. Castling availability. If neither side can castle, this is `-`. Otherwise, this has one
-    ///     or more letters: `K` (White can castle kingside), `Q` (White can castle queenside), `k`
-    ///     (Black can castle kingside), and/or `q` (Black can castle queenside). A move that
-    ///     temporarily prevents castling does not negate this notation.
-    ///   4. En passant target square in algebraic notation. If there's no en passant target square,
-    ///     this is `-`. If a pawn has just made a two-square move, this is the position `behind` the
-    ///     pawn. This is recorded regardless of whether there is a pawn in position to make an en
-    ///     passant capture.
-    ///   5. Halfmove clock: The number of halfmoves since the last capture or pawn advance, used for
-    ///     the fifty-move rule.
-    ///   6. Fullmove number: The number of the full move. It starts at 1, and is incremented after
-    ///     Black's move.
-    ///
-    /// Starting position FEN: `rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1`
     pub fn from_fen(fen: &str) -> Result<Self, String> {
         let re = Regex::new(
             r"(?x)
@@ -114,22 +114,20 @@ impl Board {
         let raw_rights = &caps[10];
         let mut lost_rights = 0b000;
 
-        if raw_rights != "-" {
-            if !raw_rights.contains('K') {
-                lost_rights |= WHITE_KINGSIDE_RIGHTS;
-            }
+        if !raw_rights.contains('K') {
+            lost_rights |= WHITE_KINGSIDE_RIGHTS;
+        }
 
-            if !raw_rights.contains('Q') {
-                lost_rights |= WHITE_QUEENSIDE_RIGHTS;
-            }
+        if !raw_rights.contains('Q') {
+            lost_rights |= WHITE_QUEENSIDE_RIGHTS;
+        }
 
-            if !raw_rights.contains('k') {
-                lost_rights |= BLACK_KINGSIDE_RIGHTS;
-            }
+        if !raw_rights.contains('k') {
+            lost_rights |= BLACK_KINGSIDE_RIGHTS;
+        }
 
-            if !raw_rights.contains('q') {
-                lost_rights |= BLACK_QUEENSIDE_RIGHTS;
-            }
+        if !raw_rights.contains('q') {
+            lost_rights |= BLACK_QUEENSIDE_RIGHTS;
         }
 
         board.lose_castle_rights(lost_rights);
@@ -153,6 +151,73 @@ impl Board {
         board.set_fullmove_clock(fullmove_clock);
 
         Ok(board)
+    }
+
+    pub fn to_fen(&self) -> String {
+        let mut fen_rows = vec![];
+        for row in (0..8).rev() {
+            let mut pieces = vec![];
+            let mut empty_square_count = 0;
+            for col in 0..8 {
+                let sq = square::from_row_col(row, col);
+                if let Some((piece, color)) = self.get(sq) {
+                    if empty_square_count > 0 {
+                        pieces.push(empty_square_count.to_string());
+                    }
+                    empty_square_count = 0;
+                    pieces.push(piece.to_fen(color).to_string());
+                } else {
+                    empty_square_count += 1;
+                }
+            }
+            if empty_square_count > 0 {
+                pieces.push(empty_square_count.to_string());
+            }
+            fen_rows.push(pieces.join(""));
+        }
+
+        let fen_turn = match self.turn() {
+            Color::Black => 'b',
+            Color::White => 'w',
+        };
+
+        let castle_rights = self.peek_castle_rights();
+        let mut fen_castle_rights = vec![];
+        if castle_rights == 0b0000 {
+            fen_castle_rights.push("-");
+        } else {
+            if castle_rights & WHITE_KINGSIDE_RIGHTS > 0 {
+                fen_castle_rights.push("K");
+            }
+
+            if castle_rights & WHITE_QUEENSIDE_RIGHTS > 0 {
+                fen_castle_rights.push("Q");
+            }
+
+            if castle_rights & BLACK_KINGSIDE_RIGHTS > 0 {
+                fen_castle_rights.push("k");
+            }
+
+            if castle_rights & BLACK_QUEENSIDE_RIGHTS > 0 {
+                fen_castle_rights.push("q");
+            }
+        }
+
+        let fen_en_passant = match self.peek_en_passant_target() {
+            0 => "-".to_string(),
+            sq => square::to_algebraic(sq).to_lowercase(),
+        };
+
+        let fen = format!(
+            "{} {} {} {} {} {}",
+            fen_rows.join("/"),
+            fen_turn,
+            fen_castle_rights.join(""),
+            fen_en_passant,
+            self.peek_halfmove_clock(),
+            self.fullmove_clock(),
+        );
+        fen
     }
 }
 
@@ -225,16 +290,17 @@ mod tests {
         }
 
         assert_eq!(Color::Black, board.turn());
-        assert_eq!(
-            0b0000
-                | WHITE_KINGSIDE_RIGHTS
-                | WHITE_QUEENSIDE_RIGHTS
-                | BLACK_KINGSIDE_RIGHTS
-                | BLACK_QUEENSIDE_RIGHTS,
-            board.peek_castle_rights()
-        );
+        assert_eq!(0b0000, board.peek_castle_rights());
         assert_eq!(0, board.peek_en_passant_target());
         assert_eq!(4, board.peek_halfmove_clock());
         assert_eq!(11, board.fullmove_clock());
+    }
+
+    #[test]
+    fn test_to_fen() {
+        let test_fen = "8/8/8/4p1K1/2k1P3/8/8/8 b - - 4 11";
+        let board = Board::from_fen(test_fen).unwrap();
+        assert_eq!(test_fen, board.to_fen());
+        assert_eq!(STARTING_POSITION_FEN, Board::starting_position().to_fen());
     }
 }
