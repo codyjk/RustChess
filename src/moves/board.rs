@@ -123,13 +123,12 @@ impl Board {
             None => return Err(BoardError::EnPassantNonCapture),
         };
 
-        self.put(to_square, piece_to_move, color).unwrap();
-
         self.push_en_passant_target(EMPTY);
 
         self.preserve_castle_rights();
 
-        Ok(Some(capture))
+        self.put(to_square, piece_to_move, color)
+            .map(|_| Some(capture))
     }
 
     fn apply_promote(
@@ -279,8 +278,6 @@ impl Board {
             Color::White => to_square >> 8,
             Color::Black => to_square << 8,
         };
-        self.put(capture_square, Piece::Pawn, piece_color.opposite())
-            .unwrap();
 
         // return to the previous en passant state
         self.pop_en_passant_target();
@@ -288,7 +285,8 @@ impl Board {
         // return to the previous castle rights state
         self.pop_castle_rights();
 
-        Ok(None)
+        self.put(capture_square, Piece::Pawn, piece_color.opposite())
+            .map(|_| None)
     }
 
     fn undo_promote(

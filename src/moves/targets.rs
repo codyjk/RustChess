@@ -1,5 +1,5 @@
 use crate::board::bitboard::{
-    A_FILE, B_FILE, EMPTY, G_FILE, H_FILE, RANK_1, RANK_3, RANK_4, RANK_5, RANK_6, RANK_8,
+    A_FILE, B_FILE, EMPTY, G_FILE, H_FILE, RANK_1, RANK_4, RANK_5, RANK_8,
 };
 use crate::board::color::Color;
 use crate::board::piece::Piece;
@@ -37,13 +37,9 @@ pub fn generate_pawn_targets(board: &Board, color: Color) -> Vec<PieceTarget> {
         Color::White => pawns << 8, // move 1 rank up the board
         Color::Black => pawns >> 8, // move 1 rank down the board
     };
-    let double_move_obstacles = match color {
-        Color::White => occupied & RANK_3,
-        Color::Black => occupied & RANK_6,
-    };
     let double_move_targets = match color {
-        Color::White => RANK_4 ^ (double_move_obstacles << 8),
-        Color::Black => RANK_5 ^ (double_move_obstacles >> 8),
+        Color::White => RANK_4,
+        Color::Black => RANK_5,
     };
     let move_targets = (single_move_targets | double_move_targets) & !occupied;
 
@@ -58,6 +54,11 @@ pub fn generate_pawn_targets(board: &Board, color: Color) -> Vec<PieceTarget> {
             Color::White => pawn << 8,
             Color::Black => pawn >> 8,
         };
+
+        if single_move & occupied > 0 {
+            // pawn is blocked and can make no moves
+            continue;
+        }
 
         let double_move = match color {
             Color::White => single_move << 8,

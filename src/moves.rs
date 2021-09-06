@@ -5,6 +5,7 @@ mod targets;
 
 use crate::board::bitboard::{A_FILE, H_FILE, RANK_1, RANK_8};
 use crate::board::color::Color;
+use crate::board::error::BoardError;
 use crate::board::piece::Piece;
 use crate::board::square;
 use crate::board::{
@@ -237,7 +238,10 @@ fn remove_invalid_moves(
     // simulate each chessmove and see if it leaves the player's king in check.
     // if it does, it's invalid.
     for chessmove in candidates {
-        board.apply(chessmove).unwrap();
+        board
+            .apply(chessmove)
+            .map_err(|e| enrich_error(board, chessmove, e))
+            .unwrap();
 
         let king = board.pieces(color).locate(Piece::King);
         let attacked_squares = targets::generate_attack_targets(board, color.opposite(), ray_table);
@@ -246,10 +250,24 @@ fn remove_invalid_moves(
             moves.push(chessmove);
         }
 
-        board.undo(chessmove).unwrap();
+        board
+            .undo(chessmove)
+            .map_err(|e| enrich_error(board, chessmove, e))
+            .unwrap();
     }
 
     moves
+}
+
+fn enrich_error(board: &Board, chessmove: ChessMove, error: BoardError) -> String {
+    let enriched_error = format!(
+        "error: {}\nmove:{}\nboard:\n{}fen:\n{}",
+        error,
+        chessmove,
+        board.to_ascii(),
+        board.to_fen()
+    );
+    enriched_error
 }
 
 pub fn count_positions(depth: u8, board: &mut Board, ray_table: &RayTable, color: Color) -> usize {
@@ -347,6 +365,29 @@ mod tests {
         let mut black_moves = generate_pawn_moves(&board, Color::Black);
         black_moves.sort();
         assert_eq!(expected_black_moves, black_moves);
+    }
+
+    #[test]
+    fn test_generate_pawn_double_moves() {
+        let mut board = Board::new();
+        board.put(square::B2, Piece::Pawn, Color::White).unwrap();
+        board.put(square::C2, Piece::Pawn, Color::White).unwrap();
+        board.put(square::C3, Piece::Pawn, Color::White).unwrap();
+        board.put(square::E2, Piece::Pawn, Color::White).unwrap();
+        board.put(square::E3, Piece::Pawn, Color::Black).unwrap();
+        println!("Testing board:\n{}", board.to_ascii());
+
+        let mut expected_moves = vec![
+            ChessMove::new(square::B2, square::B3, None),
+            ChessMove::new(square::B2, square::B4, None),
+            ChessMove::new(square::C3, square::C4, None),
+        ];
+        expected_moves.sort();
+
+        let mut moves = generate_pawn_moves(&board, Color::White);
+        moves.sort();
+
+        assert_eq!(expected_moves, moves);
     }
 
     #[test]
