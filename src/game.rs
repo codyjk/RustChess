@@ -44,6 +44,18 @@ impl Game {
         self.board.next_turn()
     }
 
+    pub fn halfmove_clock(&self) -> u8 {
+        self.board.peek_halfmove_clock()
+    }
+
+    pub fn fullmove_clock(&self) -> u8 {
+        self.board.fullmove_clock()
+    }
+
+    pub fn score(&self) -> i32 {
+        self.board.score()
+    }
+
     pub fn render_board(&self) -> String {
         self.board.to_ascii()
     }
