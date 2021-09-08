@@ -1,6 +1,6 @@
 use chess::board::color::Color;
 use chess::board::Board;
-use chess::game::modes::{computer_vs_computer, play_computer};
+use chess::game::modes::{computer_vs_computer, play_computer, player_vs_player};
 use chess::moves::count_positions;
 use chess::moves::ray_table::RayTable;
 use structopt::StructOpt;
@@ -16,6 +16,7 @@ enum Chess {
         #[structopt(short, long, default_value = "3")]
         depth: u8,
     },
+    Pvp,
     Watch,
 }
 
@@ -25,6 +26,7 @@ fn main() {
         Chess::CountPositions { depth } => run_count_positions(depth),
         Chess::Play { depth } => play_computer(depth),
         Chess::Watch => computer_vs_computer(),
+        Chess::Pvp => player_vs_player(),
     }
 }
 

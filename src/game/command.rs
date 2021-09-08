@@ -35,28 +35,11 @@ impl Command for MakeRandomMove {
     }
 }
 
-pub struct MakeShallowOptimalMove {}
-
-impl Command for MakeShallowOptimalMove {
-    fn execute(&self, game: &mut Game) -> CommandResult {
-        game.make_shallow_material_optimal_move()
-    }
-}
-
-pub struct MakeMinimaxOptimalMove {
+pub struct MakeOptimalMove {
     pub depth: u8,
 }
-impl Command for MakeMinimaxOptimalMove {
+impl Command for MakeOptimalMove {
     fn execute(&self, game: &mut Game) -> CommandResult {
-        game.make_minimax_best_move(self.depth)
-    }
-}
-
-pub struct MakeAlphaBetaOptimalMove {
-    pub depth: u8,
-}
-impl Command for MakeAlphaBetaOptimalMove {
-    fn execute(&self, game: &mut Game) -> CommandResult {
-        game.make_minimax_best_move(self.depth)
+        game.make_alpha_beta_best_move(self.depth)
     }
 }

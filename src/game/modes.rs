@@ -1,5 +1,5 @@
-use super::command::{Command, MakeAlphaBetaOptimalMove, MakeRandomMove};
-use super::Game;
+use super::command::{Command, MakeOptimalMove, MakeRandomMove};
+use super::{Game, GameEnding};
 use crate::board::color::Color;
 use crate::input_handler;
 use rand::{self, Rng};
@@ -17,6 +17,19 @@ pub fn play_computer(depth: u8) {
     println!("you are {}", player_color);
     loop {
         println!("{}", game.render_board());
+
+        match game.check_game_over_for_current_turn() {
+            Some(GameEnding::Checkmate) => {
+                println!("checkmate!");
+                break;
+            }
+            Some(GameEnding::Stalemate) => {
+                println!("stalemate!");
+                break;
+            }
+            _ => (),
+        };
+
         let command: Box<dyn Command> = if player_color == game.turn() {
             match input_handler::parse_command() {
                 Ok(command) => command,
@@ -25,10 +38,10 @@ pub fn play_computer(depth: u8) {
                     continue;
                 }
             }
-        } else if game.fullmove_clock() < 8 {
+        } else if game.fullmove_clock() < 6 {
             Box::new(MakeRandomMove {})
         } else {
-            Box::new(MakeAlphaBetaOptimalMove { depth: depth })
+            Box::new(MakeOptimalMove { depth: depth })
         };
 
         let start_time = SystemTime::now();
@@ -64,6 +77,19 @@ pub fn computer_vs_computer() {
 
     loop {
         println!("{}", game.render_board());
+
+        match game.check_game_over_for_current_turn() {
+            Some(GameEnding::Checkmate) => {
+                println!("checkmate!");
+                break;
+            }
+            Some(GameEnding::Stalemate) => {
+                println!("stalemate!");
+                break;
+            }
+            _ => (),
+        };
+
         moves += 1;
         if moves > 250 {
             break;
@@ -80,6 +106,42 @@ pub fn computer_vs_computer() {
                 println!("error: {}", error);
                 break;
             }
+        }
+    }
+}
+
+pub fn player_vs_player() {
+    let game = &mut Game::new();
+    loop {
+        println!("turn: {}", game.turn());
+        println!("{}", game.render_board());
+
+        match game.check_game_over_for_current_turn() {
+            Some(GameEnding::Checkmate) => {
+                println!("checkmate!");
+                break;
+            }
+            Some(GameEnding::Stalemate) => {
+                println!("stalemate!");
+                break;
+            }
+            _ => (),
+        };
+
+        let command = match input_handler::parse_command() {
+            Ok(command) => command,
+            Err(msg) => {
+                println!("{}", msg);
+                continue;
+            }
+        };
+
+        match command.execute(game) {
+            Ok(_chessmove) => {
+                game.next_turn();
+                continue;
+            }
+            Err(error) => println!("error: {}", error),
         }
     }
 }

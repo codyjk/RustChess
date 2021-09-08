@@ -3,10 +3,11 @@ pub mod modes;
 
 use crate::board::color::Color;
 use crate::board::error::BoardError;
+use crate::board::piece::Piece;
 use crate::board::Board;
-use crate::moves;
 use crate::moves::chess_move::ChessMove;
 use crate::moves::ray_table::RayTable;
+use crate::moves::{self, targets};
 use rand::{self, Rng};
 use thiserror::Error;
 
@@ -23,6 +24,12 @@ pub enum GameError {
     NoAvailableMoves,
     #[error("board error: {error:?}")]
     BoardError { error: BoardError },
+}
+
+#[derive(Debug)]
+pub enum GameEnding {
+    Checkmate,
+    Stalemate,
 }
 
 impl Game {
@@ -56,8 +63,17 @@ impl Game {
         self.board.score()
     }
 
+    pub fn check_game_over_for_current_turn(&mut self) -> Option<GameEnding> {
+        let turn = self.board.turn();
+        game_ending(&mut self.board, &self.ray_table, turn)
+    }
+
     pub fn render_board(&self) -> String {
         self.board.to_ascii()
+    }
+
+    pub fn fen(&self) -> String {
+        self.board.to_fen()
     }
 
     pub fn make_move(&mut self, from_square: u64, to_square: u64) -> Result<ChessMove, GameError> {
@@ -92,61 +108,13 @@ impl Game {
         }
     }
 
-    pub fn make_shallow_material_optimal_move(&mut self) -> Result<ChessMove, GameError> {
-        let turn = self.turn();
-        let candidates = moves::generate(&mut self.board, turn, &self.ray_table);
-        if candidates.len() == 0 {
-            return Err(GameError::NoAvailableMoves);
-        }
-
-        let material_values: Vec<i32> = candidates
-            .iter()
-            .map(|&chessmove| {
-                self.board.apply(chessmove).unwrap();
-                let material = self.board.material_value();
-                self.board.undo(chessmove).unwrap();
-                material
-            })
-            .collect();
-
-        let material_target = match turn {
-            Color::White => material_values.iter().max().unwrap(),
-            Color::Black => material_values.iter().min().unwrap(),
-        };
-
-        let move_material = candidates.iter().zip(material_values.iter());
-        let best_moves: Vec<&ChessMove> = move_material
-            .filter(|&(_chessmove, material)| material == material_target)
-            .map(|(chessmove, _material)| chessmove)
-            .collect();
-        let rng = rand::thread_rng().gen_range(0..best_moves.len());
-        let best_move = best_moves[rng];
-
-        match self.board.apply(*best_move) {
-            Ok(_capture) => Ok(*best_move),
-            Err(error) => Err(GameError::BoardError { error: error }),
-        }
-    }
-
-    pub fn make_minimax_best_move(&mut self, depth: u8) -> Result<ChessMove, GameError> {
-        let turn = self.turn();
-        let (maybe_chessmove, _score) =
-            minimax_select_move(depth, &mut self.board, &self.ray_table, turn);
-
-        let best_move = match maybe_chessmove {
-            Some(chessmove) => chessmove,
-            None => return Err(GameError::NoAvailableMoves),
-        };
-
-        match self.board.apply(best_move) {
-            Ok(_capture) => Ok(best_move),
-            Err(error) => Err(GameError::BoardError { error: error }),
-        }
-    }
-
     pub fn make_alpha_beta_best_move(&mut self, depth: u8) -> Result<ChessMove, GameError> {
         let turn = self.turn();
-        let (maybe_chessmove, _score) = alpha_beta_max(
+        let alpha_beta_selection = match turn {
+            Color::White => alpha_beta_max,
+            Color::Black => alpha_beta_min,
+        };
+        let (maybe_chessmove, _score) = alpha_beta_selection(
             i32::MIN,
             i32::MAX,
             depth,
@@ -167,44 +135,6 @@ impl Game {
     }
 }
 
-fn minimax_select_move(
-    depth: u8,
-    board: &mut Board,
-    ray_table: &RayTable,
-    current_turn: Color,
-) -> (Option<ChessMove>, i32) {
-    if depth == 0 {
-        let score = board.score();
-        return (None, score);
-    }
-
-    let mut best_score = match current_turn {
-        Color::White => i32::MIN,
-        Color::Black => i32::MAX,
-    };
-    let mut best_move = None;
-    let candidates = moves::generate(board, current_turn, ray_table);
-
-    for chessmove in candidates {
-        board.apply(chessmove).unwrap();
-        let (_deep_best_move, score) =
-            minimax_select_move(depth - 1, board, ray_table, current_turn.opposite());
-        board.undo(chessmove).unwrap();
-
-        let is_best_move = match current_turn {
-            Color::White => score > best_score,
-            Color::Black => score < best_score,
-        };
-
-        if is_best_move {
-            best_score = score;
-            best_move = Some(chessmove);
-        }
-    }
-
-    (best_move, best_score)
-}
-
 fn alpha_beta_max(
     alpha: i32,
     beta: i32,
@@ -214,7 +144,7 @@ fn alpha_beta_max(
     current_turn: Color,
 ) -> (Option<ChessMove>, i32) {
     if depth == 0 {
-        return (None, board.score());
+        return (None, score(board, ray_table, current_turn));
     }
 
     let mut new_alpha = alpha;
@@ -256,7 +186,7 @@ fn alpha_beta_min(
     current_turn: Color,
 ) -> (Option<ChessMove>, i32) {
     if depth == 0 {
-        return (None, -1 * board.score());
+        return (None, -1 * score(board, ray_table, current_turn));
     }
 
     let mut new_beta = beta;
@@ -287,4 +217,77 @@ fn alpha_beta_min(
     }
 
     (best_move, new_beta)
+}
+
+fn score(board: &mut Board, ray_table: &RayTable, current_turn: Color) -> i32 {
+    match (game_ending(board, ray_table, current_turn), current_turn) {
+        (Some(GameEnding::Checkmate), Color::White) => return i32::MIN,
+        (Some(GameEnding::Checkmate), Color::Black) => return i32::MAX,
+        (Some(GameEnding::Stalemate), Color::White) => return i32::MAX,
+        (Some(GameEnding::Stalemate), Color::Black) => return i32::MIN,
+        _ => (),
+    };
+
+    board.score()
+}
+
+fn current_player_is_in_check(board: &Board, ray_table: &RayTable) -> bool {
+    let current_player = board.turn();
+    let king = board.pieces(current_player).locate(Piece::King);
+    let attacked_squares =
+        targets::generate_attack_targets(board, current_player.opposite(), ray_table);
+
+    king & attacked_squares > 0
+}
+
+pub fn game_ending(
+    board: &mut Board,
+    ray_table: &RayTable,
+    current_turn: Color,
+) -> Option<GameEnding> {
+    let candidates = moves::generate(board, current_turn, ray_table);
+    let check = current_player_is_in_check(board, ray_table);
+
+    if candidates.len() == 0 {
+        if check {
+            return Some(GameEnding::Checkmate);
+        } else {
+            return Some(GameEnding::Stalemate);
+        }
+    }
+
+    return None;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::board::square;
+
+    #[test]
+    fn test_score() {
+        let mut game = Game::new();
+        game.make_move(square::E2, square::E4).unwrap();
+        game.next_turn();
+        assert!(game.check_game_over_for_current_turn().is_none());
+    }
+
+    #[test]
+    fn test_checkmate() {
+        let mut game = Game::new();
+        game.make_move(square::F2, square::F3).unwrap();
+        game.next_turn();
+        game.make_move(square::E7, square::E6).unwrap();
+        game.next_turn();
+        game.make_move(square::G2, square::G4).unwrap();
+        game.next_turn();
+        game.make_move(square::D8, square::H4).unwrap();
+        game.next_turn();
+        println!("Testing board:\n{}", game.render_board());
+        let checkmate = match game.check_game_over_for_current_turn() {
+            Some(GameEnding::Checkmate) => true,
+            _ => false,
+        };
+        assert!(checkmate);
+    }
 }

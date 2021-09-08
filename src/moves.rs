@@ -1,7 +1,7 @@
 pub mod board;
 pub mod chess_move;
 pub mod ray_table;
-mod targets;
+pub mod targets;
 
 use crate::board::bitboard::{A_FILE, H_FILE, RANK_1, RANK_8};
 use crate::board::color::Color;

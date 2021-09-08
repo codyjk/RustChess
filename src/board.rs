@@ -114,6 +114,11 @@ impl Board {
         self.turn
     }
 
+    pub fn set_turn(&mut self, turn: Color) -> Color {
+        self.turn = turn;
+        turn
+    }
+
     pub fn push_en_passant_target(&mut self, target_square: u64) -> u64 {
         self.en_passant_target_stack.push(target_square);
         target_square
