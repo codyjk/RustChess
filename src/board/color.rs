@@ -20,6 +20,13 @@ impl Color {
             Color::White => Color::Black,
         }
     }
+
+    pub fn maximize_score(&self) -> bool {
+        match self {
+            Color::White => true,
+            Color::Black => false,
+        }
+    }
 }
 
 impl fmt::Display for Color {

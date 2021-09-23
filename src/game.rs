@@ -34,11 +34,15 @@ pub enum GameEnding {
 
 impl Game {
     pub fn new() -> Self {
+        Self::from_board(Board::starting_position())
+    }
+
+    pub fn from_board(board: Board) -> Self {
         let mut ray_table = RayTable::new();
         ray_table.populate();
 
         Self {
-            board: Board::starting_position(),
+            board: board,
             ray_table: ray_table,
         }
     }
@@ -59,7 +63,7 @@ impl Game {
         self.board.fullmove_clock()
     }
 
-    pub fn score(&self) -> i32 {
+    pub fn score(&self) -> f32 {
         self.board.score()
     }
 
@@ -109,122 +113,122 @@ impl Game {
     }
 
     pub fn make_alpha_beta_best_move(&mut self, depth: u8) -> Result<ChessMove, GameError> {
-        let turn = self.turn();
-        let alpha_beta_selection = match turn {
-            Color::White => alpha_beta_max,
-            Color::Black => alpha_beta_min,
-        };
-        let (maybe_chessmove, _score) = alpha_beta_selection(
-            i32::MIN,
-            i32::MAX,
-            depth,
-            &mut self.board,
-            &self.ray_table,
-            turn,
-        );
+        let current_turn = self.board.turn();
+        let candidates = moves::generate(&mut self.board, current_turn, &self.ray_table);
+        if candidates.len() == 0 {
+            return Err(GameError::NoAvailableMoves);
+        }
 
-        let best_move = match maybe_chessmove {
-            Some(chessmove) => chessmove,
-            None => return Err(GameError::NoAvailableMoves),
-        };
+        let mut best_move = None;
+        let alpha = f32::NEG_INFINITY;
+        let beta = f32::INFINITY;
 
-        match self.board.apply(best_move) {
-            Ok(_capture) => Ok(best_move),
+        if current_turn.maximize_score() {
+            let mut best_score = f32::NEG_INFINITY;
+            for chessmove in candidates {
+                self.board.apply(chessmove).unwrap();
+                self.board.next_turn();
+                let score =
+                    minimax_alpha_beta(alpha, beta, depth, &mut self.board, &self.ray_table);
+                self.board.undo(chessmove).unwrap();
+                self.board.next_turn();
+
+                if score >= best_score {
+                    best_score = score;
+                    best_move = Some(chessmove);
+                }
+            }
+        } else {
+            let mut best_score = f32::INFINITY;
+            for chessmove in candidates {
+                self.board.apply(chessmove).unwrap();
+                self.board.next_turn();
+                let score =
+                    minimax_alpha_beta(alpha, beta, depth, &mut self.board, &self.ray_table);
+                self.board.undo(chessmove).unwrap();
+                self.board.next_turn();
+
+                if score <= best_score {
+                    best_score = score;
+                    best_move = Some(chessmove);
+                }
+            }
+        }
+
+        match self.board.apply(best_move.unwrap()) {
+            Ok(_capture) => Ok(best_move.unwrap()),
             Err(error) => Err(GameError::BoardError { error: error }),
         }
     }
 }
 
-fn alpha_beta_max(
-    alpha: i32,
-    beta: i32,
+fn minimax_alpha_beta(
+    mut alpha: f32,
+    mut beta: f32,
     depth: u8,
     board: &mut Board,
     ray_table: &RayTable,
-    current_turn: Color,
-) -> (Option<ChessMove>, i32) {
-    if depth == 0 {
-        return (None, score(board, ray_table, current_turn));
-    }
-
-    let mut new_alpha = alpha;
-    let mut best_move = None;
-
+) -> f32 {
+    let current_turn = board.turn();
     let candidates = moves::generate(board, current_turn, ray_table);
 
-    for chessmove in candidates {
-        board.apply(chessmove).unwrap();
-        let (_deep_best_move, score) = alpha_beta_min(
-            new_alpha,
-            beta,
-            depth - 1,
-            board,
-            ray_table,
-            current_turn.opposite(),
-        );
-        board.undo(chessmove).unwrap();
-
-        if score >= beta {
-            return (None, beta);
-        }
-
-        if score > new_alpha {
-            new_alpha = score;
-            best_move = Some(chessmove);
-        }
+    if depth == 0 || candidates.len() == 0 {
+        return score(board, ray_table, current_turn);
     }
 
-    (best_move, new_alpha)
+    if current_turn.maximize_score() {
+        let mut best_score = f32::NEG_INFINITY;
+        for chessmove in candidates {
+            board.apply(chessmove).unwrap();
+            board.next_turn();
+            let score = minimax_alpha_beta(alpha, beta, depth - 1, board, ray_table);
+            board.undo(chessmove).unwrap();
+            board.next_turn();
+
+            if score > best_score {
+                best_score = score;
+            }
+
+            if score > alpha {
+                alpha = score;
+            }
+
+            if score >= beta {
+                break;
+            }
+        }
+        best_score
+    } else {
+        let mut best_score = f32::INFINITY;
+        for chessmove in candidates {
+            board.apply(chessmove).unwrap();
+            board.next_turn();
+            let score = minimax_alpha_beta(alpha, beta, depth - 1, board, ray_table);
+            board.undo(chessmove).unwrap();
+            board.next_turn();
+
+            if score < best_score {
+                best_score = score;
+            }
+
+            if score < beta {
+                beta = score;
+            }
+
+            if score <= alpha {
+                break;
+            }
+        }
+        best_score
+    }
 }
 
-fn alpha_beta_min(
-    alpha: i32,
-    beta: i32,
-    depth: u8,
-    board: &mut Board,
-    ray_table: &RayTable,
-    current_turn: Color,
-) -> (Option<ChessMove>, i32) {
-    if depth == 0 {
-        return (None, -1 * score(board, ray_table, current_turn));
-    }
-
-    let mut new_beta = beta;
-    let mut best_move = None;
-
-    let candidates = moves::generate(board, current_turn, ray_table);
-
-    for chessmove in candidates {
-        board.apply(chessmove).unwrap();
-        let (_deep_best_move, score) = alpha_beta_max(
-            alpha,
-            new_beta,
-            depth - 1,
-            board,
-            ray_table,
-            current_turn.opposite(),
-        );
-        board.undo(chessmove).unwrap();
-
-        if score <= alpha {
-            return (None, alpha);
-        }
-
-        if score < new_beta {
-            new_beta = score;
-            best_move = Some(chessmove);
-        }
-    }
-
-    (best_move, new_beta)
-}
-
-fn score(board: &mut Board, ray_table: &RayTable, current_turn: Color) -> i32 {
+fn score(board: &mut Board, ray_table: &RayTable, current_turn: Color) -> f32 {
     match (game_ending(board, ray_table, current_turn), current_turn) {
-        (Some(GameEnding::Checkmate), Color::White) => return i32::MIN,
-        (Some(GameEnding::Checkmate), Color::Black) => return i32::MAX,
-        (Some(GameEnding::Stalemate), Color::White) => return i32::MAX,
-        (Some(GameEnding::Stalemate), Color::Black) => return i32::MIN,
+        (Some(GameEnding::Checkmate), Color::White) => return f32::NEG_INFINITY,
+        (Some(GameEnding::Checkmate), Color::Black) => return f32::INFINITY,
+        (Some(GameEnding::Stalemate), Color::White) => return f32::NEG_INFINITY,
+        (Some(GameEnding::Stalemate), Color::Black) => return f32::INFINITY,
         _ => (),
     };
 
@@ -262,7 +266,7 @@ pub fn game_ending(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::board::square;
+    use crate::board::{square, ALL_CASTLE_RIGHTS};
 
     #[test]
     fn test_score() {
@@ -289,5 +293,125 @@ mod tests {
             _ => false,
         };
         assert!(checkmate);
+    }
+
+    #[test]
+    fn test_find_mate_in_1_white() {
+        let mut board = Board::new();
+        board.put(square::C2, Piece::King, Color::White).unwrap();
+        board.put(square::A2, Piece::King, Color::Black).unwrap();
+        board.put(square::B8, Piece::Queen, Color::White).unwrap();
+        board.set_turn(Color::White);
+        board.lose_castle_rights(ALL_CASTLE_RIGHTS);
+
+        let mut game = Game::from_board(board);
+        println!("Testing board:\n{}", game.render_board());
+
+        let chessmove = game.make_alpha_beta_best_move(1).unwrap();
+        let valid_checkmates = vec![
+            ChessMove::new(square::B8, square::B2, None),
+            ChessMove::new(square::B8, square::A8, None),
+            ChessMove::new(square::B8, square::A7, None),
+        ];
+        assert!(valid_checkmates.contains(&chessmove));
+    }
+
+    #[test]
+    fn test_find_mate_in_1_black() {
+        let mut board = Board::new();
+        board.put(square::C2, Piece::King, Color::Black).unwrap();
+        board.put(square::A2, Piece::King, Color::White).unwrap();
+        board.put(square::B8, Piece::Queen, Color::Black).unwrap();
+        board.set_turn(Color::Black);
+        board.lose_castle_rights(ALL_CASTLE_RIGHTS);
+
+        let mut game = Game::from_board(board);
+        println!("Testing board:\n{}", game.render_board());
+
+        let chessmove = game.make_alpha_beta_best_move(1).unwrap();
+        let valid_checkmates = vec![
+            ChessMove::new(square::B8, square::B2, None),
+            ChessMove::new(square::B8, square::A8, None),
+            ChessMove::new(square::B8, square::A7, None),
+        ];
+        assert!(valid_checkmates.contains(&chessmove));
+    }
+
+    #[test]
+    fn test_find_back_rank_mate_in_2_white() {
+        let mut board = Board::new();
+        board.put(square::A7, Piece::Pawn, Color::Black).unwrap();
+        board.put(square::B7, Piece::Pawn, Color::Black).unwrap();
+        board.put(square::C7, Piece::Pawn, Color::Black).unwrap();
+        board.put(square::B8, Piece::King, Color::Black).unwrap();
+        board.put(square::H8, Piece::Rook, Color::Black).unwrap();
+        board.put(square::D1, Piece::Rook, Color::White).unwrap();
+        board.put(square::D2, Piece::Queen, Color::White).unwrap();
+        board.put(square::A1, Piece::King, Color::White).unwrap();
+        board.set_turn(Color::White);
+        board.lose_castle_rights(ALL_CASTLE_RIGHTS);
+
+        let mut game = Game::from_board(board);
+        println!("Testing board:\n{}", game.render_board());
+
+        let expected_moves = [
+            ChessMove::new(square::D2, square::D8, None),
+            ChessMove::new(square::H8, square::D8, Some((Piece::Queen, Color::White))),
+            ChessMove::new(square::D1, square::D8, Some((Piece::Rook, Color::Black))),
+        ];
+
+        let move1 = game.make_alpha_beta_best_move(2).unwrap();
+        game.next_turn();
+        assert_eq!(expected_moves[0], move1);
+        println!("Testing board:\n{}", game.render_board());
+
+        let move2 = game.make_alpha_beta_best_move(1).unwrap();
+        game.next_turn();
+        assert_eq!(expected_moves[1], move2);
+        println!("Testing board:\n{}", game.render_board());
+
+        let move3 = game.make_alpha_beta_best_move(0).unwrap();
+        game.next_turn();
+        assert_eq!(expected_moves[2], move3);
+        println!("Testing board:\n{}", game.render_board());
+    }
+
+    #[test]
+    fn test_find_back_rank_mate_in_2_black() {
+        let mut board = Board::new();
+        board.put(square::F2, Piece::Pawn, Color::White).unwrap();
+        board.put(square::G2, Piece::Pawn, Color::White).unwrap();
+        board.put(square::H2, Piece::Pawn, Color::White).unwrap();
+        board.put(square::G1, Piece::King, Color::White).unwrap();
+        board.put(square::A1, Piece::Rook, Color::White).unwrap();
+        board.put(square::E8, Piece::Rook, Color::Black).unwrap();
+        board.put(square::E7, Piece::Queen, Color::Black).unwrap();
+        board.put(square::H8, Piece::King, Color::Black).unwrap();
+        board.set_turn(Color::Black);
+        board.lose_castle_rights(ALL_CASTLE_RIGHTS);
+
+        let mut game = Game::from_board(board);
+        println!("Testing board:\n{}", game.render_board());
+
+        let expected_moves = [
+            ChessMove::new(square::E7, square::E1, None),
+            ChessMove::new(square::A1, square::E1, Some((Piece::Queen, Color::Black))),
+            ChessMove::new(square::E8, square::E1, Some((Piece::Rook, Color::White))),
+        ];
+
+        let move1 = game.make_alpha_beta_best_move(2).unwrap();
+        game.next_turn();
+        assert_eq!(expected_moves[0], move1);
+        println!("Testing board:\n{}", game.render_board());
+
+        let move2 = game.make_alpha_beta_best_move(1).unwrap();
+        game.next_turn();
+        assert_eq!(expected_moves[1], move2);
+        println!("Testing board:\n{}", game.render_board());
+
+        let move3 = game.make_alpha_beta_best_move(0).unwrap();
+        game.next_turn();
+        assert_eq!(expected_moves[2], move3);
+        println!("Testing board:\n{}", game.render_board());
     }
 }

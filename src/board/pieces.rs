@@ -104,12 +104,12 @@ impl Pieces {
         removed
     }
 
-    pub fn material_value(&self) -> u16 {
-        let mut material = 0;
+    pub fn material_value(&self) -> f32 {
+        let mut material = 0.;
 
         for piece in &ALL_PIECES {
             material +=
-                u16::from(count_set_bits(self.locate(*piece))) * u16::from(piece.material_value());
+                f32::from(count_set_bits(self.locate(*piece))) * f32::from(piece.material_value());
         }
 
         material
@@ -141,13 +141,13 @@ mod tests {
     fn test_material_value() {
         let board = Board::starting_position();
         let starting_material =
-            board.white.material_value() - u16::from(Piece::King.material_value());
+            board.white.material_value() - f32::from(Piece::King.material_value());
         // 8 * 1 = 8 pawns
         // 1 * 9 = 9 queens
         // 2 * 5 = 10 rooks
         // 2 * 3 = 6 knights
         // 2 * 3 = 6 bishops
         // total = 39
-        assert_eq!(39, starting_material);
+        assert_eq!(39., starting_material);
     }
 }
