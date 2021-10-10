@@ -47,6 +47,7 @@ impl Board {
         }
 
         // check for en passant
+        let mut en_passant_target = EMPTY;
         if piece_to_move == Piece::Pawn {
             let is_en_passant = match color {
                 Color::White => (from_square & RANK_2 > 0) && (to_square & RANK_4 > 0),
@@ -54,16 +55,13 @@ impl Board {
             };
 
             if is_en_passant {
-                match color {
-                    Color::White => self.push_en_passant_target(from_square << 8),
-                    Color::Black => self.push_en_passant_target(from_square >> 8),
+                en_passant_target = match color {
+                    Color::White => from_square << 8,
+                    Color::Black => from_square >> 8,
                 };
-            } else {
-                self.push_en_passant_target(EMPTY);
             }
-        } else {
-            self.push_en_passant_target(EMPTY);
         }
+        self.push_en_passant_target(en_passant_target);
 
         let captured_piece = self.remove(to_square);
 
