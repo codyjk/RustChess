@@ -1,8 +1,9 @@
 use super::bitboard::EMPTY;
 use super::piece::{Piece, ALL_PIECES};
 use super::BoardError;
+use std::hash::Hash;
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Hash)]
 pub struct Pieces {
     pawns: u64,
     rooks: u64,

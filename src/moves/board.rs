@@ -26,6 +26,7 @@ impl Board {
             Ok(None) => self.increment_halfmove_clock(),
             _ => return result,
         };
+        self.count_current_position();
         self.increment_fullmove_clock();
         result
     }
@@ -209,6 +210,7 @@ impl Board {
     }
 
     pub fn undo(&mut self, cm: ChessMove) -> Result<Option<Capture>, BoardError> {
+        self.uncount_current_position();
         let result = match cm.op() {
             Op::Standard => self.undo_standard(cm.from_square(), cm.to_square(), cm.capture()),
             Op::EnPassant => self.undo_en_passant(cm.from_square(), cm.to_square()),

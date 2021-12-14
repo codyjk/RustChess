@@ -13,6 +13,9 @@ use color::Color;
 use error::BoardError;
 use piece::Piece;
 use pieces::Pieces;
+use std::collections::hash_map::DefaultHasher;
+use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 
 type CastleRightsBitmask = u8;
 pub const WHITE_KINGSIDE_RIGHTS: CastleRightsBitmask = 0b1000;
@@ -33,6 +36,8 @@ pub struct Board {
     en_passant_target_stack: Vec<u64>,
     castle_rights_stack: Vec<CastleRightsBitmask>,
     halfmove_clock_stack: Vec<u8>,
+    position_count: HashMap<u64, u8>,
+    max_seen_position_count_stack: Vec<u8>,
 }
 
 impl Board {
@@ -45,6 +50,8 @@ impl Board {
             castle_rights_stack: vec![ALL_CASTLE_RIGHTS],
             halfmove_clock_stack: vec![0],
             fullmove_clock: 1,
+            position_count: HashMap::new(),
+            max_seen_position_count_stack: vec![1],
         }
     }
 
@@ -203,6 +210,37 @@ impl Board {
 
     pub fn material_value(&self) -> f32 {
         f32::from(self.white.material_value()) - f32::from(self.black.material_value())
+    }
+
+    pub fn count_current_position(&mut self) -> u8 {
+        let position = &self.hash();
+        self.position_count
+            .entry(*position)
+            .and_modify(|count| *count += 1)
+            .or_insert(1);
+        let count = *self.position_count.get(position).unwrap();
+        self.max_seen_position_count_stack.push(count);
+        count
+    }
+
+    pub fn uncount_current_position(&mut self) -> u8 {
+        let position = &self.hash();
+        self.position_count
+            .entry(*position)
+            .and_modify(|count| *count -= 1);
+        self.max_seen_position_count_stack.pop();
+        *self.position_count.get(position).unwrap()
+    }
+
+    pub fn max_seen_position_count(&self) -> u8 {
+        *self.max_seen_position_count_stack.last().unwrap()
+    }
+
+    fn hash(&self) -> u64 {
+        let mut s = DefaultHasher::new();
+        let pieces = (self.white.hash(&mut s), self.black.hash(&mut s));
+        pieces.hash(&mut s);
+        s.finish()
     }
 }
 

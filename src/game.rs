@@ -30,6 +30,7 @@ pub enum GameError {
 pub enum GameEnding {
     Checkmate,
     Stalemate,
+    Draw,
 }
 
 impl Game {
@@ -201,6 +202,8 @@ fn score(board: &mut Board, ray_table: &RayTable, current_turn: Color) -> f32 {
         (Some(GameEnding::Checkmate), Color::Black) => return f32::INFINITY,
         (Some(GameEnding::Stalemate), Color::White) => return f32::NEG_INFINITY,
         (Some(GameEnding::Stalemate), Color::Black) => return f32::INFINITY,
+        (Some(GameEnding::Draw), Color::White) => return f32::NEG_INFINITY,
+        (Some(GameEnding::Draw), Color::Black) => return f32::INFINITY,
         _ => (),
     };
 
@@ -221,6 +224,10 @@ pub fn game_ending(
     ray_table: &RayTable,
     current_turn: Color,
 ) -> Option<GameEnding> {
+    if board.max_seen_position_count() == 3 {
+        return Some(GameEnding::Draw);
+    }
+
     let candidates = moves::generate(board, current_turn, ray_table);
     let check = current_player_is_in_check(board, ray_table);
 
@@ -385,5 +392,54 @@ mod tests {
         game.board.next_turn();
         assert_eq!(expected_moves[2], move3);
         println!("Testing board:\n{}", game.board.to_ascii());
+    }
+
+    #[test]
+    fn test_draw_from_repetition() {
+        let mut board = Board::new();
+        board.put(square::A1, Piece::Rook, Color::White).unwrap();
+        board.put(square::A2, Piece::King, Color::White).unwrap();
+        board.put(square::H7, Piece::Rook, Color::Black).unwrap();
+        board.put(square::H8, Piece::King, Color::Black).unwrap();
+        board.set_turn(Color::White);
+        board.lose_castle_rights(ALL_CASTLE_RIGHTS);
+
+        // make sure starting position has been counted
+        board.count_current_position();
+
+        let mut game = Game::from_board(board);
+        println!("Testing board:\n{}", game.board.to_ascii());
+
+        game.board.apply(ChessMove::new(square::A2, square::A3, None)).unwrap();
+        game.board.next_turn();
+        game.board.apply(ChessMove::new(square::H8, square::G8, None)).unwrap();
+        game.board.next_turn();
+        game.board.apply(ChessMove::new(square::A3, square::A2, None)).unwrap();
+        game.board.next_turn();
+        game.board.apply(ChessMove::new(square::G8, square::H8, None)).unwrap();
+        game.board.next_turn();
+
+        // back in starting position for second time
+        let not_draw = match game.check_game_over_for_current_turn() {
+            Some(GameEnding::Draw) => false,
+            _ => true,
+        };
+        assert!(not_draw);
+
+        game.board.apply(ChessMove::new(square::A2, square::A3, None)).unwrap();
+        game.board.next_turn();
+        game.board.apply(ChessMove::new(square::H8, square::G8, None)).unwrap();
+        game.board.next_turn();
+        game.board.apply(ChessMove::new(square::A3, square::A2, None)).unwrap();
+        game.board.next_turn();
+        game.board.apply(ChessMove::new(square::G8, square::H8, None)).unwrap();
+        game.board.next_turn();
+
+        // back in starting position for third time, should be draw
+        let draw = match game.check_game_over_for_current_turn() {
+            Some(GameEnding::Draw) => true,
+            _ => false,
+        };
+        assert!(draw);
     }
 }
