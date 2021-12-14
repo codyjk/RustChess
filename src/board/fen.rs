@@ -214,7 +214,7 @@ impl Board {
             fen_turn,
             fen_castle_rights.join(""),
             fen_en_passant,
-            self.peek_halfmove_clock(),
+            self.halfmove_clock(),
             self.fullmove_clock(),
         );
         fen
@@ -292,7 +292,7 @@ mod tests {
         assert_eq!(Color::Black, board.turn());
         assert_eq!(0b0000, board.peek_castle_rights());
         assert_eq!(0, board.peek_en_passant_target());
-        assert_eq!(4, board.peek_halfmove_clock());
+        assert_eq!(4, board.halfmove_clock());
         assert_eq!(11, board.fullmove_clock());
     }
 

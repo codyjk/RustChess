@@ -189,7 +189,7 @@ impl Board {
         0
     }
 
-    pub fn peek_halfmove_clock(&self) -> u8 {
+    pub fn halfmove_clock(&self) -> u8 {
         *self.halfmove_clock_stack.last().unwrap()
     }
 

@@ -20,7 +20,7 @@ fn computer_vs_computer() {
 
         match game.make_random_move() {
             Ok(_chessmove) => {
-                game.next_turn();
+                game.board.next_turn();
                 continue;
             }
             Err(_error) => {

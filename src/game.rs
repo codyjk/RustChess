@@ -47,41 +47,13 @@ impl Game {
         }
     }
 
-    pub fn turn(&self) -> Color {
-        self.board.turn()
-    }
-
-    pub fn next_turn(&mut self) -> Color {
-        self.board.next_turn()
-    }
-
-    pub fn halfmove_clock(&self) -> u8 {
-        self.board.peek_halfmove_clock()
-    }
-
-    pub fn fullmove_clock(&self) -> u8 {
-        self.board.fullmove_clock()
-    }
-
-    pub fn score(&self) -> f32 {
-        self.board.score()
-    }
-
     pub fn check_game_over_for_current_turn(&mut self) -> Option<GameEnding> {
         let turn = self.board.turn();
         game_ending(&mut self.board, &self.ray_table, turn)
     }
 
-    pub fn render_board(&self) -> String {
-        self.board.to_ascii()
-    }
-
-    pub fn fen(&self) -> String {
-        self.board.to_fen()
-    }
-
     pub fn make_move(&mut self, from_square: u64, to_square: u64) -> Result<ChessMove, GameError> {
-        let turn = self.turn();
+        let turn = self.board.turn();
         let candidates = moves::generate(&mut self.board, turn, &self.ray_table);
         let maybe_chessmove = candidates
             .iter()
@@ -97,7 +69,7 @@ impl Game {
     }
 
     pub fn make_random_move(&mut self) -> Result<ChessMove, GameError> {
-        let turn = self.turn();
+        let turn = self.board.turn();
         let candidates = moves::generate(&mut self.board, turn, &self.ray_table);
         let chessmove = match candidates.len() {
             0 => return Err(GameError::NoAvailableMoves),
@@ -272,7 +244,7 @@ mod tests {
     fn test_score() {
         let mut game = Game::new();
         game.make_move(square::E2, square::E4).unwrap();
-        game.next_turn();
+        game.board.next_turn();
         assert!(game.check_game_over_for_current_turn().is_none());
     }
 
@@ -280,14 +252,14 @@ mod tests {
     fn test_checkmate() {
         let mut game = Game::new();
         game.make_move(square::F2, square::F3).unwrap();
-        game.next_turn();
+        game.board.next_turn();
         game.make_move(square::E7, square::E6).unwrap();
-        game.next_turn();
+        game.board.next_turn();
         game.make_move(square::G2, square::G4).unwrap();
-        game.next_turn();
+        game.board.next_turn();
         game.make_move(square::D8, square::H4).unwrap();
-        game.next_turn();
-        println!("Testing board:\n{}", game.render_board());
+        game.board.next_turn();
+        println!("Testing board:\n{}", game.board.to_ascii());
         let checkmate = match game.check_game_over_for_current_turn() {
             Some(GameEnding::Checkmate) => true,
             _ => false,
@@ -305,7 +277,7 @@ mod tests {
         board.lose_castle_rights(ALL_CASTLE_RIGHTS);
 
         let mut game = Game::from_board(board);
-        println!("Testing board:\n{}", game.render_board());
+        println!("Testing board:\n{}", game.board.to_ascii());
 
         let chessmove = game.make_alpha_beta_best_move(1).unwrap();
         let valid_checkmates = vec![
@@ -326,7 +298,7 @@ mod tests {
         board.lose_castle_rights(ALL_CASTLE_RIGHTS);
 
         let mut game = Game::from_board(board);
-        println!("Testing board:\n{}", game.render_board());
+        println!("Testing board:\n{}", game.board.to_ascii());
 
         let chessmove = game.make_alpha_beta_best_move(1).unwrap();
         let valid_checkmates = vec![
@@ -352,7 +324,7 @@ mod tests {
         board.lose_castle_rights(ALL_CASTLE_RIGHTS);
 
         let mut game = Game::from_board(board);
-        println!("Testing board:\n{}", game.render_board());
+        println!("Testing board:\n{}", game.board.to_ascii());
 
         let expected_moves = [
             ChessMove::new(square::D2, square::D8, None),
@@ -361,19 +333,19 @@ mod tests {
         ];
 
         let move1 = game.make_alpha_beta_best_move(2).unwrap();
-        game.next_turn();
+        game.board.next_turn();
         assert_eq!(expected_moves[0], move1);
-        println!("Testing board:\n{}", game.render_board());
+        println!("Testing board:\n{}", game.board.to_ascii());
 
         let move2 = game.make_alpha_beta_best_move(1).unwrap();
-        game.next_turn();
+        game.board.next_turn();
         assert_eq!(expected_moves[1], move2);
-        println!("Testing board:\n{}", game.render_board());
+        println!("Testing board:\n{}", game.board.to_ascii());
 
         let move3 = game.make_alpha_beta_best_move(0).unwrap();
-        game.next_turn();
+        game.board.next_turn();
         assert_eq!(expected_moves[2], move3);
-        println!("Testing board:\n{}", game.render_board());
+        println!("Testing board:\n{}", game.board.to_ascii());
     }
 
     #[test]
@@ -391,7 +363,7 @@ mod tests {
         board.lose_castle_rights(ALL_CASTLE_RIGHTS);
 
         let mut game = Game::from_board(board);
-        println!("Testing board:\n{}", game.render_board());
+        println!("Testing board:\n{}", game.board.to_ascii());
 
         let expected_moves = [
             ChessMove::new(square::E7, square::E1, None),
@@ -400,18 +372,18 @@ mod tests {
         ];
 
         let move1 = game.make_alpha_beta_best_move(2).unwrap();
-        game.next_turn();
+        game.board.next_turn();
         assert_eq!(expected_moves[0], move1);
-        println!("Testing board:\n{}", game.render_board());
+        println!("Testing board:\n{}", game.board.to_ascii());
 
         let move2 = game.make_alpha_beta_best_move(1).unwrap();
-        game.next_turn();
+        game.board.next_turn();
         assert_eq!(expected_moves[1], move2);
-        println!("Testing board:\n{}", game.render_board());
+        println!("Testing board:\n{}", game.board.to_ascii());
 
         let move3 = game.make_alpha_beta_best_move(0).unwrap();
-        game.next_turn();
+        game.board.next_turn();
         assert_eq!(expected_moves[2], move3);
-        println!("Testing board:\n{}", game.render_board());
+        println!("Testing board:\n{}", game.board.to_ascii());
     }
 }

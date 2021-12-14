@@ -16,7 +16,7 @@ pub fn play_computer(depth: u8) {
     println!("{}", clear::All);
     println!("you are {}", player_color);
     loop {
-        println!("{}", game.render_board());
+        println!("{}", game.board.to_ascii());
 
         match game.check_game_over_for_current_turn() {
             Some(GameEnding::Checkmate) => {
@@ -30,7 +30,7 @@ pub fn play_computer(depth: u8) {
             _ => (),
         };
 
-        let command: Box<dyn Command> = if player_color == game.turn() {
+        let command: Box<dyn Command> = if player_color == game.board.turn() {
             match input_handler::parse_command() {
                 Ok(command) => command,
                 Err(msg) => {
@@ -38,7 +38,7 @@ pub fn play_computer(depth: u8) {
                     continue;
                 }
             }
-        } else if game.fullmove_clock() < 6 {
+        } else if game.board.fullmove_clock() < 6 {
             Box::new(MakeRandomMove {})
         } else {
             Box::new(MakeOptimalMove { depth: depth })
@@ -50,7 +50,7 @@ pub fn play_computer(depth: u8) {
                 let duration = SystemTime::now().duration_since(start_time).unwrap();
                 println!("{}", clear::All);
                 let player = match player_color {
-                    c if c == game.turn() => "you",
+                    c if c == game.board.turn() => "you",
                     _ => "computer",
                 };
                 println!(
@@ -59,11 +59,11 @@ pub fn play_computer(depth: u8) {
                     chessmove,
                     depth,
                     duration.as_millis(),
-                    game.halfmove_clock(),
-                    game.fullmove_clock(),
-                    game.score(),
+                    game.board.halfmove_clock(),
+                    game.board.fullmove_clock(),
+                    game.board.score(),
                 );
-                game.next_turn();
+                game.board.next_turn();
                 continue;
             }
             Err(error) => println!("error: {}", error),
@@ -76,7 +76,7 @@ pub fn computer_vs_computer() {
     let mut moves = 0;
 
     loop {
-        println!("{}", game.render_board());
+        println!("{}", game.board.to_ascii());
 
         match game.check_game_over_for_current_turn() {
             Some(GameEnding::Checkmate) => {
@@ -98,8 +98,8 @@ pub fn computer_vs_computer() {
         match game.make_random_move() {
             Ok(chessmove) => {
                 println!("{}", clear::All);
-                println!("{} chose {}", game.turn(), chessmove);
-                game.next_turn();
+                println!("{} chose {}", game.board.turn(), chessmove);
+                game.board.next_turn();
                 continue;
             }
             Err(error) => {
@@ -113,8 +113,8 @@ pub fn computer_vs_computer() {
 pub fn player_vs_player() {
     let game = &mut Game::new();
     loop {
-        println!("turn: {}", game.turn());
-        println!("{}", game.render_board());
+        println!("turn: {}", game.board.turn());
+        println!("{}", game.board.to_ascii());
 
         match game.check_game_over_for_current_turn() {
             Some(GameEnding::Checkmate) => {
@@ -138,7 +138,7 @@ pub fn player_vs_player() {
 
         match command.execute(game) {
             Ok(_chessmove) => {
-                game.next_turn();
+                game.board.next_turn();
                 continue;
             }
             Err(error) => println!("error: {}", error),
