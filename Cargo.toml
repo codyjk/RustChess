@@ -20,5 +20,5 @@ debug = true
 criterion = "0.3"
 
 [[bench]]
-name = "computer_vs_computer_benchmark"
+name = "count_positions_benchmark"
 harness = false
