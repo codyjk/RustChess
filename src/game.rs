@@ -410,13 +410,21 @@ mod tests {
         let mut game = Game::from_board(board);
         println!("Testing board:\n{}", game.board.to_ascii());
 
-        game.board.apply(ChessMove::new(square::A2, square::A3, None)).unwrap();
+        game.board
+            .apply(ChessMove::new(square::A2, square::A3, None))
+            .unwrap();
         game.board.next_turn();
-        game.board.apply(ChessMove::new(square::H8, square::G8, None)).unwrap();
+        game.board
+            .apply(ChessMove::new(square::H8, square::G8, None))
+            .unwrap();
         game.board.next_turn();
-        game.board.apply(ChessMove::new(square::A3, square::A2, None)).unwrap();
+        game.board
+            .apply(ChessMove::new(square::A3, square::A2, None))
+            .unwrap();
         game.board.next_turn();
-        game.board.apply(ChessMove::new(square::G8, square::H8, None)).unwrap();
+        game.board
+            .apply(ChessMove::new(square::G8, square::H8, None))
+            .unwrap();
         game.board.next_turn();
 
         // back in starting position for second time
@@ -426,13 +434,21 @@ mod tests {
         };
         assert!(not_draw);
 
-        game.board.apply(ChessMove::new(square::A2, square::A3, None)).unwrap();
+        game.board
+            .apply(ChessMove::new(square::A2, square::A3, None))
+            .unwrap();
         game.board.next_turn();
-        game.board.apply(ChessMove::new(square::H8, square::G8, None)).unwrap();
+        game.board
+            .apply(ChessMove::new(square::H8, square::G8, None))
+            .unwrap();
         game.board.next_turn();
-        game.board.apply(ChessMove::new(square::A3, square::A2, None)).unwrap();
+        game.board
+            .apply(ChessMove::new(square::A3, square::A2, None))
+            .unwrap();
         game.board.next_turn();
-        game.board.apply(ChessMove::new(square::G8, square::H8, None)).unwrap();
+        game.board
+            .apply(ChessMove::new(square::G8, square::H8, None))
+            .unwrap();
         game.board.next_turn();
 
         // back in starting position for third time, should be draw

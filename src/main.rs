@@ -1,4 +1,5 @@
 use chess::board::color::Color;
+use chess::board::magic::run_find_magic;
 use chess::board::Board;
 use chess::game::modes::{computer_vs_computer, play_computer, player_vs_player};
 use chess::moves::count_positions;
@@ -18,6 +19,7 @@ enum Chess {
     },
     Pvp,
     Watch,
+    FindMagic,
 }
 
 fn main() {
@@ -27,6 +29,7 @@ fn main() {
         Chess::Play { depth } => play_computer(depth),
         Chess::Watch => computer_vs_computer(),
         Chess::Pvp => player_vs_player(),
+        Chess::FindMagic => run_find_magic(),
     }
 }
 

@@ -1,7 +1,7 @@
-use chess::board::Board;
 use chess::board::color::Color;
-use chess::moves::ray_table::RayTable;
+use chess::board::Board;
 use chess::moves::count_positions;
+use chess::moves::ray_table::RayTable;
 
 use criterion::{criterion_group, criterion_main, Criterion};
 

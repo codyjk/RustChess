@@ -1,6 +1,7 @@
 pub mod bitboard;
 pub mod color;
 pub mod error;
+pub mod magic;
 pub mod piece;
 pub mod square;
 

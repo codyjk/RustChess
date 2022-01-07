@@ -117,11 +117,13 @@ impl Pieces {
     }
 }
 
-fn count_set_bits(i: u64) -> u8 {
-    match i {
-        0 => 0,
-        _ => 1 + count_set_bits(i & (i - 1)),
+fn count_set_bits(mut b: u64) -> u8 {
+    let mut r = 0;
+    while b > 0 {
+        r += 1;
+        b &= b - 1
     }
+    r
 }
 
 #[cfg(test)]
