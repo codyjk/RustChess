@@ -9,30 +9,6 @@ use regex::Regex;
 
 pub const STARTING_POSITION_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
-// A FEN record contains six fields. The separator between fields is a space. The fields are:
-//   1. Piece placement (from White's perspective). Each rank is described, starting with rank 8
-//     and ending with rank 1; within each rank, the contents of each square are described from
-//     file `a` through file `h`. Following the Standard Algebraic Notation (SAN), each piece is
-//     identified by a single letter taken from the standard English names (pawn = `P`,
-//     knight = `N`, bishop = `B`, rook = `R`, queen = `Q` and king = `K`). White pieces are
-//     designated using upper-case letters (`PNBRQK`) while black pieces use lowercase
-//     (`pnbrqk`). Empty squares are noted using digits 1 through 8 (the number of empty
-//     squares), and `/` separates ranks.
-//   2. Active color. `w` means White moves next, `b` means Black moves next.
-//   3. Castling availability. If neither side can castle, this is `-`. Otherwise, this has one
-//     or more letters: `K` (White can castle kingside), `Q` (White can castle queenside), `k`
-//     (Black can castle kingside), and/or `q` (Black can castle queenside). A move that
-//     temporarily prevents castling does not negate this notation.
-//   4. En passant target square in algebraic notation. If there's no en passant target square,
-//     this is `-`. If a pawn has just made a two-square move, this is the position `behind` the
-//     pawn. This is recorded regardless of whether there is a pawn in position to make an en
-//     passant capture.
-//   5. Halfmove clock: The number of halfmoves since the last capture or pawn advance, used for
-//     the fifty-move rule.
-//   6. Fullmove number: The number of the full move. It starts at 1, and is incremented after
-//     Black's move.
-//
-// Starting position FEN: `rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1`
 impl Board {
     pub fn from_fen(fen: &str) -> Result<Self, String> {
         let re = Regex::new(
@@ -80,23 +56,23 @@ impl Board {
         let mut board = Self::new();
 
         // parse ranks
-        for capture_group in 1..=8 {
-            let rank = &caps[capture_group];
-            let row = 8 - capture_group;
-            let mut col = 0;
+        for rank_capture_index in 1..=8 {
+            let rank_str = &caps[rank_capture_index];
+            let rank = (8 - rank_capture_index) as u8;
+            let mut file = 0;
 
-            for fen_char in rank.chars() {
-                let square = square::from_row_col(row, col);
-                assert!(col < 8);
+            for fen_char in rank_str.chars() {
+                let square = square::from_rank_file(rank, file);
+                assert!(file < 8);
                 match Piece::from_fen(fen_char) {
                     Some((piece, color)) => {
                         board.put(square, piece, color).unwrap();
-                        col += 1;
+                        file += 1;
                     }
                     None => {
                         // must be empty square. parse it and advance col counter
-                        let empty_square_count = fen_char.to_digit(10).unwrap();
-                        col += empty_square_count as usize;
+                        let empty_square_count = fen_char.to_digit(10).unwrap() as u8;
+                        file += empty_square_count;
                     }
                 };
             }
@@ -155,11 +131,11 @@ impl Board {
 
     pub fn to_fen(&self) -> String {
         let mut fen_rows = vec![];
-        for row in (0..8).rev() {
+        for rank in (0..8).rev() {
             let mut pieces = vec![];
             let mut empty_square_count = 0;
-            for col in 0..8 {
-                let sq = square::from_row_col(row, col);
+            for file in 0..8 {
+                let sq = square::from_rank_file(rank, file);
                 if let Some((piece, color)) = self.get(sq) {
                     if empty_square_count > 0 {
                         pieces.push(empty_square_count.to_string());

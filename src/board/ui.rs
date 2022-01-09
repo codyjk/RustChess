@@ -9,13 +9,10 @@ impl Board {
 
         let mut rows: Vec<String> = vec![];
 
-        let row_iter = (0..8).rev();
-        let col_iter = 0..8;
-
-        for row in row_iter {
+        for rank in (0..8).rev() {
             let mut cells: Vec<String> = vec![];
-            for col in col_iter.clone() {
-                let sq = square::from_row_col(row, col);
+            for file in 0..8 {
+                let sq = square::from_rank_file(rank, file);
                 let cell = match self.get(sq) {
                     Some((piece, color)) => piece.to_fen(color),
                     None => ' ',
@@ -25,7 +22,7 @@ impl Board {
             let formatted_cells = format!("| {} |", cells.join(" | "));
 
             rows.push(format!("{} {}", ' ', divider));
-            rows.push(format!("{} {}", ranks[row], formatted_cells));
+            rows.push(format!("{} {}", ranks[rank as usize], formatted_cells));
         }
         rows.push(format!("{} {}", ' ', divider));
         let formatted_ranks_footer = format!(
