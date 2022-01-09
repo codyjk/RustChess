@@ -312,7 +312,7 @@ mod tests {
     fn test_generate_king_targets() {
         let mut board = Board::new();
         board.put(square::H7, Piece::King, Color::White).unwrap();
-        println!("Testing board:\n{}", board.to_ascii());
+        println!("Testing board:\n{}", board);
         let occupied = board.pieces(Color::White).occupied();
 
         let expected_targets =
@@ -337,7 +337,7 @@ mod tests {
         board.put(square::B1, Piece::Rook, Color::White).unwrap();
         board.put(square::H1, Piece::King, Color::Black).unwrap();
         board.put(square::A5, Piece::Queen, Color::White).unwrap();
-        println!("Testing board:\n{}", board.to_ascii());
+        println!("Testing board:\n{}", board);
 
         let expected_white_targets = EMPTY
             // pawn
@@ -396,7 +396,7 @@ mod tests {
         board
             .apply(ChessMove::new(square::G7, square::G6, None))
             .unwrap();
-        println!("Testing board:\n{}", board.to_ascii());
+        println!("Testing board:\n{}", board);
 
         //   +---+---+---+---+---+---+---+---+
         // 8 | r | n | b | q | k | b | n | r |

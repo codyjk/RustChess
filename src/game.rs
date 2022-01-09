@@ -266,7 +266,7 @@ mod tests {
         game.board.next_turn();
         game.make_move(square::D8, square::H4).unwrap();
         game.board.next_turn();
-        println!("Testing board:\n{}", game.board.to_ascii());
+        println!("Testing board:\n{}", game.board);
         let checkmate = match game.check_game_over_for_current_turn() {
             Some(GameEnding::Checkmate) => true,
             _ => false,
@@ -284,7 +284,7 @@ mod tests {
         board.lose_castle_rights(ALL_CASTLE_RIGHTS);
 
         let mut game = Game::from_board(board);
-        println!("Testing board:\n{}", game.board.to_ascii());
+        println!("Testing board:\n{}", game.board);
 
         let chessmove = game.make_alpha_beta_best_move(1).unwrap();
         let valid_checkmates = vec![
@@ -305,7 +305,7 @@ mod tests {
         board.lose_castle_rights(ALL_CASTLE_RIGHTS);
 
         let mut game = Game::from_board(board);
-        println!("Testing board:\n{}", game.board.to_ascii());
+        println!("Testing board:\n{}", game.board);
 
         let chessmove = game.make_alpha_beta_best_move(1).unwrap();
         let valid_checkmates = vec![
@@ -331,7 +331,7 @@ mod tests {
         board.lose_castle_rights(ALL_CASTLE_RIGHTS);
 
         let mut game = Game::from_board(board);
-        println!("Testing board:\n{}", game.board.to_ascii());
+        println!("Testing board:\n{}", game.board);
 
         let expected_moves = [
             ChessMove::new(square::D2, square::D8, None),
@@ -342,17 +342,17 @@ mod tests {
         let move1 = game.make_alpha_beta_best_move(2).unwrap();
         game.board.next_turn();
         assert_eq!(expected_moves[0], move1);
-        println!("Testing board:\n{}", game.board.to_ascii());
+        println!("Testing board:\n{}", game.board);
 
         let move2 = game.make_alpha_beta_best_move(1).unwrap();
         game.board.next_turn();
         assert_eq!(expected_moves[1], move2);
-        println!("Testing board:\n{}", game.board.to_ascii());
+        println!("Testing board:\n{}", game.board);
 
         let move3 = game.make_alpha_beta_best_move(0).unwrap();
         game.board.next_turn();
         assert_eq!(expected_moves[2], move3);
-        println!("Testing board:\n{}", game.board.to_ascii());
+        println!("Testing board:\n{}", game.board);
     }
 
     #[test]
@@ -370,7 +370,7 @@ mod tests {
         board.lose_castle_rights(ALL_CASTLE_RIGHTS);
 
         let mut game = Game::from_board(board);
-        println!("Testing board:\n{}", game.board.to_ascii());
+        println!("Testing board:\n{}", game.board);
 
         let expected_moves = [
             ChessMove::new(square::E7, square::E1, None),
@@ -381,17 +381,17 @@ mod tests {
         let move1 = game.make_alpha_beta_best_move(2).unwrap();
         game.board.next_turn();
         assert_eq!(expected_moves[0], move1);
-        println!("Testing board:\n{}", game.board.to_ascii());
+        println!("Testing board:\n{}", game.board);
 
         let move2 = game.make_alpha_beta_best_move(1).unwrap();
         game.board.next_turn();
         assert_eq!(expected_moves[1], move2);
-        println!("Testing board:\n{}", game.board.to_ascii());
+        println!("Testing board:\n{}", game.board);
 
         let move3 = game.make_alpha_beta_best_move(0).unwrap();
         game.board.next_turn();
         assert_eq!(expected_moves[2], move3);
-        println!("Testing board:\n{}", game.board.to_ascii());
+        println!("Testing board:\n{}", game.board);
     }
 
     #[test]
@@ -408,7 +408,7 @@ mod tests {
         board.count_current_position();
 
         let mut game = Game::from_board(board);
-        println!("Testing board:\n{}", game.board.to_ascii());
+        println!("Testing board:\n{}", game.board);
 
         game.board
             .apply(ChessMove::new(square::A2, square::A3, None))

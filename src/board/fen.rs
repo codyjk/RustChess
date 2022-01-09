@@ -242,7 +242,7 @@ mod tests {
     fn test_parse_fen() {
         // based off of examples from https://www.chess.com/terms/fen-chess
         let board = Board::from_fen("8/8/8/4p1K1/2k1P3/8/8/8 b - - 4 11").unwrap();
-        println!("Testing board:\n{}", board.to_ascii());
+        println!("Testing board:\n{}", board);
         let tests = vec![
             (square::C4, Piece::King, Color::Black),
             (square::E5, Piece::Pawn, Color::Black),

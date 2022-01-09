@@ -1,8 +1,9 @@
 use super::square;
 use super::Board;
+use std::fmt;
 
-impl Board {
-    pub fn to_ascii(&self) -> String {
+impl fmt::Display for Board {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let divider = "+---+---+---+---+---+---+---+---+";
         let files: [char; 8] = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
         let ranks: [char; 8] = ['1', '2', '3', '4', '5', '6', '7', '8'];
@@ -35,6 +36,6 @@ impl Board {
         );
         rows.push(format!("{} {}", ' ', formatted_ranks_footer));
 
-        rows.join("\n")
+        write!(f, "{}", rows.join("\n"))
     }
 }

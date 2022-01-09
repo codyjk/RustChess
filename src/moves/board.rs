@@ -371,7 +371,7 @@ mod tests {
     #[test]
     fn test_apply_chess_move() {
         let mut board = Board::starting_position();
-        println!("Testing board:\n{}", board.to_ascii());
+        println!("Testing board:\n{}", board);
 
         // using a queens gambit accepted opening to test basic chess move application
         let moves: Vec<(u64, u64, (Piece, Color), Option<(Piece, Color)>)> = vec![
@@ -392,45 +392,45 @@ mod tests {
                 .unwrap();
             assert_eq!(board.get(*to_square).unwrap(), *moved);
             assert_eq!(captured, *expected_capture);
-            println!("New board state:\n{}", board.to_ascii());
+            println!("New board state:\n{}", board);
         }
     }
 
     #[test]
     fn test_undo_pawn_move() {
         let mut board = Board::starting_position();
-        let original_board = board.to_ascii();
-        println!("Testing board:\n{}", board.to_ascii());
+        let original_board = format!("{}", board);
+        println!("Testing board:\n{}", board);
 
         let chessmove = ChessMove::new(square::A2, square::A4, None);
         board.apply(chessmove).unwrap();
-        println!("Result after applying move:\n{}", board.to_ascii());
+        println!("Result after applying move:\n{}", board);
         board.undo(chessmove).unwrap();
-        println!("Result after undoing move:\n{}", board.to_ascii());
+        println!("Result after undoing move:\n{}", board);
 
-        let result_board = board.to_ascii();
+        let result_board = format!("{}", board);
         assert_eq!(original_board, result_board);
     }
 
     #[test]
     fn test_undo_knight_move() {
         let mut board = Board::starting_position();
-        let original_board = board.to_ascii();
-        println!("Testing board:\n{}", board.to_ascii());
+        let original_board = format!("{}", board);
+        println!("Testing board:\n{}", board);
 
         let chessmove = ChessMove::new(square::B1, square::C3, None);
         board.apply(chessmove).unwrap();
-        println!("Result after applying move:\n{}", board.to_ascii());
+        println!("Result after applying move:\n{}", board);
         board.undo(chessmove).unwrap();
-        println!("Result after undoing move:\n{}", board.to_ascii());
+        println!("Result after undoing move:\n{}", board);
 
         let chessmove2 = ChessMove::new(square::B1, square::A3, None);
         board.apply(chessmove2).unwrap();
-        println!("Result after applying move:\n{}", board.to_ascii());
+        println!("Result after applying move:\n{}", board);
         board.undo(chessmove2).unwrap();
-        println!("Result after undoing move:\n{}", board.to_ascii());
+        println!("Result after undoing move:\n{}", board);
 
-        let result_board = board.to_ascii();
+        let result_board = format!("{}", board);
         assert_eq!(original_board, result_board);
     }
 
@@ -453,25 +453,25 @@ mod tests {
         let mut board = Board::new();
         board.put(square::D2, Piece::Pawn, Color::White).unwrap();
         board.put(square::E4, Piece::Pawn, Color::Black).unwrap();
-        println!("Testing board:\n{}", board.to_ascii());
+        println!("Testing board:\n{}", board);
 
         board
             .apply(ChessMove::new(square::D2, square::D4, None))
             .unwrap();
-        println!("After move that reveals en passant:\n{}", board.to_ascii());
+        println!("After move that reveals en passant:\n{}", board);
         assert_eq!(Some((Piece::Pawn, Color::White)), board.get(square::D4));
         assert_eq!(square::D3, board.peek_en_passant_target());
 
         let en_passant = ChessMove::en_passant(square::E4, square::D3, (Piece::Pawn, Color::White));
 
         board.apply(en_passant).unwrap();
-        println!("After en passant:\n{}", board.to_ascii());
+        println!("After en passant:\n{}", board);
         assert_eq!(Some((Piece::Pawn, Color::Black)), board.get(square::D3));
         assert_eq!(None, board.get(square::D4));
         assert_eq!(EMPTY, board.peek_en_passant_target());
 
         board.undo(en_passant).unwrap();
-        println!("Undo en passant:\n{}", board.to_ascii());
+        println!("Undo en passant:\n{}", board);
         assert_eq!(Some((Piece::Pawn, Color::White)), board.get(square::D4));
         assert_eq!(Some((Piece::Pawn, Color::Black)), board.get(square::E4));
         assert_eq!(square::D3, board.peek_en_passant_target());
@@ -481,17 +481,17 @@ mod tests {
     fn test_apply_and_undo_promote() {
         let mut board = Board::new();
         board.put(square::A7, Piece::Pawn, Color::White).unwrap();
-        println!("Testing board:\n{}", board.to_ascii());
+        println!("Testing board:\n{}", board);
 
         let promotion = ChessMove::promote(square::A7, square::A8, None, Piece::Queen);
 
         board.apply(promotion).unwrap();
-        println!("After applying promotion:\n{}", board.to_ascii());
+        println!("After applying promotion:\n{}", board);
         assert_eq!(None, board.get(square::A7));
         assert_eq!(Some((Piece::Queen, Color::White)), board.get(square::A8));
 
         board.undo(promotion).unwrap();
-        println!("After undoing promotion:\n{}", board.to_ascii());
+        println!("After undoing promotion:\n{}", board);
         assert_eq!(Some((Piece::Pawn, Color::White)), board.get(square::A7));
         assert_eq!(None, board.get(square::A8));
     }
@@ -501,7 +501,7 @@ mod tests {
         let mut board = Board::new();
         board.put(square::A7, Piece::Pawn, Color::White).unwrap();
         board.put(square::B8, Piece::Rook, Color::Black).unwrap();
-        println!("Testing board:\n{}", board.to_ascii());
+        println!("Testing board:\n{}", board);
 
         let promotion = ChessMove::promote(
             square::A7,
@@ -511,12 +511,12 @@ mod tests {
         );
 
         board.apply(promotion).unwrap();
-        println!("After applying promotion:\n{}", board.to_ascii());
+        println!("After applying promotion:\n{}", board);
         assert_eq!(None, board.get(square::A7));
         assert_eq!(Some((Piece::Queen, Color::White)), board.get(square::B8));
 
         board.undo(promotion).unwrap();
-        println!("After undoing promotion:\n{}", board.to_ascii());
+        println!("After undoing promotion:\n{}", board);
         assert_eq!(Some((Piece::Pawn, Color::White)), board.get(square::A7));
         assert_eq!(Some((Piece::Rook, Color::Black)), board.get(square::B8));
     }
@@ -526,17 +526,17 @@ mod tests {
         let mut board = Board::new();
         board.put(square::E1, Piece::King, Color::White).unwrap();
         board.put(square::H1, Piece::Rook, Color::White).unwrap();
-        println!("Testing board:\n{}", board.to_ascii());
+        println!("Testing board:\n{}", board);
 
         let castle = ChessMove::castle_kingside(Color::White);
 
         board.apply(castle).unwrap();
-        println!("After applying castle:\n{}", board.to_ascii());
+        println!("After applying castle:\n{}", board);
         assert_eq!(Some((Piece::King, Color::White)), board.get(square::G1));
         assert_eq!(Some((Piece::Rook, Color::White)), board.get(square::F1));
 
         board.undo(castle).unwrap();
-        println!("After undoing castle:\n{}", board.to_ascii());
+        println!("After undoing castle:\n{}", board);
         assert_eq!(Some((Piece::King, Color::White)), board.get(square::E1));
         assert_eq!(Some((Piece::Rook, Color::White)), board.get(square::H1));
     }
@@ -546,17 +546,17 @@ mod tests {
         let mut board = Board::new();
         board.put(square::E8, Piece::King, Color::Black).unwrap();
         board.put(square::H8, Piece::Rook, Color::Black).unwrap();
-        println!("Testing board:\n{}", board.to_ascii());
+        println!("Testing board:\n{}", board);
 
         let castle = ChessMove::castle_kingside(Color::Black);
 
         board.apply(castle).unwrap();
-        println!("After applying castle:\n{}", board.to_ascii());
+        println!("After applying castle:\n{}", board);
         assert_eq!(Some((Piece::King, Color::Black)), board.get(square::G8));
         assert_eq!(Some((Piece::Rook, Color::Black)), board.get(square::F8));
 
         board.undo(castle).unwrap();
-        println!("After undoing castle:\n{}", board.to_ascii());
+        println!("After undoing castle:\n{}", board);
         assert_eq!(Some((Piece::King, Color::Black)), board.get(square::E8));
         assert_eq!(Some((Piece::Rook, Color::Black)), board.get(square::H8));
     }
@@ -566,17 +566,17 @@ mod tests {
         let mut board = Board::new();
         board.put(square::E1, Piece::King, Color::White).unwrap();
         board.put(square::A1, Piece::Rook, Color::White).unwrap();
-        println!("Testing board:\n{}", board.to_ascii());
+        println!("Testing board:\n{}", board);
 
         let castle = ChessMove::castle_queenside(Color::White);
 
         board.apply(castle).unwrap();
-        println!("After applying castle:\n{}", board.to_ascii());
+        println!("After applying castle:\n{}", board);
         assert_eq!(Some((Piece::King, Color::White)), board.get(square::C1));
         assert_eq!(Some((Piece::Rook, Color::White)), board.get(square::D1));
 
         board.undo(castle).unwrap();
-        println!("After undoing castle:\n{}", board.to_ascii());
+        println!("After undoing castle:\n{}", board);
         assert_eq!(Some((Piece::King, Color::White)), board.get(square::E1));
         assert_eq!(Some((Piece::Rook, Color::White)), board.get(square::A1));
     }
@@ -586,17 +586,17 @@ mod tests {
         let mut board = Board::new();
         board.put(square::E8, Piece::King, Color::Black).unwrap();
         board.put(square::A8, Piece::Rook, Color::Black).unwrap();
-        println!("Testing board:\n{}", board.to_ascii());
+        println!("Testing board:\n{}", board);
 
         let castle = ChessMove::castle_queenside(Color::Black);
 
         board.apply(castle).unwrap();
-        println!("After applying castle:\n{}", board.to_ascii());
+        println!("After applying castle:\n{}", board);
         assert_eq!(Some((Piece::King, Color::Black)), board.get(square::C8));
         assert_eq!(Some((Piece::Rook, Color::Black)), board.get(square::D8));
 
         board.undo(castle).unwrap();
-        println!("After undoing castle:\n{}", board.to_ascii());
+        println!("After undoing castle:\n{}", board);
         assert_eq!(Some((Piece::King, Color::Black)), board.get(square::E8));
         assert_eq!(Some((Piece::Rook, Color::Black)), board.get(square::A8));
     }
@@ -606,7 +606,7 @@ mod tests {
         let mut board = Board::new();
         board.put(square::E1, Piece::King, Color::White).unwrap();
         board.put(square::H1, Piece::Rook, Color::White).unwrap();
-        println!("Testing board:\n{}", board.to_ascii());
+        println!("Testing board:\n{}", board);
 
         assert!(board.peek_castle_rights() & WHITE_KINGSIDE_RIGHTS > 0);
         board
@@ -620,7 +620,7 @@ mod tests {
         let mut board = Board::new();
         board.put(square::E1, Piece::King, Color::White).unwrap();
         board.put(square::A1, Piece::Rook, Color::White).unwrap();
-        println!("Testing board:\n{}", board.to_ascii());
+        println!("Testing board:\n{}", board);
 
         assert!(board.peek_castle_rights() & WHITE_QUEENSIDE_RIGHTS > 0);
         board
@@ -634,7 +634,7 @@ mod tests {
         let mut board = Board::new();
         board.put(square::E8, Piece::King, Color::Black).unwrap();
         board.put(square::H8, Piece::Rook, Color::Black).unwrap();
-        println!("Testing board:\n{}", board.to_ascii());
+        println!("Testing board:\n{}", board);
 
         assert!(board.peek_castle_rights() & BLACK_KINGSIDE_RIGHTS > 0);
         board
@@ -648,7 +648,7 @@ mod tests {
         let mut board = Board::new();
         board.put(square::E8, Piece::King, Color::Black).unwrap();
         board.put(square::A8, Piece::Rook, Color::Black).unwrap();
-        println!("Testing board:\n{}", board.to_ascii());
+        println!("Testing board:\n{}", board);
 
         assert!(board.peek_castle_rights() & BLACK_QUEENSIDE_RIGHTS > 0);
         board
@@ -664,7 +664,7 @@ mod tests {
         board.put(square::A1, Piece::Rook, Color::White).unwrap();
         board.put(square::H1, Piece::Rook, Color::White).unwrap();
         board.put(square::H8, Piece::Bishop, Color::Black).unwrap();
-        println!("Testing board:\n{}", board.to_ascii());
+        println!("Testing board:\n{}", board);
 
         assert!(board.peek_castle_rights() & WHITE_QUEENSIDE_RIGHTS > 0);
         board
@@ -684,7 +684,7 @@ mod tests {
         board.put(square::A1, Piece::Rook, Color::White).unwrap();
         board.put(square::H1, Piece::Rook, Color::White).unwrap();
         board.put(square::A8, Piece::Bishop, Color::Black).unwrap();
-        println!("Testing board:\n{}", board.to_ascii());
+        println!("Testing board:\n{}", board);
 
         assert!(board.peek_castle_rights() & WHITE_KINGSIDE_RIGHTS > 0);
         board
@@ -704,7 +704,7 @@ mod tests {
         board.put(square::A8, Piece::Rook, Color::Black).unwrap();
         board.put(square::H8, Piece::Rook, Color::Black).unwrap();
         board.put(square::H1, Piece::Bishop, Color::White).unwrap();
-        println!("Testing board:\n{}", board.to_ascii());
+        println!("Testing board:\n{}", board);
 
         assert!(board.peek_castle_rights() & BLACK_QUEENSIDE_RIGHTS > 0);
         board
@@ -724,7 +724,7 @@ mod tests {
         board.put(square::A8, Piece::Rook, Color::Black).unwrap();
         board.put(square::H8, Piece::Rook, Color::Black).unwrap();
         board.put(square::A1, Piece::Bishop, Color::White).unwrap();
-        println!("Testing board:\n{}", board.to_ascii());
+        println!("Testing board:\n{}", board);
 
         assert!(board.peek_castle_rights() & BLACK_KINGSIDE_RIGHTS > 0);
         board
@@ -743,7 +743,7 @@ mod tests {
         board.put(square::E1, Piece::King, Color::White).unwrap();
         board.put(square::A1, Piece::Rook, Color::White).unwrap();
         board.put(square::H1, Piece::Rook, Color::White).unwrap();
-        println!("Testing board:\n{}", board.to_ascii());
+        println!("Testing board:\n{}", board);
 
         assert!(board.peek_castle_rights() & WHITE_KINGSIDE_RIGHTS > 0);
         assert!(board.peek_castle_rights() & WHITE_QUEENSIDE_RIGHTS > 0);
@@ -760,7 +760,7 @@ mod tests {
         board.put(square::E8, Piece::King, Color::Black).unwrap();
         board.put(square::A8, Piece::Rook, Color::Black).unwrap();
         board.put(square::H8, Piece::Rook, Color::Black).unwrap();
-        println!("Testing board:\n{}", board.to_ascii());
+        println!("Testing board:\n{}", board);
 
         assert!(board.peek_castle_rights() & BLACK_KINGSIDE_RIGHTS > 0);
         assert!(board.peek_castle_rights() & BLACK_QUEENSIDE_RIGHTS > 0);

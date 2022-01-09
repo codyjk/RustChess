@@ -78,7 +78,6 @@ const ALGEBRAIC: [&'static str; 64] = [
     "G1", "G2", "G3", "G4", "G5", "G6", "G7", "G8", "H1", "H2", "H3", "H4", "H5", "H6", "H7", "H8",
 ];
 
-
 pub fn is_square(maybe_square: u64) -> bool {
     // it's a square if only 1 bit is set
     (maybe_square & (maybe_square - 1)) == 0

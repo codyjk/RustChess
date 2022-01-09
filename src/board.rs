@@ -5,9 +5,9 @@ pub mod magic;
 pub mod piece;
 pub mod square;
 
+mod display;
 mod fen;
 mod pieces;
-mod ui;
 
 use bitboard::EMPTY;
 use color::Color;

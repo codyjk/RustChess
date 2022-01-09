@@ -16,7 +16,7 @@ pub fn play_computer(depth: u8) {
     println!("{}", clear::All);
     println!("you are {}", player_color);
     loop {
-        println!("{}", game.board.to_ascii());
+        println!("{}", game.board);
 
         match game.check_game_over_for_current_turn() {
             Some(GameEnding::Checkmate) => {
@@ -76,7 +76,7 @@ pub fn computer_vs_computer() {
     let mut moves = 0;
 
     loop {
-        println!("{}", game.board.to_ascii());
+        println!("{}", game.board);
 
         match game.check_game_over_for_current_turn() {
             Some(GameEnding::Checkmate) => {
@@ -114,7 +114,7 @@ pub fn player_vs_player() {
     let game = &mut Game::new();
     loop {
         println!("turn: {}", game.board.turn());
-        println!("{}", game.board.to_ascii());
+        println!("{}", game.board);
 
         match game.check_game_over_for_current_turn() {
             Some(GameEnding::Checkmate) => {

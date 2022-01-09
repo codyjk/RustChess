@@ -264,7 +264,7 @@ fn enrich_error(board: &Board, chessmove: ChessMove, error: BoardError) -> Strin
         "error: {}\nmove:{}\nboard:\n{}fen:\n{}",
         error,
         chessmove,
-        board.to_ascii(),
+        board,
         board.to_fen()
     );
     enriched_error
@@ -307,7 +307,7 @@ mod tests {
         board.put(square::A2, Piece::Pawn, Color::Black).unwrap();
         board.put(square::F2, Piece::Pawn, Color::White).unwrap();
         board.put(square::F3, Piece::Rook, Color::Black).unwrap();
-        println!("Testing board:\n{}", board.to_ascii());
+        println!("Testing board:\n{}", board);
 
         let mut expected_white_moves: Vec<ChessMove> = vec![
             ChessMove::new(square::D2, square::D3, None),
@@ -375,7 +375,7 @@ mod tests {
         board.put(square::C3, Piece::Pawn, Color::White).unwrap();
         board.put(square::E2, Piece::Pawn, Color::White).unwrap();
         board.put(square::E3, Piece::Pawn, Color::Black).unwrap();
-        println!("Testing board:\n{}", board.to_ascii());
+        println!("Testing board:\n{}", board);
 
         let mut expected_moves = vec![
             ChessMove::new(square::B2, square::B3, None),
@@ -397,7 +397,7 @@ mod tests {
         board.put(square::E4, Piece::Pawn, Color::White).unwrap();
         board.put(square::D5, Piece::Pawn, Color::Black).unwrap();
         board.put(square::H6, Piece::Knight, Color::Black).unwrap();
-        println!("Testing board:\n{}", board.to_ascii());
+        println!("Testing board:\n{}", board);
 
         let expected_white_moves: Vec<ChessMove> = vec![
             ChessMove::new(square::C3, square::D5, Some((Piece::Pawn, Color::Black))),
@@ -431,7 +431,7 @@ mod tests {
         board.put(square::C3, Piece::Rook, Color::White).unwrap();
         board.put(square::C1, Piece::King, Color::White).unwrap();
         board.put(square::C7, Piece::Pawn, Color::White).unwrap();
-        println!("Testing board:\n{}", board.to_ascii());
+        println!("Testing board:\n{}", board);
 
         let mut expected_moves: Vec<ChessMove> = vec![
             ChessMove::new(square::C3, square::C2, None),
@@ -459,7 +459,7 @@ mod tests {
         board.put(square::A4, Piece::Pawn, Color::White).unwrap();
         board.put(square::A2, Piece::Rook, Color::White).unwrap();
         board.put(square::B2, Piece::Pawn, Color::White).unwrap();
-        println!("Testing board:\n{}", board.to_ascii());
+        println!("Testing board:\n{}", board);
 
         let mut expected_moves: Vec<ChessMove> = vec![
             ChessMove::new(square::A2, square::A1, None),
@@ -481,7 +481,7 @@ mod tests {
         board.put(square::C3, Piece::Pawn, Color::White).unwrap();
         board.put(square::C7, Piece::Pawn, Color::White).unwrap();
         board.put(square::G7, Piece::Pawn, Color::Black).unwrap();
-        println!("Testing board:\n{}", board.to_ascii());
+        println!("Testing board:\n{}", board);
 
         let mut expected_moves: Vec<ChessMove> = vec![
             ChessMove::new(square::E5, square::D4, None),
@@ -511,7 +511,7 @@ mod tests {
         board.put(square::B5, Piece::Pawn, Color::White).unwrap();
         board.put(square::G3, Piece::Pawn, Color::Black).unwrap();
         board.put(square::H2, Piece::Pawn, Color::White).unwrap();
-        println!("Testing board:\n{}", board.to_ascii());
+        println!("Testing board:\n{}", board);
 
         let mut expected_moves: Vec<ChessMove> = vec![
             // North - no moves
@@ -554,7 +554,7 @@ mod tests {
     fn test_generate_king_moves_corner() {
         let mut board = Board::new();
         board.put(square::A1, Piece::King, Color::White).unwrap();
-        println!("Testing board:\n{}", board.to_ascii());
+        println!("Testing board:\n{}", board);
 
         let mut expected_moves: Vec<ChessMove> = vec![
             ChessMove::new(square::A1, square::A2, None),
@@ -574,7 +574,7 @@ mod tests {
         let mut board = Board::new();
         board.put(square::E1, Piece::King, Color::White).unwrap();
         board.put(square::D2, Piece::Pawn, Color::Black).unwrap();
-        println!("Testing board:\n{}", board.to_ascii());
+        println!("Testing board:\n{}", board);
 
         let mut expected_moves: Vec<ChessMove> = vec![
             ChessMove::new(square::E1, square::D1, None),
@@ -597,7 +597,7 @@ mod tests {
         board.put(square::E5, Piece::King, Color::White).unwrap();
         board.put(square::E6, Piece::Pawn, Color::White).unwrap();
         board.put(square::E4, Piece::Pawn, Color::Black).unwrap();
-        println!("Testing board:\n{}", board.to_ascii());
+        println!("Testing board:\n{}", board);
 
         let mut expected_moves: Vec<ChessMove> = vec![
             ChessMove::new(square::E5, square::D4, None),
@@ -621,7 +621,7 @@ mod tests {
         let mut board = Board::new();
         board.put(square::C2, Piece::Pawn, Color::White).unwrap();
         board.put(square::D4, Piece::Pawn, Color::Black).unwrap();
-        println!("Testing board:\n{}", board.to_ascii());
+        println!("Testing board:\n{}", board);
 
         let move_that_reveals_en_passant_target = ChessMove::new(square::C2, square::C4, None);
         board.apply(move_that_reveals_en_passant_target).unwrap();
@@ -648,7 +648,7 @@ mod tests {
         board.put(square::E8, Piece::King, Color::Black).unwrap();
         board.put(square::A8, Piece::Rook, Color::Black).unwrap();
         board.put(square::H8, Piece::Rook, Color::Black).unwrap();
-        println!("Testing board:\n{}", board.to_ascii());
+        println!("Testing board:\n{}", board);
 
         let mut expected_white_moves: Vec<ChessMove> = vec![
             ChessMove::castle_kingside(Color::White),
@@ -688,7 +688,7 @@ mod tests {
         board.put(square::H8, Piece::Rook, Color::Black).unwrap();
         board.put(square::A3, Piece::Bishop, Color::White).unwrap(); // this makes black kingside castle impossible
 
-        println!("Testing board:\n{}", board.to_ascii());
+        println!("Testing board:\n{}", board);
 
         let mut expected_white_moves: Vec<ChessMove> =
             vec![ChessMove::castle_kingside(Color::White)];
@@ -719,7 +719,7 @@ mod tests {
         board.put(square::H1, Piece::Rook, Color::White).unwrap();
         board.put(square::B1, Piece::Bishop, Color::White).unwrap();
         board.put(square::G1, Piece::Knight, Color::Black).unwrap();
-        println!("Testing board:\n{}", board.to_ascii());
+        println!("Testing board:\n{}", board);
 
         let expected_white_moves: Vec<ChessMove> = vec![];
         let white_moves =
