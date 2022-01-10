@@ -6,14 +6,14 @@ use crate::board::error::BoardError;
 use crate::board::piece::Piece;
 use crate::board::Board;
 use crate::moves::chess_move::ChessMove;
-use crate::moves::ray_table::RayTable;
+use crate::moves::targets::Targets;
 use crate::moves::{self, targets};
 use rand::{self, Rng};
 use thiserror::Error;
 
 pub struct Game {
     board: Board,
-    ray_table: RayTable,
+    targets: Targets,
 }
 
 #[derive(Error, Debug)]
@@ -39,23 +39,20 @@ impl Game {
     }
 
     pub fn from_board(board: Board) -> Self {
-        let mut ray_table = RayTable::new();
-        ray_table.populate();
-
         Self {
             board: board,
-            ray_table: ray_table,
+            targets: Targets::new(),
         }
     }
 
     pub fn check_game_over_for_current_turn(&mut self) -> Option<GameEnding> {
         let turn = self.board.turn();
-        game_ending(&mut self.board, &self.ray_table, turn)
+        game_ending(&mut self.board, &self.targets, turn)
     }
 
     pub fn make_move(&mut self, from_square: u64, to_square: u64) -> Result<ChessMove, GameError> {
         let turn = self.board.turn();
-        let candidates = moves::generate(&mut self.board, turn, &self.ray_table);
+        let candidates = moves::generate(&mut self.board, turn, &self.targets);
         let maybe_chessmove = candidates
             .iter()
             .find(|&m| m.from_square() == from_square && m.to_square() == to_square);
@@ -71,7 +68,7 @@ impl Game {
 
     pub fn make_random_move(&mut self) -> Result<ChessMove, GameError> {
         let turn = self.board.turn();
-        let candidates = moves::generate(&mut self.board, turn, &self.ray_table);
+        let candidates = moves::generate(&mut self.board, turn, &self.targets);
         let chessmove = match candidates.len() {
             0 => return Err(GameError::NoAvailableMoves),
             _ => {
@@ -87,7 +84,7 @@ impl Game {
 
     pub fn make_alpha_beta_best_move(&mut self, depth: u8) -> Result<ChessMove, GameError> {
         let current_turn = self.board.turn();
-        let candidates = moves::generate(&mut self.board, current_turn, &self.ray_table);
+        let candidates = moves::generate(&mut self.board, current_turn, &self.targets);
         if candidates.len() == 0 {
             return Err(GameError::NoAvailableMoves);
         }
@@ -101,8 +98,7 @@ impl Game {
             for chessmove in candidates {
                 self.board.apply(chessmove).unwrap();
                 self.board.next_turn();
-                let score =
-                    minimax_alpha_beta(alpha, beta, depth, &mut self.board, &self.ray_table);
+                let score = minimax_alpha_beta(alpha, beta, depth, &mut self.board, &self.targets);
                 self.board.undo(chessmove).unwrap();
                 self.board.next_turn();
 
@@ -116,8 +112,7 @@ impl Game {
             for chessmove in candidates {
                 self.board.apply(chessmove).unwrap();
                 self.board.next_turn();
-                let score =
-                    minimax_alpha_beta(alpha, beta, depth, &mut self.board, &self.ray_table);
+                let score = minimax_alpha_beta(alpha, beta, depth, &mut self.board, &self.targets);
                 self.board.undo(chessmove).unwrap();
                 self.board.next_turn();
 
@@ -140,13 +135,13 @@ fn minimax_alpha_beta(
     mut beta: f32,
     depth: u8,
     board: &mut Board,
-    ray_table: &RayTable,
+    targets: &Targets,
 ) -> f32 {
     let current_turn = board.turn();
-    let candidates = moves::generate(board, current_turn, ray_table);
+    let candidates = moves::generate(board, current_turn, targets);
 
     if depth == 0 || candidates.len() == 0 {
-        return score(board, ray_table, current_turn);
+        return score(board, targets, current_turn);
     }
 
     if current_turn.maximize_score() {
@@ -154,7 +149,7 @@ fn minimax_alpha_beta(
         for chessmove in candidates {
             board.apply(chessmove).unwrap();
             board.next_turn();
-            let score = minimax_alpha_beta(alpha, beta, depth - 1, board, ray_table);
+            let score = minimax_alpha_beta(alpha, beta, depth - 1, board, targets);
             board.undo(chessmove).unwrap();
             board.next_turn();
 
@@ -176,7 +171,7 @@ fn minimax_alpha_beta(
         for chessmove in candidates {
             board.apply(chessmove).unwrap();
             board.next_turn();
-            let score = minimax_alpha_beta(alpha, beta, depth - 1, board, ray_table);
+            let score = minimax_alpha_beta(alpha, beta, depth - 1, board, targets);
             board.undo(chessmove).unwrap();
             board.next_turn();
 
@@ -196,8 +191,8 @@ fn minimax_alpha_beta(
     }
 }
 
-fn score(board: &mut Board, ray_table: &RayTable, current_turn: Color) -> f32 {
-    match (game_ending(board, ray_table, current_turn), current_turn) {
+fn score(board: &mut Board, targets: &Targets, current_turn: Color) -> f32 {
+    match (game_ending(board, targets, current_turn), current_turn) {
         (Some(GameEnding::Checkmate), Color::White) => return f32::NEG_INFINITY,
         (Some(GameEnding::Checkmate), Color::Black) => return f32::INFINITY,
         (Some(GameEnding::Stalemate), Color::White) => return f32::NEG_INFINITY,
@@ -210,26 +205,26 @@ fn score(board: &mut Board, ray_table: &RayTable, current_turn: Color) -> f32 {
     board.score()
 }
 
-fn current_player_is_in_check(board: &Board, ray_table: &RayTable) -> bool {
+fn current_player_is_in_check(board: &Board, targets: &Targets) -> bool {
     let current_player = board.turn();
     let king = board.pieces(current_player).locate(Piece::King);
     let attacked_squares =
-        targets::generate_attack_targets(board, current_player.opposite(), ray_table);
+        targets::generate_attack_targets(board, current_player.opposite(), targets);
 
     king & attacked_squares > 0
 }
 
 pub fn game_ending(
     board: &mut Board,
-    ray_table: &RayTable,
+    targets: &Targets,
     current_turn: Color,
 ) -> Option<GameEnding> {
     if board.max_seen_position_count() == 3 {
         return Some(GameEnding::Draw);
     }
 
-    let candidates = moves::generate(board, current_turn, ray_table);
-    let check = current_player_is_in_check(board, ray_table);
+    let candidates = moves::generate(board, current_turn, targets);
+    let check = current_player_is_in_check(board, targets);
 
     if candidates.len() == 0 {
         if check {

@@ -3,7 +3,7 @@ use chess::board::magic::run_find_magic;
 use chess::board::Board;
 use chess::game::modes::{computer_vs_computer, play_computer, player_vs_player};
 use chess::moves::count_positions;
-use chess::moves::ray_table::RayTable;
+use chess::moves::targets::Targets;
 use structopt::StructOpt;
 
 #[derive(StructOpt, Debug)]
@@ -35,12 +35,11 @@ fn main() {
 
 fn run_count_positions(depth: u8) {
     let depths = 0..=depth;
-    let mut ray_table = RayTable::new();
-    ray_table.populate();
+    let targets = Targets::new();
 
     for depth in depths {
         let mut board = Board::starting_position();
-        let count = count_positions(depth, &mut board, &ray_table, Color::White);
+        let count = count_positions(depth, &mut board, &targets, Color::White);
 
         println!("depth: {}, positions: {}", depth, count);
     }

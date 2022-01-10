@@ -3,28 +3,63 @@ use crate::board::bitboard::{
 };
 use crate::board::color::Color;
 use crate::board::piece::Piece;
-use crate::board::Board;
+use crate::board::{square, Board};
 use crate::moves::ray_table::{Direction, RayTable, BISHOP_DIRS, ROOK_DIRS};
+use std::collections::HashMap;
 
 pub type PieceTarget = (u64, u64); // (piece_square, targets)
 
-fn rightmost_bit(x: u64) -> u64 {
-    x & (!x + 1)
+type TargetsTable = HashMap<u64, u64>;
+
+pub struct Targets {
+    pub knights: TargetsTable,
+    pub rays: RayTable,
 }
 
-fn leftmost_bit(x: u64) -> u64 {
-    let mut b = x;
+impl Targets {
+    pub fn new() -> Self {
+        let mut ray_table = RayTable::new();
+        ray_table.populate();
 
-    // fill in rightmost bits
-    b |= b >> 32;
-    b |= b >> 16;
-    b |= b >> 8;
-    b |= b >> 4;
-    b |= b >> 2;
-    b |= b >> 1;
+        Self {
+            knights: generate_knight_targets_table(),
+            rays: ray_table,
+        }
+    }
 
-    // get the leftmost bit
-    b ^ (b >> 1)
+    pub fn get(&self, square: u64, piece: Piece) -> u64 {
+        match piece {
+            Piece::Knight => *self.knights.get(&square).unwrap(),
+            _ => 0,
+        }
+    }
+}
+
+pub fn generate_piece_targets(
+    board: &Board,
+    color: Color,
+    piece: Piece,
+    targets: &Targets,
+) -> Vec<PieceTarget> {
+    let mut piece_targets: Vec<(u64, u64)> = vec![];
+    let pieces = board.pieces(color).locate(piece);
+    let occupied = board.pieces(color).occupied();
+
+    for &sq in &square::ORDERED {
+        if pieces & sq == 0 {
+            continue;
+        }
+
+        let candidates = targets.get(sq, piece) & !occupied;
+
+        if candidates == 0 {
+            continue;
+        }
+
+        piece_targets.push((sq, candidates));
+    }
+
+    piece_targets
 }
 
 pub fn generate_pawn_targets(board: &Board, color: Color) -> Vec<PieceTarget> {
@@ -118,44 +153,35 @@ pub fn generate_pawn_attack_targets(board: &Board, color: Color) -> Vec<PieceTar
     piece_targets
 }
 
-pub fn generate_knight_targets(board: &Board, color: Color) -> Vec<PieceTarget> {
-    let mut piece_targets: Vec<(u64, u64)> = vec![];
-    let knights = board.pieces(color).locate(Piece::Knight);
-    let occupied = board.pieces(color).occupied();
+pub fn generate_knight_targets_table() -> TargetsTable {
+    let mut table = HashMap::new();
 
     for x in 0..64 {
         let knight = 1 << x;
-        if knights & knight == 0 {
-            continue;
-        }
 
         // nne = north-north-east, nee = north-east-east, etc..
-        let move_nne = knight << 17 & !A_FILE & !occupied;
-        let move_nee = knight << 10 & !A_FILE & !B_FILE & !occupied;
-        let move_see = knight >> 6 & !A_FILE & !B_FILE & !occupied;
-        let move_sse = knight >> 15 & !A_FILE & !occupied;
-        let move_nnw = knight << 15 & !H_FILE & !occupied;
-        let move_nww = knight << 6 & !G_FILE & !H_FILE & !occupied;
-        let move_sww = knight >> 10 & !G_FILE & !H_FILE & !occupied;
-        let move_ssw = knight >> 17 & !H_FILE & !occupied;
+        let move_nne = knight << 17 & !A_FILE;
+        let move_nee = knight << 10 & !A_FILE & !B_FILE;
+        let move_see = knight >> 6 & !A_FILE & !B_FILE;
+        let move_sse = knight >> 15 & !A_FILE;
+        let move_nnw = knight << 15 & !H_FILE;
+        let move_nww = knight << 6 & !G_FILE & !H_FILE;
+        let move_sww = knight >> 10 & !G_FILE & !H_FILE;
+        let move_ssw = knight >> 17 & !H_FILE;
 
-        piece_targets.push((knight, move_nne));
-        piece_targets.push((knight, move_nee));
-        piece_targets.push((knight, move_see));
-        piece_targets.push((knight, move_sse));
-        piece_targets.push((knight, move_nnw));
-        piece_targets.push((knight, move_nww));
-        piece_targets.push((knight, move_sww));
-        piece_targets.push((knight, move_ssw));
+        let targets =
+            move_nne | move_nee | move_see | move_sse | move_nnw | move_nww | move_sww | move_ssw;
+
+        table.insert(knight, targets);
     }
 
-    piece_targets
+    table
 }
 
 fn generate_ray_targets(
     board: &Board,
     color: Color,
-    ray_table: &RayTable,
+    targets: &Targets,
     ray_piece: Piece,
     ray_dirs: [Direction; 4],
 ) -> Vec<PieceTarget> {
@@ -172,7 +198,7 @@ fn generate_ray_targets(
         let mut target_squares = EMPTY;
 
         for dir in ray_dirs.iter() {
-            let ray = ray_table.get(piece, *dir);
+            let ray = targets.rays.get(piece, *dir);
             if ray == 0 {
                 continue;
             }
@@ -202,7 +228,7 @@ fn generate_ray_targets(
                 Direction::SouthEast => leftmost_bit(intercepts),
             };
 
-            let blocked_squares = ray_table.get(intercept, *dir);
+            let blocked_squares = targets.rays.get(intercept, *dir);
 
             target_squares |= ray ^ blocked_squares;
 
@@ -220,40 +246,28 @@ fn generate_ray_targets(
     piece_targets
 }
 
-pub fn generate_rook_targets(
-    board: &Board,
-    color: Color,
-    ray_table: &RayTable,
-) -> Vec<PieceTarget> {
-    generate_ray_targets(board, color, ray_table, Piece::Rook, ROOK_DIRS)
+pub fn generate_rook_targets(board: &Board, color: Color, targets: &Targets) -> Vec<PieceTarget> {
+    generate_ray_targets(board, color, targets, Piece::Rook, ROOK_DIRS)
 }
 
-pub fn generate_bishop_targets(
-    board: &Board,
-    color: Color,
-    ray_table: &RayTable,
-) -> Vec<PieceTarget> {
-    generate_ray_targets(board, color, ray_table, Piece::Bishop, BISHOP_DIRS)
+pub fn generate_bishop_targets(board: &Board, color: Color, targets: &Targets) -> Vec<PieceTarget> {
+    generate_ray_targets(board, color, targets, Piece::Bishop, BISHOP_DIRS)
 }
 
-pub fn generate_queen_targets(
-    board: &Board,
-    color: Color,
-    ray_table: &RayTable,
-) -> Vec<PieceTarget> {
+pub fn generate_queen_targets(board: &Board, color: Color, targets: &Targets) -> Vec<PieceTarget> {
     let mut piece_targets: Vec<PieceTarget> = vec![];
 
     piece_targets.append(&mut generate_ray_targets(
         board,
         color,
-        ray_table,
+        targets,
         Piece::Queen,
         ROOK_DIRS,
     ));
     piece_targets.append(&mut generate_ray_targets(
         board,
         color,
-        ray_table,
+        targets,
         Piece::Queen,
         BISHOP_DIRS,
     ));
@@ -283,15 +297,20 @@ pub fn generate_king_targets(board: &Board, color: Color) -> Vec<PieceTarget> {
     vec![(king, targets)]
 }
 
-pub fn generate_attack_targets(board: &Board, color: Color, ray_table: &RayTable) -> u64 {
+pub fn generate_attack_targets(board: &Board, color: Color, targets: &Targets) -> u64 {
     let mut piece_targets: Vec<PieceTarget> = vec![];
     let mut attack_targets = EMPTY;
 
     piece_targets.append(&mut generate_pawn_attack_targets(board, color));
-    piece_targets.append(&mut generate_knight_targets(board, color));
-    piece_targets.append(&mut generate_rook_targets(board, color, ray_table));
-    piece_targets.append(&mut generate_bishop_targets(board, color, ray_table));
-    piece_targets.append(&mut generate_queen_targets(board, color, ray_table));
+    piece_targets.append(&mut generate_piece_targets(
+        board,
+        color,
+        Piece::Knight,
+        targets,
+    ));
+    piece_targets.append(&mut generate_rook_targets(board, color, targets));
+    piece_targets.append(&mut generate_bishop_targets(board, color, targets));
+    piece_targets.append(&mut generate_queen_targets(board, color, targets));
     piece_targets.append(&mut generate_king_targets(board, color));
 
     for (_piece, targets) in piece_targets {
@@ -299,6 +318,25 @@ pub fn generate_attack_targets(board: &Board, color: Color, ray_table: &RayTable
     }
 
     attack_targets
+}
+
+fn rightmost_bit(x: u64) -> u64 {
+    x & (!x + 1)
+}
+
+fn leftmost_bit(x: u64) -> u64 {
+    let mut b = x;
+
+    // fill in rightmost bits
+    b |= b >> 32;
+    b |= b >> 16;
+    b |= b >> 8;
+    b |= b >> 4;
+    b |= b >> 2;
+    b |= b >> 1;
+
+    // get the leftmost bit
+    b ^ (b >> 1)
 }
 
 #[cfg(test)]
@@ -328,10 +366,9 @@ mod tests {
 
     #[test]
     fn test_generate_attack_targets() {
-        let mut ray_table = RayTable::new();
-        ray_table.populate();
-
+        let targets = Targets::new();
         let mut board = Board::new();
+
         board.put(square::A4, Piece::Pawn, Color::White).unwrap();
         board.put(square::B5, Piece::Pawn, Color::Black).unwrap();
         board.put(square::B1, Piece::Rook, Color::White).unwrap();
@@ -363,7 +400,7 @@ mod tests {
             | square::C3
             | square::D2
             | square::A1;
-        let white_targets = generate_attack_targets(&board, Color::White, &ray_table);
+        let white_targets = generate_attack_targets(&board, Color::White, &targets);
         assert_eq!(expected_white_targets, white_targets);
 
         let expected_black_targets = EMPTY
@@ -374,16 +411,15 @@ mod tests {
             | square::G1
             | square::G2
             | square::H2;
-        let black_targets = generate_attack_targets(&board, Color::Black, &ray_table);
+        let black_targets = generate_attack_targets(&board, Color::Black, &targets);
         assert_eq!(expected_black_targets, black_targets);
     }
 
     #[test]
     pub fn test_generate_attack_targets_2() {
-        let mut ray_table = RayTable::new();
-        ray_table.populate();
-
+        let targets = Targets::new();
         let mut board = Board::starting_position();
+
         board
             .apply(ChessMove::new(square::E2, square::E4, None))
             .unwrap();
@@ -449,7 +485,7 @@ mod tests {
             | square::D1
             | square::E2;
 
-        let white_targets = generate_attack_targets(&board, Color::White, &ray_table);
+        let white_targets = generate_attack_targets(&board, Color::White, &targets);
         println!(
             "expected white targets:\n{}",
             render_occupied(expected_white_targets)
