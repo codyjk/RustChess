@@ -35,11 +35,11 @@ fn main() {
 
 fn run_count_positions(depth: u8) {
     let depths = 0..=depth;
-    let targets = Targets::new();
+    let mut targets = Targets::new();
 
     for depth in depths {
         let mut board = Board::starting_position();
-        let count = count_positions(depth, &mut board, &targets, Color::White);
+        let count = count_positions(depth, &mut board, &mut targets, Color::White);
 
         println!("depth: {}, positions: {}", depth, count);
     }

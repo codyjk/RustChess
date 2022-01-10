@@ -237,7 +237,7 @@ impl Board {
         *self.max_seen_position_count_stack.last().unwrap()
     }
 
-    fn hash(&self) -> u64 {
+    pub fn hash(&self) -> u64 {
         let mut s = DefaultHasher::new();
         let pieces = (self.white.hash(&mut s), self.black.hash(&mut s));
         pieces.hash(&mut s);

@@ -11,7 +11,7 @@ fn criterion_benchmark(c: &mut Criterion) {
             count_positions(
                 4,
                 &mut Board::starting_position(),
-                &Targets::new(),
+                &mut Targets::new(),
                 Color::White,
             )
         })

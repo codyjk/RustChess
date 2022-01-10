@@ -47,12 +47,12 @@ impl Game {
 
     pub fn check_game_over_for_current_turn(&mut self) -> Option<GameEnding> {
         let turn = self.board.turn();
-        game_ending(&mut self.board, &self.targets, turn)
+        game_ending(&mut self.board, &mut self.targets, turn)
     }
 
     pub fn make_move(&mut self, from_square: u64, to_square: u64) -> Result<ChessMove, GameError> {
         let turn = self.board.turn();
-        let candidates = moves::generate(&mut self.board, turn, &self.targets);
+        let candidates = moves::generate(&mut self.board, turn, &mut self.targets);
         let maybe_chessmove = candidates
             .iter()
             .find(|&m| m.from_square() == from_square && m.to_square() == to_square);
@@ -68,7 +68,7 @@ impl Game {
 
     pub fn make_random_move(&mut self) -> Result<ChessMove, GameError> {
         let turn = self.board.turn();
-        let candidates = moves::generate(&mut self.board, turn, &self.targets);
+        let candidates = moves::generate(&mut self.board, turn, &mut self.targets);
         let chessmove = match candidates.len() {
             0 => return Err(GameError::NoAvailableMoves),
             _ => {
@@ -84,7 +84,7 @@ impl Game {
 
     pub fn make_alpha_beta_best_move(&mut self, depth: u8) -> Result<ChessMove, GameError> {
         let current_turn = self.board.turn();
-        let candidates = moves::generate(&mut self.board, current_turn, &self.targets);
+        let candidates = moves::generate(&mut self.board, current_turn, &mut self.targets);
         if candidates.len() == 0 {
             return Err(GameError::NoAvailableMoves);
         }
@@ -98,7 +98,8 @@ impl Game {
             for chessmove in candidates {
                 self.board.apply(chessmove).unwrap();
                 self.board.next_turn();
-                let score = minimax_alpha_beta(alpha, beta, depth, &mut self.board, &self.targets);
+                let score =
+                    minimax_alpha_beta(alpha, beta, depth, &mut self.board, &mut self.targets);
                 self.board.undo(chessmove).unwrap();
                 self.board.next_turn();
 
@@ -112,7 +113,8 @@ impl Game {
             for chessmove in candidates {
                 self.board.apply(chessmove).unwrap();
                 self.board.next_turn();
-                let score = minimax_alpha_beta(alpha, beta, depth, &mut self.board, &self.targets);
+                let score =
+                    minimax_alpha_beta(alpha, beta, depth, &mut self.board, &mut self.targets);
                 self.board.undo(chessmove).unwrap();
                 self.board.next_turn();
 
@@ -135,7 +137,7 @@ fn minimax_alpha_beta(
     mut beta: f32,
     depth: u8,
     board: &mut Board,
-    targets: &Targets,
+    targets: &mut Targets,
 ) -> f32 {
     let current_turn = board.turn();
     let candidates = moves::generate(board, current_turn, targets);
@@ -191,7 +193,7 @@ fn minimax_alpha_beta(
     }
 }
 
-fn score(board: &mut Board, targets: &Targets, current_turn: Color) -> f32 {
+fn score(board: &mut Board, targets: &mut Targets, current_turn: Color) -> f32 {
     match (game_ending(board, targets, current_turn), current_turn) {
         (Some(GameEnding::Checkmate), Color::White) => return f32::NEG_INFINITY,
         (Some(GameEnding::Checkmate), Color::Black) => return f32::INFINITY,
@@ -205,7 +207,7 @@ fn score(board: &mut Board, targets: &Targets, current_turn: Color) -> f32 {
     board.score()
 }
 
-fn current_player_is_in_check(board: &Board, targets: &Targets) -> bool {
+fn current_player_is_in_check(board: &Board, targets: &mut Targets) -> bool {
     let current_player = board.turn();
     let king = board.pieces(current_player).locate(Piece::King);
     let attacked_squares =
@@ -216,7 +218,7 @@ fn current_player_is_in_check(board: &Board, targets: &Targets) -> bool {
 
 pub fn game_ending(
     board: &mut Board,
-    targets: &Targets,
+    targets: &mut Targets,
     current_turn: Color,
 ) -> Option<GameEnding> {
     if board.max_seen_position_count() == 3 {

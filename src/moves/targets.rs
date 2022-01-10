@@ -12,8 +12,9 @@ pub type PieceTarget = (u64, u64); // (piece_square, targets)
 type TargetsTable = HashMap<u64, u64>;
 
 pub struct Targets {
-    pub knights: TargetsTable,
-    pub rays: RayTable,
+    knights: TargetsTable,
+    rays: RayTable,
+    attacks_cache: HashMap<(u64, u64), u64>,
 }
 
 impl Targets {
@@ -24,6 +25,7 @@ impl Targets {
         Self {
             knights: generate_knight_targets_table(),
             rays: ray_table,
+            attacks_cache: HashMap::new(),
         }
     }
 
@@ -31,6 +33,28 @@ impl Targets {
         match piece {
             Piece::Knight => *self.knights.get(&square).unwrap(),
             _ => 0,
+        }
+    }
+
+    pub fn get_cached_attack(&self, color: Color, board_hash: u64) -> Option<u64> {
+        let color_key = match color {
+            Color::Black => 0,
+            Color::White => 1,
+        };
+        self.attacks_cache.get(&(color_key, board_hash)).map(|b| *b)
+    }
+
+    pub fn cache_attack(&mut self, color: Color, board_hash: u64, attack_targets: u64) -> u64 {
+        let color_key = match color {
+            Color::Black => 0,
+            Color::White => 1,
+        };
+        match self
+            .attacks_cache
+            .insert((color_key, board_hash), attack_targets)
+        {
+            Some(old_targets) => old_targets,
+            None => attack_targets,
         }
     }
 }
@@ -297,7 +321,14 @@ pub fn generate_king_targets(board: &Board, color: Color) -> Vec<PieceTarget> {
     vec![(king, targets)]
 }
 
-pub fn generate_attack_targets(board: &Board, color: Color, targets: &Targets) -> u64 {
+pub fn generate_attack_targets(board: &Board, color: Color, targets: &mut Targets) -> u64 {
+    let board_hash = board.hash();
+
+    match targets.get_cached_attack(color, board_hash) {
+        Some(cached_targets) => return cached_targets,
+        None => (),
+    };
+
     let mut piece_targets: Vec<PieceTarget> = vec![];
     let mut attack_targets = EMPTY;
 
@@ -316,6 +347,8 @@ pub fn generate_attack_targets(board: &Board, color: Color, targets: &Targets) -
     for (_piece, targets) in piece_targets {
         attack_targets |= targets;
     }
+
+    targets.cache_attack(color, board_hash, attack_targets);
 
     attack_targets
 }
@@ -366,7 +399,7 @@ mod tests {
 
     #[test]
     fn test_generate_attack_targets() {
-        let targets = Targets::new();
+        let mut targets = Targets::new();
         let mut board = Board::new();
 
         board.put(square::A4, Piece::Pawn, Color::White).unwrap();
@@ -400,7 +433,7 @@ mod tests {
             | square::C3
             | square::D2
             | square::A1;
-        let white_targets = generate_attack_targets(&board, Color::White, &targets);
+        let white_targets = generate_attack_targets(&board, Color::White, &mut targets);
         assert_eq!(expected_white_targets, white_targets);
 
         let expected_black_targets = EMPTY
@@ -411,13 +444,13 @@ mod tests {
             | square::G1
             | square::G2
             | square::H2;
-        let black_targets = generate_attack_targets(&board, Color::Black, &targets);
+        let black_targets = generate_attack_targets(&board, Color::Black, &mut targets);
         assert_eq!(expected_black_targets, black_targets);
     }
 
     #[test]
     pub fn test_generate_attack_targets_2() {
-        let targets = Targets::new();
+        let mut targets = Targets::new();
         let mut board = Board::starting_position();
 
         board
@@ -485,7 +518,7 @@ mod tests {
             | square::D1
             | square::E2;
 
-        let white_targets = generate_attack_targets(&board, Color::White, &targets);
+        let white_targets = generate_attack_targets(&board, Color::White, &mut targets);
         println!(
             "expected white targets:\n{}",
             render_occupied(expected_white_targets)

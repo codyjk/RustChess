@@ -17,7 +17,7 @@ use targets::{PieceTarget, Targets};
 
 pub const PAWN_PROMOTIONS: [Piece; 4] = [Piece::Queen, Piece::Rook, Piece::Bishop, Piece::Knight];
 
-pub fn generate(board: &mut Board, color: Color, targets: &Targets) -> Vec<ChessMove> {
+pub fn generate(board: &mut Board, color: Color, targets: &mut Targets) -> Vec<ChessMove> {
     let mut moves = vec![];
 
     moves.append(&mut generate_pawn_moves(board, color));
@@ -168,7 +168,7 @@ fn generate_king_moves(board: &Board, color: Color) -> Vec<ChessMove> {
     expand_piece_targets(board, color, targets)
 }
 
-fn generate_castle_moves(board: &Board, color: Color, targets: &Targets) -> Vec<ChessMove> {
+fn generate_castle_moves(board: &Board, color: Color, targets: &mut Targets) -> Vec<ChessMove> {
     let mut moves: Vec<ChessMove> = vec![];
     let attacked_squares = targets::generate_attack_targets(board, color.opposite(), targets);
 
@@ -231,7 +231,7 @@ fn remove_invalid_moves(
     candidates: Vec<ChessMove>,
     board: &mut Board,
     color: Color,
-    targets: &Targets,
+    targets: &mut Targets,
 ) -> Vec<ChessMove> {
     let mut moves = vec![];
 
@@ -270,7 +270,7 @@ fn enrich_error(board: &Board, chessmove: ChessMove, error: BoardError) -> Strin
     enriched_error
 }
 
-pub fn count_positions(depth: u8, board: &mut Board, targets: &Targets, color: Color) -> usize {
+pub fn count_positions(depth: u8, board: &mut Board, targets: &mut Targets, color: Color) -> usize {
     let candidates = generate(board, color, targets);
     let mut count = candidates.len();
 
@@ -668,12 +668,12 @@ mod tests {
         ];
         expected_black_moves.sort();
 
-        let targets = Targets::new();
+        let mut targets = Targets::new();
 
-        let mut white_moves = generate_castle_moves(&mut board, Color::White, &targets);
+        let mut white_moves = generate_castle_moves(&mut board, Color::White, &mut targets);
         white_moves.sort();
 
-        let mut black_moves = generate_castle_moves(&mut board, Color::Black, &targets);
+        let mut black_moves = generate_castle_moves(&mut board, Color::Black, &mut targets);
         black_moves.sort();
 
         assert_eq!(expected_white_moves, white_moves);
@@ -703,12 +703,12 @@ mod tests {
             vec![ChessMove::castle_queenside(Color::Black)];
         expected_black_moves.sort();
 
-        let targets = Targets::new();
-        targets::generate_attack_targets(&board, Color::Black, &targets);
+        let mut targets = Targets::new();
+        targets::generate_attack_targets(&board, Color::Black, &mut targets);
 
-        let mut white_moves = generate_castle_moves(&mut board, Color::White, &targets);
+        let mut white_moves = generate_castle_moves(&mut board, Color::White, &mut targets);
         white_moves.sort();
-        let mut black_moves = generate_castle_moves(&mut board, Color::Black, &targets);
+        let mut black_moves = generate_castle_moves(&mut board, Color::Black, &mut targets);
         black_moves.sort();
 
         assert_eq!(expected_white_moves, white_moves);
@@ -726,7 +726,7 @@ mod tests {
         println!("Testing board:\n{}", board);
 
         let expected_white_moves: Vec<ChessMove> = vec![];
-        let white_moves = generate_castle_moves(&mut board, Color::White, &Targets::new());
+        let white_moves = generate_castle_moves(&mut board, Color::White, &mut Targets::new());
 
         assert_eq!(expected_white_moves, white_moves);
     }
