@@ -126,6 +126,8 @@ impl Board {
         let fullmove_clock = raw_fullmove_clock.parse::<u8>().unwrap();
         board.set_fullmove_clock(fullmove_clock);
 
+        board.update_position_hash();
+
         Ok(board)
     }
 

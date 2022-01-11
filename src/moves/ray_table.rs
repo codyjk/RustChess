@@ -1,6 +1,6 @@
 use crate::board::bitboard::{A_FILE, H_FILE, RANK_1, RANK_8};
 use crate::board::square;
-use std::collections::HashMap;
+use ahash::AHashMap;
 
 #[derive(Clone, Copy, PartialEq, Debug, Eq, Hash)]
 pub enum Direction {
@@ -29,27 +29,27 @@ pub const BISHOP_DIRS: [Direction; 4] = [
 ];
 
 pub struct RayTable {
-    north: HashMap<u64, u64>,
-    east: HashMap<u64, u64>,
-    south: HashMap<u64, u64>,
-    west: HashMap<u64, u64>,
-    northeast: HashMap<u64, u64>,
-    northwest: HashMap<u64, u64>,
-    southeast: HashMap<u64, u64>,
-    southwest: HashMap<u64, u64>,
+    north: AHashMap<u64, u64>,
+    east: AHashMap<u64, u64>,
+    south: AHashMap<u64, u64>,
+    west: AHashMap<u64, u64>,
+    northeast: AHashMap<u64, u64>,
+    northwest: AHashMap<u64, u64>,
+    southeast: AHashMap<u64, u64>,
+    southwest: AHashMap<u64, u64>,
 }
 
 impl RayTable {
     pub fn new() -> Self {
         Self {
-            north: HashMap::new(),
-            east: HashMap::new(),
-            south: HashMap::new(),
-            west: HashMap::new(),
-            northeast: HashMap::new(),
-            northwest: HashMap::new(),
-            southeast: HashMap::new(),
-            southwest: HashMap::new(),
+            north: AHashMap::new(),
+            east: AHashMap::new(),
+            south: AHashMap::new(),
+            west: AHashMap::new(),
+            northeast: AHashMap::new(),
+            northwest: AHashMap::new(),
+            southeast: AHashMap::new(),
+            southwest: AHashMap::new(),
         }
     }
 

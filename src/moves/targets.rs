@@ -5,16 +5,16 @@ use crate::board::color::Color;
 use crate::board::piece::Piece;
 use crate::board::{square, Board};
 use crate::moves::ray_table::{Direction, RayTable, BISHOP_DIRS, ROOK_DIRS};
-use std::collections::HashMap;
+use ahash::AHashMap;
 
 pub type PieceTarget = (u64, u64); // (piece_square, targets)
 
-type TargetsTable = HashMap<u64, u64>;
+type TargetsTable = AHashMap<u64, u64>;
 
 pub struct Targets {
     knights: TargetsTable,
     rays: RayTable,
-    attacks_cache: HashMap<(u64, u64), u64>,
+    attacks_cache: AHashMap<(u64, u64), u64>,
 }
 
 impl Targets {
@@ -25,7 +25,7 @@ impl Targets {
         Self {
             knights: generate_knight_targets_table(),
             rays: ray_table,
-            attacks_cache: HashMap::new(),
+            attacks_cache: AHashMap::new(),
         }
     }
 
@@ -178,7 +178,7 @@ pub fn generate_pawn_attack_targets(board: &Board, color: Color) -> Vec<PieceTar
 }
 
 pub fn generate_knight_targets_table() -> TargetsTable {
-    let mut table = HashMap::new();
+    let mut table = AHashMap::new();
 
     for x in 0..64 {
         let knight = 1 << x;
@@ -322,7 +322,7 @@ pub fn generate_king_targets(board: &Board, color: Color) -> Vec<PieceTarget> {
 }
 
 pub fn generate_attack_targets(board: &Board, color: Color, targets: &mut Targets) -> u64 {
-    let board_hash = board.hash();
+    let board_hash = board.current_position_hash();
 
     match targets.get_cached_attack(color, board_hash) {
         Some(cached_targets) => return cached_targets,

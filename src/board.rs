@@ -9,13 +9,13 @@ mod display;
 mod fen;
 mod pieces;
 
+use ahash::AHashMap;
+use ahash::AHasher;
 use bitboard::EMPTY;
 use color::Color;
 use error::BoardError;
 use piece::Piece;
 use pieces::Pieces;
-use std::collections::hash_map::DefaultHasher;
-use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 
 type CastleRightsBitmask = u8;
@@ -37,13 +37,14 @@ pub struct Board {
     en_passant_target_stack: Vec<u64>,
     castle_rights_stack: Vec<CastleRightsBitmask>,
     halfmove_clock_stack: Vec<u8>,
-    position_count: HashMap<u64, u8>,
+    position_count: AHashMap<u64, u8>,
     max_seen_position_count_stack: Vec<u8>,
+    current_position_hash: u64,
 }
 
 impl Board {
     pub fn new() -> Self {
-        Board {
+        let mut board = Board {
             white: Pieces::new(),
             black: Pieces::new(),
             turn: Color::White,
@@ -51,9 +52,12 @@ impl Board {
             castle_rights_stack: vec![ALL_CASTLE_RIGHTS],
             halfmove_clock_stack: vec![0],
             fullmove_clock: 1,
-            position_count: HashMap::new(),
+            position_count: AHashMap::new(),
             max_seen_position_count_stack: vec![1],
-        }
+            current_position_hash: 0,
+        };
+        board.update_position_hash();
+        board
     }
 
     pub fn pieces(&self, color: Color) -> Pieces {
@@ -213,35 +217,59 @@ impl Board {
         f32::from(self.white.material_value()) - f32::from(self.black.material_value())
     }
 
+    pub fn current_position_hash(&self) -> u64 {
+        self.current_position_hash
+    }
+
+    fn update_position_hash(&mut self) -> u64 {
+        let mut s = AHasher::new_with_keys(0, 0);
+        self.hash(&mut s);
+        let hash = s.finish();
+        self.current_position_hash = hash;
+        hash
+    }
+
     pub fn count_current_position(&mut self) -> u8 {
-        let position = &self.hash();
+        self.update_position_hash();
         self.position_count
-            .entry(*position)
+            .entry(self.current_position_hash)
             .and_modify(|count| *count += 1)
             .or_insert(1);
-        let count = *self.position_count.get(position).unwrap();
+        let count = *self
+            .position_count
+            .get(&self.current_position_hash)
+            .unwrap();
         self.max_seen_position_count_stack.push(count);
         count
     }
 
     pub fn uncount_current_position(&mut self) -> u8 {
-        let position = &self.hash();
+        self.update_position_hash();
         self.position_count
-            .entry(*position)
+            .entry(self.current_position_hash)
             .and_modify(|count| *count -= 1);
         self.max_seen_position_count_stack.pop();
-        *self.position_count.get(position).unwrap()
+        *self
+            .position_count
+            .get(&self.current_position_hash)
+            .unwrap()
     }
 
     pub fn max_seen_position_count(&self) -> u8 {
         *self.max_seen_position_count_stack.last().unwrap()
     }
 
-    pub fn hash(&self) -> u64 {
-        let mut s = DefaultHasher::new();
-        let pieces = (self.white.hash(&mut s), self.black.hash(&mut s));
-        pieces.hash(&mut s);
-        s.finish()
+    pub fn position_tuple(&self) -> (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) {
+        let (a1, b1, c1, d1, e1, f1) = self.black.position_tuple();
+        let (a2, b2, c2, d2, e2, f2) = self.white.position_tuple();
+
+        (a1, b1, c1, d1, e1, f1, a2, b2, c2, d2, e2, f2)
+    }
+}
+
+impl Hash for Board {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.position_tuple().hash(state);
     }
 }
 

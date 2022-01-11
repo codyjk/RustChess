@@ -1,9 +1,8 @@
 use super::bitboard::EMPTY;
 use super::piece::{Piece, ALL_PIECES};
 use super::BoardError;
-use std::hash::Hash;
 
-#[derive(Clone, Copy, PartialEq, Hash)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct Pieces {
     pawns: u64,
     rooks: u64,
@@ -114,6 +113,17 @@ impl Pieces {
         }
 
         material
+    }
+
+    pub fn position_tuple(&self) -> (u64, u64, u64, u64, u64, u64) {
+        (
+            self.bishops,
+            self.kings,
+            self.knights,
+            self.pawns,
+            self.queens,
+            self.rooks,
+        )
     }
 }
 

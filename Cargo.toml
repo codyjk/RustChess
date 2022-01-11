@@ -13,6 +13,7 @@ termion = "1"
 thiserror = "1.0"
 structopt = "0.3"
 fastrand = "1.6.0"
+ahash = "0.7.6"
 
 [profile.release]
 debug = true
