@@ -5,6 +5,7 @@ use crate::input_handler;
 use rand::{self, Rng};
 use std::time::SystemTime;
 use termion::clear;
+use std::{thread, time};
 
 pub fn play_computer(depth: u8) {
     let game = &mut Game::new();
@@ -73,8 +74,11 @@ pub fn computer_vs_computer() {
     let game = &mut Game::new();
     let mut moves = 0;
 
+    println!("{}", clear::All);
+
     loop {
         println!("{}", game.board);
+        thread::sleep(time::Duration::from_millis(1000));
 
         match game.check_game_over_for_current_turn() {
             Some(GameEnding::Checkmate) => {
@@ -85,6 +89,10 @@ pub fn computer_vs_computer() {
                 println!("stalemate!");
                 break;
             }
+            Some(GameEnding::Draw) => {
+                println!("draw!");
+                break;
+            }
             _ => (),
         };
 
@@ -93,7 +101,7 @@ pub fn computer_vs_computer() {
             break;
         }
 
-        match game.make_random_move() {
+        match game.make_waterfall_book_then_alpha_beta_move(2) {
             Ok(chessmove) => {
                 println!("{}", clear::All);
                 println!("{} chose {}", game.board.turn(), chessmove);
@@ -121,6 +129,10 @@ pub fn player_vs_player() {
             }
             Some(GameEnding::Stalemate) => {
                 println!("stalemate!");
+                break;
+            }
+            Some(GameEnding::Draw) => {
+                println!("draw!");
                 break;
             }
             _ => (),
