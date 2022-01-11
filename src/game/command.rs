@@ -43,3 +43,12 @@ impl Command for MakeOptimalMove {
         game.make_alpha_beta_best_move(self.depth)
     }
 }
+
+pub struct MakeWaterfallMove {
+    pub depth: u8,
+}
+impl Command for MakeWaterfallMove {
+    fn execute(&self, game: &mut Game) -> CommandResult {
+        game.make_waterfall_book_then_alpha_beta_move(self.depth)
+    }
+}

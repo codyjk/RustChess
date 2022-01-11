@@ -5,6 +5,7 @@ use crate::board::color::Color;
 use crate::board::error::BoardError;
 use crate::board::piece::Piece;
 use crate::board::Board;
+use crate::book::{generate_opening_book, Book};
 use crate::moves::chess_move::ChessMove;
 use crate::moves::targets::Targets;
 use crate::moves::{self, targets};
@@ -13,6 +14,8 @@ use thiserror::Error;
 
 pub struct Game {
     board: Board,
+    move_history: Vec<ChessMove>,
+    book: Book,
     targets: Targets,
 }
 
@@ -41,6 +44,8 @@ impl Game {
     pub fn from_board(board: Board) -> Self {
         Self {
             board: board,
+            move_history: vec![],
+            book: generate_opening_book(),
             targets: Targets::new(),
         }
     }
@@ -48,6 +53,10 @@ impl Game {
     pub fn check_game_over_for_current_turn(&mut self) -> Option<GameEnding> {
         let turn = self.board.turn();
         game_ending(&mut self.board, &mut self.targets, turn)
+    }
+
+    pub fn save_move(&mut self, chessmove: ChessMove) {
+        self.move_history.push(chessmove)
     }
 
     pub fn make_move(&mut self, from_square: u64, to_square: u64) -> Result<ChessMove, GameError> {
@@ -61,7 +70,10 @@ impl Game {
             None => return Err(GameError::InvalidMove),
         };
         match self.board.apply(chessmove) {
-            Ok(_capture) => Ok(chessmove),
+            Ok(_capture) => {
+                self.save_move(chessmove);
+                Ok(chessmove)
+            }
             Err(error) => Err(GameError::BoardError { error: error }),
         }
     }
@@ -77,7 +89,10 @@ impl Game {
             }
         };
         match self.board.apply(chessmove) {
-            Ok(_capture) => Ok(chessmove),
+            Ok(_capture) => {
+                self.save_move(chessmove);
+                Ok(chessmove)
+            }
             Err(error) => Err(GameError::BoardError { error: error }),
         }
     }
@@ -125,8 +140,51 @@ impl Game {
             }
         }
 
-        match self.board.apply(best_move.unwrap()) {
-            Ok(_capture) => Ok(best_move.unwrap()),
+        let chessmove = best_move.unwrap();
+
+        match self.board.apply(chessmove) {
+            Ok(_capture) => {
+                self.save_move(chessmove);
+                Ok(chessmove)
+            }
+            Err(error) => Err(GameError::BoardError { error: error }),
+        }
+    }
+
+    pub fn make_waterfall_book_then_alpha_beta_move(
+        &mut self,
+        depth: u8,
+    ) -> Result<ChessMove, GameError> {
+        let current_turn = self.board.turn();
+        let line = self
+            .move_history
+            .iter()
+            .map(|cm| (cm.from_square(), cm.to_square()))
+            .collect();
+        let book_moves = self.book.get_next_moves(line);
+
+        if book_moves.is_empty() {
+            return self.make_alpha_beta_best_move(depth);
+        }
+
+        let rng = rand::thread_rng().gen_range(0..book_moves.len());
+        let (from_square, to_square) = book_moves[rng];
+        let candidates = moves::generate(&mut self.board, current_turn, &mut self.targets);
+
+        let maybe_chessmove = candidates
+            .iter()
+            .find(|&m| m.from_square() == from_square && m.to_square() == to_square);
+
+        let chessmove = match maybe_chessmove {
+            Some(result) => *result,
+            None => return Err(GameError::InvalidMove),
+        };
+
+        match self.board.apply(chessmove) {
+            Ok(_capture) => {
+                self.save_move(chessmove);
+                Ok(chessmove)
+            }
             Err(error) => Err(GameError::BoardError { error: error }),
         }
     }

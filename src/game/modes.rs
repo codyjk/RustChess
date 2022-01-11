@@ -1,4 +1,4 @@
-use super::command::{Command, MakeOptimalMove, MakeRandomMove};
+use super::command::{Command, MakeWaterfallMove};
 use super::{Game, GameEnding};
 use crate::board::color::Color;
 use crate::input_handler;
@@ -38,10 +38,8 @@ pub fn play_computer(depth: u8) {
                     continue;
                 }
             }
-        } else if game.board.fullmove_clock() < 6 {
-            Box::new(MakeRandomMove {})
         } else {
-            Box::new(MakeOptimalMove { depth: depth })
+            Box::new(MakeWaterfallMove { depth: depth })
         };
 
         let start_time = SystemTime::now();
