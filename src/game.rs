@@ -78,6 +78,10 @@ impl Game {
         }
     }
 
+    pub fn next_turn(&mut self) -> Color {
+        self.board.next_turn()
+    }
+
     pub fn make_random_move(&mut self) -> Result<ChessMove, GameError> {
         let turn = self.board.turn();
         let candidates = moves::generate(&mut self.board, turn, &mut self.targets);

@@ -24,3 +24,7 @@ criterion = "0.3"
 [[bench]]
 name = "count_positions_benchmark"
 harness = false
+
+[[bench]]
+name = "alpha_beta_benchmark"
+harness = false
