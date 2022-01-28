@@ -209,10 +209,6 @@ impl Board {
         self.halfmove_clock_stack.pop().unwrap()
     }
 
-    pub fn score(&self) -> f32 {
-        self.material_value()
-    }
-
     pub fn material_value(&self) -> f32 {
         f32::from(self.white.material_value()) - f32::from(self.black.material_value())
     }

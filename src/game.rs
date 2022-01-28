@@ -3,12 +3,12 @@ pub mod modes;
 
 use crate::board::color::Color;
 use crate::board::error::BoardError;
-use crate::board::piece::Piece;
 use crate::board::Board;
 use crate::book::{generate_opening_book, Book};
+use crate::evaluate::{self, GameEnding};
+use crate::moves;
 use crate::moves::chess_move::ChessMove;
 use crate::moves::targets::Targets;
-use crate::moves::{self, targets};
 use rand::{self, Rng};
 use thiserror::Error;
 
@@ -29,13 +29,6 @@ pub enum GameError {
     BoardError { error: BoardError },
 }
 
-#[derive(Debug)]
-pub enum GameEnding {
-    Checkmate,
-    Stalemate,
-    Draw,
-}
-
 impl Game {
     pub fn new() -> Self {
         Self::from_board(Board::starting_position())
@@ -52,7 +45,7 @@ impl Game {
 
     pub fn check_game_over_for_current_turn(&mut self) -> Option<GameEnding> {
         let turn = self.board.turn();
-        game_ending(&mut self.board, &mut self.targets, turn)
+        evaluate::game_ending(&mut self.board, &mut self.targets, turn)
     }
 
     pub fn save_move(&mut self, chessmove: ChessMove) {
@@ -192,6 +185,10 @@ impl Game {
             Err(error) => Err(GameError::BoardError { error: error }),
         }
     }
+
+    pub fn score(&mut self, current_turn: Color) -> f32 {
+        evaluate::score(&mut self.board, &mut self.targets, current_turn)
+    }
 }
 
 fn minimax_alpha_beta(
@@ -205,7 +202,7 @@ fn minimax_alpha_beta(
     let candidates = moves::generate(board, current_turn, targets);
 
     if depth == 0 || candidates.len() == 0 {
-        return score(board, targets, current_turn);
+        return evaluate::score(board, targets, current_turn);
     }
 
     if current_turn.maximize_score() {
@@ -255,55 +252,10 @@ fn minimax_alpha_beta(
     }
 }
 
-fn score(board: &mut Board, targets: &mut Targets, current_turn: Color) -> f32 {
-    match (game_ending(board, targets, current_turn), current_turn) {
-        (Some(GameEnding::Checkmate), Color::White) => return f32::NEG_INFINITY,
-        (Some(GameEnding::Checkmate), Color::Black) => return f32::INFINITY,
-        (Some(GameEnding::Stalemate), Color::White) => return f32::NEG_INFINITY,
-        (Some(GameEnding::Stalemate), Color::Black) => return f32::INFINITY,
-        (Some(GameEnding::Draw), Color::White) => return f32::NEG_INFINITY,
-        (Some(GameEnding::Draw), Color::Black) => return f32::INFINITY,
-        _ => (),
-    };
-
-    board.score()
-}
-
-fn current_player_is_in_check(board: &Board, targets: &mut Targets) -> bool {
-    let current_player = board.turn();
-    let king = board.pieces(current_player).locate(Piece::King);
-    let attacked_squares =
-        targets::generate_attack_targets(board, current_player.opposite(), targets);
-
-    king & attacked_squares > 0
-}
-
-pub fn game_ending(
-    board: &mut Board,
-    targets: &mut Targets,
-    current_turn: Color,
-) -> Option<GameEnding> {
-    if board.max_seen_position_count() == 3 {
-        return Some(GameEnding::Draw);
-    }
-
-    let candidates = moves::generate(board, current_turn, targets);
-    let check = current_player_is_in_check(board, targets);
-
-    if candidates.len() == 0 {
-        if check {
-            return Some(GameEnding::Checkmate);
-        } else {
-            return Some(GameEnding::Stalemate);
-        }
-    }
-
-    return None;
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::board::piece::Piece;
     use crate::board::{square, ALL_CASTLE_RIGHTS};
 
     #[test]

@@ -4,8 +4,8 @@ use crate::board::color::Color;
 use crate::input_handler;
 use rand::{self, Rng};
 use std::time::SystemTime;
-use termion::clear;
 use std::{thread, time};
+use termion::clear;
 
 pub fn play_computer(depth: u8) {
     let game = &mut Game::new();
@@ -52,6 +52,7 @@ pub fn play_computer(depth: u8) {
                     c if c == game.board.turn() => "you",
                     _ => "computer",
                 };
+                game.board.next_turn();
                 println!(
                     "{} chose {} (depth={}, took={}ms, halfmove_clock={}, fullmove_clock={}, score={})",
                     player,
@@ -60,9 +61,8 @@ pub fn play_computer(depth: u8) {
                     duration.as_millis(),
                     game.board.halfmove_clock(),
                     game.board.fullmove_clock(),
-                    game.board.score(),
+                    game.score(game.board.turn()),
                 );
-                game.board.next_turn();
                 continue;
             }
             Err(error) => println!("error: {}", error),
