@@ -1,5 +1,5 @@
 use super::bitboard::EMPTY;
-use super::piece::{Piece, ALL_PIECES};
+use super::piece::Piece;
 use super::BoardError;
 
 #[derive(Clone, Copy, PartialEq)]
@@ -104,17 +104,6 @@ impl Pieces {
         removed
     }
 
-    pub fn material_value(&self) -> f32 {
-        let mut material = 0.;
-
-        for piece in &ALL_PIECES {
-            material +=
-                f32::from(count_set_bits(self.locate(*piece))) * f32::from(piece.material_value());
-        }
-
-        material
-    }
-
     pub fn position_tuple(&self) -> (u64, u64, u64, u64, u64, u64) {
         (
             self.bishops,
@@ -124,43 +113,5 @@ impl Pieces {
             self.queens,
             self.rooks,
         )
-    }
-}
-
-fn count_set_bits(mut b: u64) -> u8 {
-    let mut r = 0;
-    while b > 0 {
-        r += 1;
-        b &= b - 1
-    }
-    r
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::board::Board;
-
-    #[test]
-    fn test_count_set_bits() {
-        assert_eq!(0, count_set_bits(0b0));
-        assert_eq!(4, count_set_bits(0b01010101));
-        assert_eq!(8, count_set_bits(0b11111111));
-        assert_eq!(1, count_set_bits(0b10000000));
-        assert_eq!(1, count_set_bits(0b00000001));
-    }
-
-    #[test]
-    fn test_material_value() {
-        let board = Board::starting_position();
-        let starting_material =
-            board.white.material_value() - f32::from(Piece::King.material_value());
-        // 8 * 1 = 8 pawns
-        // 1 * 9 = 9 queens
-        // 2 * 5 = 10 rooks
-        // 2 * 3 = 6 knights
-        // 2 * 3 = 6 bishops
-        // total = 39
-        assert_eq!(39., starting_material);
     }
 }

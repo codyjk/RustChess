@@ -3,11 +3,11 @@ pub mod color;
 pub mod error;
 pub mod magic;
 pub mod piece;
+pub mod pieces;
 pub mod square;
 
 mod display;
 mod fen;
-mod pieces;
 
 use ahash::AHashMap;
 use ahash::AHasher;
@@ -209,10 +209,6 @@ impl Board {
         self.halfmove_clock_stack.pop().unwrap()
     }
 
-    pub fn material_value(&self) -> f32 {
-        f32::from(self.white.material_value()) - f32::from(self.black.material_value())
-    }
-
     pub fn current_position_hash(&self) -> u64 {
         self.current_position_hash
     }
@@ -266,16 +262,5 @@ impl Board {
 impl Hash for Board {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.position_tuple().hash(state);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_starting_material_value() {
-        let board = Board::starting_position();
-        assert_eq!(0., board.material_value());
     }
 }
