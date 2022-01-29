@@ -8,7 +8,7 @@ use std::{thread, time};
 use termion::clear;
 
 pub fn play_computer(depth: u8) {
-    let game = &mut Game::new();
+    let game = &mut Game::new(depth);
     let rand: u8 = rand::thread_rng().gen();
     let player_color = match rand % 2 {
         0 => Color::White,
@@ -40,7 +40,7 @@ pub fn play_computer(depth: u8) {
                 }
             }
         } else {
-            Box::new(MakeWaterfallMove { depth: depth })
+            Box::new(MakeWaterfallMove {})
         };
 
         let start_time = SystemTime::now();
@@ -71,7 +71,7 @@ pub fn play_computer(depth: u8) {
 }
 
 pub fn computer_vs_computer(move_limit: u8, sleep_between_turns_in_ms: u64) {
-    let game = &mut Game::new();
+    let game = &mut Game::new(2);
 
     println!("{}", clear::All);
 
@@ -99,7 +99,7 @@ pub fn computer_vs_computer(move_limit: u8, sleep_between_turns_in_ms: u64) {
             break;
         }
 
-        match game.make_waterfall_book_then_alpha_beta_move(2) {
+        match game.make_waterfall_book_then_alpha_beta_move() {
             Ok(chessmove) => {
                 println!("{}", clear::All);
                 println!("{} chose {}", game.board.turn(), chessmove);
@@ -115,7 +115,7 @@ pub fn computer_vs_computer(move_limit: u8, sleep_between_turns_in_ms: u64) {
 }
 
 pub fn player_vs_player() {
-    let game = &mut Game::new();
+    let game = &mut Game::new(0);
     loop {
         println!("turn: {}", game.board.turn());
         println!("{}", game.board);

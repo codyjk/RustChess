@@ -2,8 +2,8 @@ use std::fmt;
 
 #[derive(Clone, Copy, PartialEq, Debug, Eq, PartialOrd, Ord)]
 pub enum Color {
-    Black,
-    White,
+    Black = 0,
+    White = 1,
 }
 
 impl Color {

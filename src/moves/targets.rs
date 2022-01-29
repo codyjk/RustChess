@@ -14,7 +14,7 @@ type TargetsTable = AHashMap<u64, u64>;
 pub struct Targets {
     knights: TargetsTable,
     rays: RayTable,
-    attacks_cache: AHashMap<(u64, u64), u64>,
+    attacks_cache: AHashMap<(u8, u64), u64>,
 }
 
 impl Targets {
@@ -37,21 +37,15 @@ impl Targets {
     }
 
     pub fn get_cached_attack(&self, color: Color, board_hash: u64) -> Option<u64> {
-        let color_key = match color {
-            Color::Black => 0,
-            Color::White => 1,
-        };
-        self.attacks_cache.get(&(color_key, board_hash)).map(|b| *b)
+        self.attacks_cache
+            .get(&(color as u8, board_hash))
+            .map(|b| *b)
     }
 
     pub fn cache_attack(&mut self, color: Color, board_hash: u64, attack_targets: u64) -> u64 {
-        let color_key = match color {
-            Color::Black => 0,
-            Color::White => 1,
-        };
         match self
             .attacks_cache
-            .insert((color_key, board_hash), attack_targets)
+            .insert((color as u8, board_hash), attack_targets)
         {
             Some(old_targets) => old_targets,
             None => attack_targets,

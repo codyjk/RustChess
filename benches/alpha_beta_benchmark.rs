@@ -2,8 +2,10 @@ use chess::board::color::Color;
 use chess::board::piece::Piece;
 use chess::board::square;
 use chess::board::{Board, ALL_CASTLE_RIGHTS};
-use chess::evaluate::GameEnding;
-use chess::game::Game;
+use chess::evaluate::{self, GameEnding};
+use chess::moves::targets::Targets;
+use chess::searcher::Searcher;
+
 
 use criterion::{criterion_group, criterion_main, Criterion};
 
@@ -18,6 +20,9 @@ criterion_main!(benches);
 
 fn find_alpha_beta_mate_in_2() {
     let mut board = Board::new();
+    let mut targets = Targets::new();
+    let mut searcher = Searcher::new(2);
+
     board.put(square::F2, Piece::Pawn, Color::White).unwrap();
     board.put(square::G2, Piece::Pawn, Color::White).unwrap();
     board.put(square::H2, Piece::Pawn, Color::White).unwrap();
@@ -29,15 +34,18 @@ fn find_alpha_beta_mate_in_2() {
     board.set_turn(Color::Black);
     board.lose_castle_rights(ALL_CASTLE_RIGHTS);
 
-    let mut game = Game::from_board(board);
 
-    game.make_alpha_beta_best_move(2).unwrap();
-    game.next_turn();
-    game.make_alpha_beta_best_move(1).unwrap();
-    game.next_turn();
-    game.make_alpha_beta_best_move(0).unwrap();
-    game.next_turn();
-    let checkmate = match game.check_game_over_for_current_turn() {
+    let move1 = searcher.search(&mut board, &mut targets).unwrap();
+    board.apply(move1).unwrap();
+    board.next_turn();
+    let move2 = searcher.search(&mut board, &mut targets).unwrap();
+    board.apply(move2).unwrap();
+    board.next_turn();
+    let move3 = searcher.search(&mut board, &mut targets).unwrap();
+    board.apply(move3).unwrap();
+    let current_turn = board.next_turn();
+
+    let checkmate = match evaluate::game_ending(&mut board, &mut targets, current_turn) {
         Some(GameEnding::Checkmate) => true,
         _ => false,
     };
