@@ -1,3 +1,5 @@
+use super::color::Color;
+use super::piece::Piece;
 use super::square;
 use super::Board;
 use std::fmt;
@@ -15,7 +17,7 @@ impl fmt::Display for Board {
             for file in 0..8 {
                 let sq = square::from_rank_file(rank, file);
                 let cell = match self.get(sq) {
-                    Some((piece, color)) => piece.to_fen(color),
+                    Some((piece, color)) => get_piece_char(piece, color),
                     None => ' ',
                 };
                 cells.push(cell.to_string());
@@ -37,5 +39,22 @@ impl fmt::Display for Board {
         rows.push(format!("{} {}", ' ', formatted_ranks_footer));
 
         write!(f, "{}", rows.join("\n"))
+    }
+}
+
+fn get_piece_char(piece: Piece, color: Color) -> char {
+    match (piece, color) {
+        (Piece::Bishop, Color::Black) => '♗',
+        (Piece::Bishop, Color::White) => '♝',
+        (Piece::King, Color::Black) => '♔',
+        (Piece::King, Color::White) => '♚',
+        (Piece::Knight, Color::Black) => '♘',
+        (Piece::Knight, Color::White) => '♞',
+        (Piece::Pawn, Color::Black) => '♙',
+        (Piece::Pawn, Color::White) => '♟',
+        (Piece::Queen, Color::Black) => '♕',
+        (Piece::Queen, Color::White) => '♛',
+        (Piece::Rook, Color::Black) => '♖',
+        (Piece::Rook, Color::White) => '♜',
     }
 }
