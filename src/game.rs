@@ -15,7 +15,6 @@ use thiserror::Error;
 
 pub struct Game {
     board: Board,
-    move_history: Vec<ChessMove>,
     book: Book,
     targets: Targets,
     searcher: Searcher,
@@ -39,7 +38,6 @@ impl Game {
     pub fn from_board(board: Board, search_depth: u8) -> Self {
         Self {
             board: board,
-            move_history: vec![],
             book: generate_opening_book(),
             targets: Targets::new(),
             searcher: Searcher::new(search_depth),
@@ -49,10 +47,6 @@ impl Game {
     pub fn check_game_over_for_current_turn(&mut self) -> Option<GameEnding> {
         let turn = self.board.turn();
         evaluate::game_ending(&mut self.board, &mut self.targets, turn)
-    }
-
-    pub fn save_move(&mut self, chessmove: ChessMove) {
-        self.move_history.push(chessmove)
     }
 
     pub fn make_move(&mut self, from_square: u64, to_square: u64) -> Result<ChessMove, GameError> {
@@ -65,13 +59,11 @@ impl Game {
             Some(result) => *result,
             None => return Err(GameError::InvalidMove),
         };
-        match self.board.apply(chessmove) {
-            Ok(_capture) => {
-                self.save_move(chessmove);
-                Ok(chessmove)
-            }
-            Err(error) => Err(GameError::BoardError { error: error }),
-        }
+
+        self.board
+            .apply(chessmove)
+            .map(|_| chessmove)
+            .map_err(|e| GameError::BoardError { error: e })
     }
 
     pub fn next_turn(&mut self) -> Color {
@@ -84,19 +76,17 @@ impl Game {
             Err(err) => return Err(GameError::SearchError { error: err }),
         };
 
-        match self.board.apply(best_move) {
-            Ok(_capture) => {
-                self.save_move(best_move);
-                Ok(best_move)
-            }
-            Err(error) => Err(GameError::BoardError { error: error }),
-        }
+        self.board
+            .apply(best_move)
+            .map(|_| best_move)
+            .map_err(|e| GameError::BoardError { error: e })
     }
 
     pub fn make_waterfall_book_then_alpha_beta_move(&mut self) -> Result<ChessMove, GameError> {
         let current_turn = self.board.turn();
         let line = self
-            .move_history
+            .board
+            .move_history()
             .iter()
             .map(|cm| (cm.from_square(), cm.to_square()))
             .collect();
@@ -119,13 +109,10 @@ impl Game {
             None => return Err(GameError::InvalidMove),
         };
 
-        match self.board.apply(chessmove) {
-            Ok(_capture) => {
-                self.save_move(chessmove);
-                Ok(chessmove)
-            }
-            Err(error) => Err(GameError::BoardError { error: error }),
-        }
+        self.board
+            .apply(chessmove)
+            .map(|_| chessmove)
+            .map_err(|e| GameError::BoardError { error: e })
     }
 
     pub fn score(&mut self, current_turn: Color) -> f32 {
@@ -194,6 +181,8 @@ mod tests {
 
         // make sure starting position has been counted
         board.count_current_position();
+        let max_seen_at_start = board.max_seen_position_count();
+        assert_eq!(max_seen_at_start, 1);
 
         let mut game = Game::from_board(board, 0);
         println!("Testing board:\n{}", game.board);
@@ -244,6 +233,7 @@ mod tests {
             Some(GameEnding::Draw) => true,
             _ => false,
         };
-        assert!(draw);
+        let max_seen_at_end = game.board.max_seen_position_count();
+        assert!(draw, "max seen position count: {}", max_seen_at_end);
     }
 }

@@ -8,15 +8,15 @@ pub mod square;
 
 mod display;
 mod fen;
+mod zobrist;
 
+use crate::moves::chess_move::ChessMove;
 use ahash::AHashMap;
-use ahash::AHasher;
 use bitboard::EMPTY;
 use color::Color;
 use error::BoardError;
 use piece::Piece;
 use pieces::Pieces;
-use std::hash::{Hash, Hasher};
 
 type CastleRightsBitmask = u8;
 pub const WHITE_KINGSIDE_RIGHTS: CastleRightsBitmask = 0b1000;
@@ -40,6 +40,9 @@ pub struct Board {
     position_count: AHashMap<u64, u8>,
     max_seen_position_count_stack: Vec<u8>,
     current_position_hash: u64,
+    current_boardstate_hash: u64,
+    move_history: Vec<ChessMove>,
+    zobrist: zobrist::Zobrist,
 }
 
 impl Board {
@@ -55,6 +58,9 @@ impl Board {
             position_count: AHashMap::new(),
             max_seen_position_count_stack: vec![1],
             current_position_hash: 0,
+            current_boardstate_hash: 0,
+            move_history: vec![],
+            zobrist: zobrist::Zobrist::new(),
         };
         board.update_position_hash();
         board
@@ -213,12 +219,15 @@ impl Board {
         self.current_position_hash
     }
 
+    pub fn current_boardstate_hash(&self) -> u64 {
+        self.current_position_hash
+    }
+
     fn update_position_hash(&mut self) -> u64 {
-        let mut s = AHasher::new_with_keys(0, 0);
-        self.hash(&mut s);
-        let hash = s.finish();
-        self.current_position_hash = hash;
-        hash
+        let (position_hash, boardstate_hash) = self.zobrist.hash(self);
+        self.current_position_hash = position_hash;
+        self.current_boardstate_hash = boardstate_hash;
+        position_hash
     }
 
     pub fn count_current_position(&mut self) -> u8 {
@@ -251,16 +260,19 @@ impl Board {
         *self.max_seen_position_count_stack.last().unwrap()
     }
 
-    pub fn position_tuple(&self) -> (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) {
-        let (a1, b1, c1, d1, e1, f1) = self.black.position_tuple();
-        let (a2, b2, c2, d2, e2, f2) = self.white.position_tuple();
-
-        (a1, b1, c1, d1, e1, f1, a2, b2, c2, d2, e2, f2)
+    pub fn move_history(&self) -> &Vec<ChessMove> {
+        &self.move_history
     }
-}
 
-impl Hash for Board {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.position_tuple().hash(state);
+    pub fn save_move(&mut self, chessmove: ChessMove) {
+        self.move_history.push(chessmove)
+    }
+
+    pub fn unsave_move(&mut self) -> ChessMove {
+        self.move_history.pop().unwrap()
+    }
+
+    pub fn last_move(&self) -> ChessMove {
+        *self.move_history.last().unwrap()
     }
 }

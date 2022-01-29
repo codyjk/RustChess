@@ -28,6 +28,7 @@ impl Board {
         };
         self.count_current_position();
         self.increment_fullmove_clock();
+        self.save_move(cm);
         result
     }
 
@@ -221,6 +222,7 @@ impl Board {
         };
         self.pop_halfmove_clock();
         self.decrement_fullmove_clock();
+        self.unsave_move();
         result
     }
 

@@ -5,7 +5,7 @@ use crate::{evaluate, moves};
 use ahash::AHashMap;
 use thiserror::Error;
 
-type SearchNode = (u64, u8, u8); // (board_hash, depth, current_turn)
+type SearchNode = (u64, u8); // (boardstate_hash, depth)
 type SearchResult = f32; // best_score
 
 pub struct Searcher {
@@ -95,7 +95,7 @@ impl Searcher {
     ) -> f32 {
         let current_turn = board.turn();
         let candidates = moves::generate(board, current_turn, targets);
-        let search_node = (board.current_position_hash(), depth, current_turn as u8);
+        let search_node: SearchNode = (board.current_boardstate_hash(), depth);
         let mut best_score;
         self.last_searched_position_count += 1;
 
