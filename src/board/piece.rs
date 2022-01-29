@@ -20,14 +20,14 @@ pub const ALL_PIECES: [Piece; 6] = [
 ];
 
 impl Piece {
-    pub fn material_value(self) -> u8 {
+    pub fn material_value(self) -> u16 {
         match self {
-            Piece::Pawn => 1,
-            Piece::Knight => 3,
-            Piece::Bishop => 3,
-            Piece::Rook => 5,
-            Piece::Queen => 9,
-            Piece::King => u8::MAX,
+            Piece::Pawn => 100,
+            Piece::Knight => 320,
+            Piece::Bishop => 330,
+            Piece::Rook => 500,
+            Piece::Queen => 900,
+            Piece::King => 20000,
         }
     }
 }
