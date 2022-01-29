@@ -13,6 +13,7 @@ pub struct Searcher {
     search_result_cache: AHashMap<SearchNode, SearchResult>,
     pub last_searched_position_count: u32,
     pub last_cache_hit_count: u32,
+    pub last_alpha_beta_termination_count: u32,
 }
 
 #[derive(Error, Debug)]
@@ -28,6 +29,7 @@ impl Searcher {
             search_result_cache: AHashMap::new(),
             last_searched_position_count: 0,
             last_cache_hit_count: 0,
+            last_alpha_beta_termination_count: 0,
         }
     }
 
@@ -38,6 +40,7 @@ impl Searcher {
     ) -> Result<ChessMove, SearchError> {
         self.last_searched_position_count = 0;
         self.last_cache_hit_count = 0;
+        self.last_alpha_beta_termination_count = 0;
 
         let current_turn = board.turn();
         let candidates = moves::generate(board, current_turn, targets);
@@ -126,6 +129,7 @@ impl Searcher {
                 }
 
                 if score >= beta {
+                    self.last_alpha_beta_termination_count += 1;
                     break;
                 }
             }
@@ -147,6 +151,7 @@ impl Searcher {
                 }
 
                 if score <= alpha {
+                    self.last_alpha_beta_termination_count += 1;
                     break;
                 }
             }

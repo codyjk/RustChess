@@ -143,6 +143,10 @@ impl Game {
     pub fn last_cache_hit_count(&self) -> u32 {
         self.searcher.last_cache_hit_count
     }
+
+    pub fn last_alpha_beta_termination_count(&self) -> u32 {
+        self.searcher.last_alpha_beta_termination_count
+    }
 }
 
 #[cfg(test)]

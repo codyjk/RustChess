@@ -67,9 +67,10 @@ pub fn play_computer(depth: u8) {
 
                 if game.board.turn() == player_color {
                     println!(
-                        "(positions_searched={}, cache_hits={})",
+                        "(positions_searched={}, cache_hits={}, alpha_beta_terminations={})",
                         game.last_searched_position_count(),
-                        game.last_cache_hit_count()
+                        game.last_cache_hit_count(),
+                        game.last_alpha_beta_termination_count(),
                     );
                 }
                 continue;
