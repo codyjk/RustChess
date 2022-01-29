@@ -2,21 +2,21 @@ use std::fmt;
 
 #[derive(Clone, Copy, PartialEq, Debug, Eq, PartialOrd, Ord)]
 pub enum Piece {
-    Pawn = 0b000001,
-    Bishop = 0b000010,
-    Knight = 0b000100,
-    Rook = 0b001000,
-    Queen = 0b010000,
-    King = 0b100000,
+    Bishop,
+    King,
+    Knight,
+    Pawn,
+    Queen,
+    Rook,
 }
 
 pub const ALL_PIECES: [Piece; 6] = [
-    Piece::Pawn,
     Piece::Bishop,
-    Piece::Knight,
-    Piece::Rook,
-    Piece::Queen,
     Piece::King,
+    Piece::Knight,
+    Piece::Pawn,
+    Piece::Queen,
+    Piece::Rook,
 ];
 
 impl Piece {
