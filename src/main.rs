@@ -27,7 +27,7 @@ fn main() {
     match args {
         Chess::CountPositions { depth } => run_count_positions(depth),
         Chess::Play { depth } => play_computer(depth),
-        Chess::Watch => computer_vs_computer(),
+        Chess::Watch => computer_vs_computer(0, 1000),
         Chess::Pvp => player_vs_player(),
         Chess::FindMagic => run_find_magic(),
     }

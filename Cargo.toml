@@ -28,3 +28,7 @@ harness = false
 [[bench]]
 name = "alpha_beta_benchmark"
 harness = false
+
+[[bench]]
+name = "pvp_benchmark"
+harness = false

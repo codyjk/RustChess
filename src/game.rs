@@ -189,6 +189,10 @@ impl Game {
     pub fn score(&mut self, current_turn: Color) -> f32 {
         evaluate::score(&mut self.board, &mut self.targets, current_turn)
     }
+
+    pub fn fullmove_clock(&self) -> u8 {
+        self.board.fullmove_clock()
+    }
 }
 
 fn minimax_alpha_beta(

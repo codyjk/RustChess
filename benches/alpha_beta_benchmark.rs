@@ -2,7 +2,8 @@ use chess::board::color::Color;
 use chess::board::piece::Piece;
 use chess::board::square;
 use chess::board::{Board, ALL_CASTLE_RIGHTS};
-use chess::game::{Game, GameEnding};
+use chess::evaluate::GameEnding;
+use chess::game::Game;
 
 use criterion::{criterion_group, criterion_main, Criterion};
 

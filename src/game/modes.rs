@@ -70,15 +70,14 @@ pub fn play_computer(depth: u8) {
     }
 }
 
-pub fn computer_vs_computer() {
+pub fn computer_vs_computer(move_limit: u8, sleep_between_turns_in_ms: u64) {
     let game = &mut Game::new();
-    let mut moves = 0;
 
     println!("{}", clear::All);
 
     loop {
         println!("{}", game.board);
-        thread::sleep(time::Duration::from_millis(1000));
+        thread::sleep(time::Duration::from_millis(sleep_between_turns_in_ms));
 
         match game.check_game_over_for_current_turn() {
             Some(GameEnding::Checkmate) => {
@@ -96,8 +95,7 @@ pub fn computer_vs_computer() {
             _ => (),
         };
 
-        moves += 1;
-        if moves > 250 {
+        if move_limit > 0 && game.fullmove_clock() > move_limit {
             break;
         }
 
