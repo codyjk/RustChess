@@ -66,10 +66,10 @@ impl Board {
         board
     }
 
-    pub fn pieces(&self, color: Color) -> Pieces {
+    pub fn pieces(&self, color: Color) -> &Pieces {
         match color {
-            Color::White => self.white,
-            Color::Black => self.black,
+            Color::White => &self.white,
+            Color::Black => &self.black,
         }
     }
 

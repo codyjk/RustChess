@@ -2,7 +2,7 @@ use super::bitboard::EMPTY;
 use super::piece::Piece;
 use super::BoardError;
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct Pieces {
     pawns: u64,
     rooks: u64,
@@ -27,7 +27,7 @@ impl Pieces {
         }
     }
 
-    pub fn locate(self, piece: Piece) -> u64 {
+    pub fn locate(&self, piece: Piece) -> u64 {
         match piece {
             Piece::Bishop => self.bishops,
             Piece::King => self.kings,
@@ -38,7 +38,7 @@ impl Pieces {
         }
     }
 
-    pub fn get(self, square: u64) -> Option<Piece> {
+    pub fn get(&self, square: u64) -> Option<Piece> {
         if square & self.bishops > 0 {
             return Some(Piece::Bishop);
         } else if square & self.kings > 0 {
@@ -56,11 +56,11 @@ impl Pieces {
         None
     }
 
-    pub fn occupied(self) -> u64 {
+    pub fn occupied(&self) -> u64 {
         self.occupied
     }
 
-    pub fn is_occupied(self, square: u64) -> bool {
+    pub fn is_occupied(&self, square: u64) -> bool {
         square & self.occupied > 0
     }
 
