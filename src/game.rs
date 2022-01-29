@@ -135,6 +135,14 @@ impl Game {
     pub fn fullmove_clock(&self) -> u8 {
         self.board.fullmove_clock()
     }
+
+    pub fn last_searched_position_count(&self) -> u32 {
+        self.searcher.last_searched_position_count
+    }
+
+    pub fn last_cache_hit_count(&self) -> u32 {
+        self.searcher.last_cache_hit_count
+    }
 }
 
 #[cfg(test)]

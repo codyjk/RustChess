@@ -6,7 +6,6 @@ use chess::evaluate::{self, GameEnding};
 use chess::moves::targets::Targets;
 use chess::searcher::Searcher;
 
-
 use criterion::{criterion_group, criterion_main, Criterion};
 
 fn criterion_benchmark(c: &mut Criterion) {
@@ -33,7 +32,6 @@ fn find_alpha_beta_mate_in_2() {
     board.put(square::H8, Piece::King, Color::Black).unwrap();
     board.set_turn(Color::Black);
     board.lose_castle_rights(ALL_CASTLE_RIGHTS);
-
 
     let move1 = searcher.search(&mut board, &mut targets).unwrap();
     board.apply(move1).unwrap();

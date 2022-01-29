@@ -11,6 +11,8 @@ type SearchResult = f32; // best_score
 pub struct Searcher {
     search_depth: u8,
     search_result_cache: AHashMap<SearchNode, SearchResult>,
+    pub last_searched_position_count: u32,
+    pub last_cache_hit_count: u32,
 }
 
 #[derive(Error, Debug)]
@@ -24,6 +26,8 @@ impl Searcher {
         Self {
             search_depth: depth,
             search_result_cache: AHashMap::new(),
+            last_searched_position_count: 0,
+            last_cache_hit_count: 0,
         }
     }
 
@@ -32,6 +36,9 @@ impl Searcher {
         board: &mut Board,
         targets: &mut Targets,
     ) -> Result<ChessMove, SearchError> {
+        self.last_searched_position_count = 0;
+        self.last_cache_hit_count = 0;
+
         let current_turn = board.turn();
         let candidates = moves::generate(board, current_turn, targets);
         if candidates.len() == 0 {
@@ -87,9 +94,13 @@ impl Searcher {
         let candidates = moves::generate(board, current_turn, targets);
         let search_node = (board.current_position_hash(), depth, current_turn as u8);
         let mut best_score;
+        self.last_searched_position_count += 1;
 
         match self.search_result_cache.get(&search_node) {
-            Some(&prev_best_score) => return prev_best_score,
+            Some(&prev_best_score) => {
+                self.last_cache_hit_count += 1;
+                return prev_best_score;
+            }
             None => (),
         };
 

@@ -53,6 +53,7 @@ pub fn play_computer(depth: u8) {
                     _ => "computer",
                 };
                 game.board.next_turn();
+                let score = game.score(game.board.turn());
                 println!(
                     "{} chose {} (depth={}, took={}ms, halfmove_clock={}, fullmove_clock={}, score={})",
                     player,
@@ -61,8 +62,16 @@ pub fn play_computer(depth: u8) {
                     duration.as_millis(),
                     game.board.halfmove_clock(),
                     game.board.fullmove_clock(),
-                    game.score(game.board.turn()),
+                    score,
                 );
+
+                if game.board.turn() == player_color {
+                    println!(
+                        "(positions_searched={}, cache_hits={})",
+                        game.last_searched_position_count(),
+                        game.last_cache_hit_count()
+                    );
+                }
                 continue;
             }
             Err(error) => println!("error: {}", error),
