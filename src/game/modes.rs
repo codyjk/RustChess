@@ -81,7 +81,8 @@ pub fn play_computer(depth: u8) {
 }
 
 pub fn computer_vs_computer(move_limit: u8, sleep_between_turns_in_ms: u64) {
-    let game = &mut Game::new(2);
+    let depth = 2;
+    let game = &mut Game::new(depth);
 
     println!("{}", clear::All);
 
@@ -109,11 +110,30 @@ pub fn computer_vs_computer(move_limit: u8, sleep_between_turns_in_ms: u64) {
             break;
         }
 
+        let start_time = SystemTime::now();
         match game.make_waterfall_book_then_alpha_beta_move() {
             Ok(chessmove) => {
+                let duration = SystemTime::now().duration_since(start_time).unwrap();
                 println!("{}", clear::All);
-                println!("{} chose {}", game.board.turn(), chessmove);
                 game.board.next_turn();
+                let score = game.score(game.board.turn());
+                println!(
+                    "{} chose {} (depth={}, took={}ms, halfmove_clock={}, fullmove_clock={}, score={})",
+                    game.board.turn(),
+                    chessmove,
+                    depth,
+                    duration.as_millis(),
+                    game.board.halfmove_clock(),
+                    game.board.fullmove_clock(),
+                    score,
+                );
+
+                println!(
+                    "(positions_searched={}, cache_hits={}, alpha_beta_terminations={})",
+                    game.last_searched_position_count(),
+                    game.last_cache_hit_count(),
+                    game.last_alpha_beta_termination_count(),
+                );
                 continue;
             }
             Err(error) => {
