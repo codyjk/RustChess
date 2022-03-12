@@ -81,7 +81,7 @@ impl Searcher {
             board.next_turn();
             let score = self.minimax_alpha_beta(self.search_depth, board, targets);
             board.undo(chessmove).unwrap();
-            board.next_turn();
+            board.prev_turn();
 
             if cmp(score, best_score) {
                 best_score = score;
@@ -107,7 +107,17 @@ impl Searcher {
         };
 
         if depth == 0 || candidates.len() == 0 {
-            return evaluate::score(board, targets, current_turn);
+            // here, we aren't applying any more moves, but the board's turn state
+            // represents a player who is waiting for the turn to be made.
+            // so, if we take the score, we will get the opposite of what we
+            // are maximizing for.
+            // so we go back to the previous player, calculate the score, and
+            // return that.
+            board.prev_turn();
+            let score = evaluate::score(board, targets, current_turn);
+            board.next_turn();
+
+            return score;
         }
 
         // set search context relative to the player who we are maximizing for
@@ -127,7 +137,7 @@ impl Searcher {
             board.next_turn();
             let score = self.minimax_alpha_beta(depth - 1, board, targets);
             board.undo(chessmove).unwrap();
-            board.next_turn();
+            board.prev_turn();
 
             if cmp(score, best_score) {
                 best_score = score;

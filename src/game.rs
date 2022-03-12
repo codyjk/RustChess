@@ -74,10 +74,6 @@ impl Game {
         }
     }
 
-    pub fn next_turn(&mut self) -> Color {
-        self.board.next_turn()
-    }
-
     pub fn make_alpha_beta_best_move(&mut self) -> Result<ChessMove, GameError> {
         let best_move = match self.searcher.search(&mut self.board, &mut self.targets) {
             Ok(mv) => mv,

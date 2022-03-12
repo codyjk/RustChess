@@ -48,8 +48,8 @@ pub fn game_ending(
 
 pub fn score(board: &mut Board, targets: &mut Targets, current_turn: Color) -> f32 {
     match (game_ending(board, targets, current_turn), current_turn) {
-        (Some(GameEnding::Checkmate), Color::White) => return f32::NEG_INFINITY,
-        (Some(GameEnding::Checkmate), Color::Black) => return f32::INFINITY,
+        (Some(GameEnding::Checkmate), Color::White) => return f32::INFINITY,
+        (Some(GameEnding::Checkmate), Color::Black) => return f32::NEG_INFINITY,
         (Some(GameEnding::Stalemate), Color::White) => return f32::NEG_INFINITY,
         (Some(GameEnding::Stalemate), Color::Black) => return f32::INFINITY,
         (Some(GameEnding::Draw), Color::White) => return f32::NEG_INFINITY,
