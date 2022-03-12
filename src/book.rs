@@ -1,16 +1,16 @@
 use crate::board::square;
-use ahash::AHashMap;
+use rustc_hash::FxHashMap;
 
 type BookMove = (u64, u64);
 
 struct BookNode {
-    lines: AHashMap<BookMove, Box<BookNode>>,
+    lines: FxHashMap<BookMove, Box<BookNode>>,
 }
 
 impl BookNode {
     pub fn new() -> Self {
         Self {
-            lines: AHashMap::new(),
+            lines: FxHashMap::default(),
         }
     }
 }

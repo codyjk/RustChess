@@ -5,17 +5,17 @@ use crate::board::color::Color;
 use crate::board::piece::Piece;
 use crate::board::{square, Board};
 use crate::moves::ray_table::{Direction, RayTable, BISHOP_DIRS, ROOK_DIRS};
-use ahash::AHashMap;
+use rustc_hash::FxHashMap;
 
 pub type PieceTarget = (u64, u64); // (piece_square, targets)
 
-type TargetsTable = AHashMap<u64, u64>;
+type TargetsTable = FxHashMap<u64, u64>;
 
 pub struct Targets {
     kings: TargetsTable,
     knights: TargetsTable,
     rays: RayTable,
-    attacks_cache: AHashMap<(u8, u64), u64>,
+    attacks_cache: FxHashMap<(u8, u64), u64>,
 }
 
 impl Targets {
@@ -27,7 +27,7 @@ impl Targets {
             kings: generate_king_targets_table(),
             knights: generate_knight_targets_table(),
             rays: ray_table,
-            attacks_cache: AHashMap::new(),
+            attacks_cache: FxHashMap::default(),
         }
     }
 
@@ -175,7 +175,7 @@ pub fn generate_pawn_attack_targets(board: &Board, color: Color) -> Vec<PieceTar
 }
 
 pub fn generate_knight_targets_table() -> TargetsTable {
-    let mut table = AHashMap::new();
+    let mut table = FxHashMap::default();
 
     for x in 0..64 {
         let knight = 1 << x;
@@ -200,7 +200,7 @@ pub fn generate_knight_targets_table() -> TargetsTable {
 }
 
 pub fn generate_king_targets_table() -> TargetsTable {
-    let mut table = AHashMap::new();
+    let mut table = FxHashMap::default();
 
     for x in 0..64 {
         let king = 1 << x;

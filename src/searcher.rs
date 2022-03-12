@@ -2,7 +2,7 @@ use crate::board::Board;
 use crate::moves::chess_move::ChessMove;
 use crate::moves::targets::Targets;
 use crate::{evaluate, moves};
-use ahash::AHashMap;
+use rustc_hash::FxHashMap;
 use thiserror::Error;
 
 type SearchNode = (u64, u8, u8); // (board_hash, depth, current_turn)
@@ -10,7 +10,7 @@ type SearchResult = f32; // best_score
 
 pub struct Searcher {
     search_depth: u8,
-    search_result_cache: AHashMap<SearchNode, SearchResult>,
+    search_result_cache: FxHashMap<SearchNode, SearchResult>,
     pub last_searched_position_count: u32,
     pub last_cache_hit_count: u32,
     pub last_alpha_beta_termination_count: u32,
@@ -26,7 +26,7 @@ impl Searcher {
     pub fn new(depth: u8) -> Self {
         Self {
             search_depth: depth,
-            search_result_cache: AHashMap::new(),
+            search_result_cache: FxHashMap::default(),
             last_searched_position_count: 0,
             last_cache_hit_count: 0,
             last_alpha_beta_termination_count: 0,

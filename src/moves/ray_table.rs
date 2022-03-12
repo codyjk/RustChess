@@ -1,6 +1,6 @@
 use crate::board::bitboard::{A_FILE, H_FILE, RANK_1, RANK_8};
 use crate::board::square;
-use ahash::AHashMap;
+use rustc_hash::FxHashMap;
 
 #[derive(Clone, Copy, PartialEq, Debug, Eq, Hash)]
 pub enum Direction {
@@ -29,27 +29,27 @@ pub const BISHOP_DIRS: [Direction; 4] = [
 ];
 
 pub struct RayTable {
-    north: AHashMap<u64, u64>,
-    east: AHashMap<u64, u64>,
-    south: AHashMap<u64, u64>,
-    west: AHashMap<u64, u64>,
-    northeast: AHashMap<u64, u64>,
-    northwest: AHashMap<u64, u64>,
-    southeast: AHashMap<u64, u64>,
-    southwest: AHashMap<u64, u64>,
+    north: FxHashMap<u64, u64>,
+    east: FxHashMap<u64, u64>,
+    south: FxHashMap<u64, u64>,
+    west: FxHashMap<u64, u64>,
+    northeast: FxHashMap<u64, u64>,
+    northwest: FxHashMap<u64, u64>,
+    southeast: FxHashMap<u64, u64>,
+    southwest: FxHashMap<u64, u64>,
 }
 
 impl RayTable {
     pub fn new() -> Self {
         Self {
-            north: AHashMap::new(),
-            east: AHashMap::new(),
-            south: AHashMap::new(),
-            west: AHashMap::new(),
-            northeast: AHashMap::new(),
-            northwest: AHashMap::new(),
-            southeast: AHashMap::new(),
-            southwest: AHashMap::new(),
+            north: FxHashMap::default(),
+            east: FxHashMap::default(),
+            south: FxHashMap::default(),
+            west: FxHashMap::default(),
+            northeast: FxHashMap::default(),
+            northwest: FxHashMap::default(),
+            southeast: FxHashMap::default(),
+            southwest: FxHashMap::default(),
         }
     }
 

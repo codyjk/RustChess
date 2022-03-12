@@ -9,13 +9,12 @@ pub mod square;
 mod display;
 mod fen;
 
-use ahash::AHashMap;
-use ahash::AHasher;
 use bitboard::EMPTY;
 use color::Color;
 use error::BoardError;
 use piece::Piece;
 use pieces::Pieces;
+use rustc_hash::{FxHashMap, FxHasher};
 use std::hash::{Hash, Hasher};
 
 type CastleRightsBitmask = u8;
@@ -37,7 +36,7 @@ pub struct Board {
     en_passant_target_stack: Vec<u64>,
     castle_rights_stack: Vec<CastleRightsBitmask>,
     halfmove_clock_stack: Vec<u8>,
-    position_count: AHashMap<u64, u8>,
+    position_count: FxHashMap<u64, u8>,
     max_seen_position_count_stack: Vec<u8>,
     current_position_hash: u64,
 }
@@ -52,7 +51,7 @@ impl Board {
             castle_rights_stack: vec![ALL_CASTLE_RIGHTS],
             halfmove_clock_stack: vec![0],
             fullmove_clock: 1,
-            position_count: AHashMap::new(),
+            position_count: FxHashMap::default(),
             max_seen_position_count_stack: vec![1],
             current_position_hash: 0,
         };
@@ -214,7 +213,7 @@ impl Board {
     }
 
     pub fn update_position_hash(&mut self) -> u64 {
-        let mut s = AHasher::new_with_keys(0, 0);
+        let mut s = FxHasher::default();
         self.hash(&mut s);
         let hash = s.finish();
         self.current_position_hash = hash;
