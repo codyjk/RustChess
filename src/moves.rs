@@ -246,8 +246,6 @@ fn remove_invalid_moves(
             .map_err(|e| enrich_error(board, chessmove, e))
             .unwrap();
 
-        board.update_position_hash();
-
         let king = board.pieces(color).locate(Piece::King);
         let attacked_squares = targets::generate_attack_targets(board, color.opposite(), targets);
 
@@ -259,8 +257,6 @@ fn remove_invalid_moves(
             .undo(chessmove)
             .map_err(|e| enrich_error(board, chessmove, e))
             .unwrap();
-
-        board.update_position_hash();
     }
 
     moves

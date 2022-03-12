@@ -26,6 +26,7 @@ impl Board {
             Ok(None) => self.increment_halfmove_clock(),
             _ => return result,
         };
+        self.update_position_hash();
         self.count_current_position();
         self.increment_fullmove_clock();
         result
@@ -221,6 +222,7 @@ impl Board {
         };
         self.pop_halfmove_clock();
         self.decrement_fullmove_clock();
+        self.update_position_hash();
         result
     }
 

@@ -194,6 +194,7 @@ mod tests {
         board.lose_castle_rights(ALL_CASTLE_RIGHTS);
 
         // make sure starting position has been counted
+        board.update_position_hash();
         board.count_current_position();
 
         let mut game = Game::from_board(board, 0);

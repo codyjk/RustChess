@@ -222,7 +222,6 @@ impl Board {
     }
 
     pub fn count_current_position(&mut self) -> u8 {
-        self.update_position_hash();
         self.position_count
             .entry(self.current_position_hash)
             .and_modify(|count| *count += 1)
@@ -236,7 +235,6 @@ impl Board {
     }
 
     pub fn uncount_current_position(&mut self) -> u8 {
-        self.update_position_hash();
         self.position_count
             .entry(self.current_position_hash)
             .and_modify(|count| *count -= 1);
