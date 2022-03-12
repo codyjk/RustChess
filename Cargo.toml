@@ -18,6 +18,9 @@ ahash = "0.7.6"
 [profile.release]
 debug = true
 
+[profile.bench]
+debug = true
+
 [dev-dependencies]
 criterion = "0.3"
 
@@ -31,4 +34,8 @@ harness = false
 
 [[bench]]
 name = "pvp_benchmark"
+harness = false
+
+[[bench]]
+name = "movegen_benchmark"
 harness = false
