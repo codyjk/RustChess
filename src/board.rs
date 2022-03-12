@@ -213,7 +213,7 @@ impl Board {
         self.current_position_hash
     }
 
-    fn update_position_hash(&mut self) -> u64 {
+    pub fn update_position_hash(&mut self) -> u64 {
         let mut s = AHasher::new_with_keys(0, 0);
         self.hash(&mut s);
         let hash = s.finish();
@@ -251,16 +251,18 @@ impl Board {
         *self.max_seen_position_count_stack.last().unwrap()
     }
 
-    pub fn position_tuple(&self) -> (u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64, u64) {
+    pub fn hashable_position_key(&self) -> [u64; 14] {
         let (a1, b1, c1, d1, e1, f1) = self.black.position_tuple();
         let (a2, b2, c2, d2, e2, f2) = self.white.position_tuple();
+        let ep = self.peek_en_passant_target();
+        let cr = self.peek_castle_rights() as u64;
 
-        (a1, b1, c1, d1, e1, f1, a2, b2, c2, d2, e2, f2)
+        [a1, b1, c1, d1, e1, f1, a2, b2, c2, d2, e2, f2, ep, cr]
     }
 }
 
 impl Hash for Board {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.position_tuple().hash(state);
+        self.hashable_position_key().hash(state);
     }
 }

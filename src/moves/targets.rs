@@ -12,6 +12,7 @@ pub type PieceTarget = (u64, u64); // (piece_square, targets)
 type TargetsTable = AHashMap<u64, u64>;
 
 pub struct Targets {
+    kings: TargetsTable,
     knights: TargetsTable,
     rays: RayTable,
     attacks_cache: AHashMap<(u8, u64), u64>,
@@ -23,6 +24,7 @@ impl Targets {
         ray_table.populate();
 
         Self {
+            kings: generate_king_targets_table(),
             knights: generate_knight_targets_table(),
             rays: ray_table,
             attacks_cache: AHashMap::new(),
@@ -32,6 +34,7 @@ impl Targets {
     pub fn get(&self, square: u64, piece: Piece) -> u64 {
         match piece {
             Piece::Knight => *self.knights.get(&square).unwrap(),
+            Piece::King => *self.kings.get(&square).unwrap(),
             _ => 0,
         }
     }
@@ -196,6 +199,33 @@ pub fn generate_knight_targets_table() -> TargetsTable {
     table
 }
 
+pub fn generate_king_targets_table() -> TargetsTable {
+    let mut table = AHashMap::new();
+
+    for x in 0..64 {
+        let king = 1 << x;
+
+        let mut targets = EMPTY;
+
+        // shift the king's position. in the event that it falls off of the boundary,
+        // we want to negate the rank/file where the king would fall.
+        targets |= (king << 9) & !RANK_1 & !A_FILE; // northeast
+        targets |= (king << 8) & !RANK_1; // north
+        targets |= (king << 7) & !RANK_1 & !H_FILE; // northwest
+
+        targets |= (king >> 7) & !RANK_8 & !A_FILE; // southeast
+        targets |= (king >> 8) & !RANK_8; // south
+        targets |= (king >> 9) & !RANK_8 & !H_FILE; // southwest
+
+        targets |= (king << 1) & !A_FILE; // east
+        targets |= (king >> 1) & !H_FILE; // west
+
+        table.insert(king, targets);
+    }
+
+    table
+}
+
 fn generate_ray_targets(
     board: &Board,
     color: Color,
@@ -293,28 +323,6 @@ pub fn generate_queen_targets(board: &Board, color: Color, targets: &Targets) ->
     piece_targets
 }
 
-pub fn generate_king_targets(board: &Board, color: Color) -> Vec<PieceTarget> {
-    let king = board.pieces(color).locate(Piece::King);
-    let occupied = board.pieces(color).occupied();
-
-    let mut targets = EMPTY;
-
-    // shift the king's position. in the event that it falls off of the boundary,
-    // we want to negate the rank/file where the king would fall.
-    targets |= (king << 9) & !RANK_1 & !A_FILE & !occupied; // northeast
-    targets |= (king << 8) & !RANK_1 & !occupied; // north
-    targets |= (king << 7) & !RANK_1 & !H_FILE & !occupied; // northwest
-
-    targets |= (king >> 7) & !RANK_8 & !A_FILE & !occupied; // southeast
-    targets |= (king >> 8) & !RANK_8 & !occupied; // south
-    targets |= (king >> 9) & !RANK_8 & !H_FILE & !occupied; // southwest
-
-    targets |= (king << 1) & !A_FILE & !occupied; // east
-    targets |= (king >> 1) & !H_FILE & !occupied; // west
-
-    vec![(king, targets)]
-}
-
 pub fn generate_attack_targets(board: &Board, color: Color, targets: &mut Targets) -> u64 {
     let board_hash = board.current_position_hash();
 
@@ -336,7 +344,12 @@ pub fn generate_attack_targets(board: &Board, color: Color, targets: &mut Target
     piece_targets.append(&mut generate_rook_targets(board, color, targets));
     piece_targets.append(&mut generate_bishop_targets(board, color, targets));
     piece_targets.append(&mut generate_queen_targets(board, color, targets));
-    piece_targets.append(&mut generate_king_targets(board, color));
+    piece_targets.append(&mut generate_piece_targets(
+        board,
+        color,
+        Piece::King,
+        targets,
+    ));
 
     for (_piece, targets) in piece_targets {
         attack_targets |= targets;
@@ -372,24 +385,6 @@ mod tests {
     use crate::board::bitboard::{render_occupied, RANK_3};
     use crate::board::square;
     use crate::moves::ChessMove;
-
-    #[test]
-    fn test_generate_king_targets() {
-        let mut board = Board::new();
-        board.put(square::H7, Piece::King, Color::White).unwrap();
-        println!("Testing board:\n{}", board);
-        let occupied = board.pieces(Color::White).occupied();
-
-        let expected_targets =
-            EMPTY | square::G6 | square::H6 | square::G7 | square::G8 | square::H8;
-
-        let result = generate_king_targets(&board, Color::White);
-        let (_king, targets) = result[0];
-
-        println!("occupied:\n{}", render_occupied(occupied));
-        println!("Targets:\n{}", render_occupied(targets));
-        assert_eq!(expected_targets, targets);
-    }
 
     #[test]
     fn test_generate_attack_targets() {

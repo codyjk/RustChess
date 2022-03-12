@@ -20,13 +20,13 @@ pub const PAWN_PROMOTIONS: [Piece; 4] = [Piece::Queen, Piece::Rook, Piece::Bisho
 pub fn generate(board: &mut Board, color: Color, targets: &mut Targets) -> Vec<ChessMove> {
     let mut moves = vec![];
 
-    moves.append(&mut generate_pawn_moves(board, color));
     moves.append(&mut generate_knight_moves(board, color, targets));
-    moves.append(&mut generate_king_moves(board, color));
-    moves.append(&mut generate_castle_moves(board, color, targets));
-    moves.append(&mut generate_rook_moves(board, color, targets));
     moves.append(&mut generate_bishop_moves(board, color, targets));
+    moves.append(&mut generate_pawn_moves(board, color));
+    moves.append(&mut generate_rook_moves(board, color, targets));
     moves.append(&mut generate_queen_moves(board, color, targets));
+    moves.append(&mut generate_castle_moves(board, color, targets));
+    moves.append(&mut generate_king_moves(board, color, targets));
 
     moves = remove_invalid_moves(moves, board, color, targets);
 
@@ -124,7 +124,7 @@ fn generate_knight_moves(board: &Board, color: Color, targets: &Targets) -> Vec<
     )
 }
 
-fn generate_rook_moves(board: &Board, color: Color, targets: &Targets) -> Vec<ChessMove> {
+pub fn generate_rook_moves(board: &Board, color: Color, targets: &Targets) -> Vec<ChessMove> {
     let piece_targets = targets::generate_rook_targets(board, color, targets);
     expand_piece_targets(board, color, piece_targets)
 }
@@ -163,9 +163,12 @@ fn expand_piece_targets(
     moves
 }
 
-fn generate_king_moves(board: &Board, color: Color) -> Vec<ChessMove> {
-    let targets = targets::generate_king_targets(board, color);
-    expand_piece_targets(board, color, targets)
+fn generate_king_moves(board: &Board, color: Color, targets: &Targets) -> Vec<ChessMove> {
+    expand_piece_targets(
+        board,
+        color,
+        targets::generate_piece_targets(board, color, Piece::King, targets),
+    )
 }
 
 fn generate_castle_moves(board: &Board, color: Color, targets: &mut Targets) -> Vec<ChessMove> {
@@ -243,6 +246,8 @@ fn remove_invalid_moves(
             .map_err(|e| enrich_error(board, chessmove, e))
             .unwrap();
 
+        board.update_position_hash();
+
         let king = board.pieces(color).locate(Piece::King);
         let attacked_squares = targets::generate_attack_targets(board, color.opposite(), targets);
 
@@ -254,6 +259,8 @@ fn remove_invalid_moves(
             .undo(chessmove)
             .map_err(|e| enrich_error(board, chessmove, e))
             .unwrap();
+
+        board.update_position_hash();
     }
 
     moves
@@ -569,7 +576,7 @@ mod tests {
         ];
         expected_moves.sort();
 
-        let mut moves = generate_king_moves(&board, Color::White);
+        let mut moves = generate_king_moves(&board, Color::White, &Targets::new());
         moves.sort();
 
         assert_eq!(expected_moves, moves);
@@ -591,7 +598,7 @@ mod tests {
         ];
         expected_moves.sort();
 
-        let mut moves = generate_king_moves(&board, Color::White);
+        let mut moves = generate_king_moves(&board, Color::White, &Targets::new());
         moves.sort();
 
         assert_eq!(expected_moves, moves);
@@ -616,7 +623,7 @@ mod tests {
         ];
         expected_moves.sort();
 
-        let mut moves = generate_king_moves(&board, Color::White);
+        let mut moves = generate_king_moves(&board, Color::White, &Targets::new());
         moves.sort();
 
         assert_eq!(expected_moves, moves);

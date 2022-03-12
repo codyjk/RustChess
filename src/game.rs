@@ -179,6 +179,7 @@ mod tests {
             Some(GameEnding::Checkmate) => true,
             _ => false,
         };
+
         assert!(checkmate);
     }
 
