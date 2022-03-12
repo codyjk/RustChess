@@ -4,6 +4,8 @@ use chess::board::Board;
 use chess::game::modes::{computer_vs_computer, play_computer, player_vs_player};
 use chess::moves::count_positions;
 use chess::moves::targets::Targets;
+use env_logger;
+use log::debug;
 use structopt::StructOpt;
 
 #[derive(StructOpt, Debug)]
@@ -26,7 +28,10 @@ enum Chess {
 }
 
 fn main() {
+    env_logger::init();
+
     let args = Chess::from_args();
+
     match args {
         Chess::CountPositions { depth } => run_count_positions(depth),
         Chess::Play { depth } => play_computer(depth),
@@ -44,6 +49,6 @@ fn run_count_positions(depth: u8) {
         let mut board = Board::starting_position();
         let count = count_positions(depth, &mut board, &mut targets, Color::White);
 
-        println!("depth: {}, positions: {}", depth, count);
+        debug!("depth: {}, positions: {}", depth, count);
     }
 }
