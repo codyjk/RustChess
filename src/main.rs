@@ -18,7 +18,10 @@ enum Chess {
         depth: u8,
     },
     Pvp,
-    Watch,
+    Watch {
+        #[structopt(short, long, default_value = "3")]
+        depth: u8,
+    },
     FindMagic,
 }
 
@@ -27,7 +30,7 @@ fn main() {
     match args {
         Chess::CountPositions { depth } => run_count_positions(depth),
         Chess::Play { depth } => play_computer(depth),
-        Chess::Watch => computer_vs_computer(0, 1000),
+        Chess::Watch { depth } => computer_vs_computer(0, 1000, depth),
         Chess::Pvp => player_vs_player(),
         Chess::FindMagic => run_find_magic(),
     }

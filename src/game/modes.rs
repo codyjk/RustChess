@@ -80,8 +80,7 @@ pub fn play_computer(depth: u8) {
     }
 }
 
-pub fn computer_vs_computer(move_limit: u8, sleep_between_turns_in_ms: u64) {
-    let depth = 2;
+pub fn computer_vs_computer(move_limit: u8, sleep_between_turns_in_ms: u64, depth: u8) {
     let game = &mut Game::new(depth);
 
     println!("{}", clear::All);
