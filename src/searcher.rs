@@ -11,6 +11,8 @@ type SearchResult = f32; // best_score
 pub struct Searcher {
     search_depth: u8,
     search_result_cache: FxHashMap<SearchNode, SearchResult>,
+    alpha: f32,
+    beta: f32,
     pub last_searched_position_count: u32,
     pub last_cache_hit_count: u32,
     pub last_alpha_beta_termination_count: u32,
@@ -22,11 +24,27 @@ pub enum SearchError {
     NoAvailableMoves,
 }
 
+type ScoreComparator = fn(f32, f32) -> bool;
+fn gte(a: f32, b: f32) -> bool {
+    a >= b
+}
+fn lte(a: f32, b: f32) -> bool {
+    a <= b
+}
+fn gt(a: f32, b: f32) -> bool {
+    a > b
+}
+fn lt(a: f32, b: f32) -> bool {
+    a < b
+}
+
 impl Searcher {
     pub fn new(depth: u8) -> Self {
         Self {
             search_depth: depth,
             search_result_cache: FxHashMap::default(),
+            alpha: f32::NEG_INFINITY,
+            beta: f32::INFINITY,
             last_searched_position_count: 0,
             last_cache_hit_count: 0,
             last_alpha_beta_termination_count: 0,
@@ -41,6 +59,8 @@ impl Searcher {
         self.last_searched_position_count = 0;
         self.last_cache_hit_count = 0;
         self.last_alpha_beta_termination_count = 0;
+        self.alpha = f32::NEG_INFINITY;
+        self.beta = f32::INFINITY;
 
         let current_turn = board.turn();
         let candidates = moves::generate(board, current_turn, targets);
@@ -49,54 +69,33 @@ impl Searcher {
         }
 
         let mut best_move = None;
-        let alpha = f32::NEG_INFINITY;
-        let beta = f32::INFINITY;
 
-        if current_turn.maximize_score() {
-            let mut best_score = f32::NEG_INFINITY;
-            for chessmove in candidates {
-                board.apply(chessmove).unwrap();
-                board.next_turn();
-                let score = self.minimax_alpha_beta(alpha, beta, self.search_depth, board, targets);
-                board.undo(chessmove).unwrap();
-                board.next_turn();
+        // set search context relative to the player who we are maximizing for
+        let (mut best_score, cmp): (f32, ScoreComparator) = match current_turn.maximize_score() {
+            true => (f32::NEG_INFINITY, gte),
+            false => (f32::INFINITY, lte),
+        };
 
-                if score >= best_score {
-                    best_score = score;
-                    best_move = Some(chessmove);
-                }
-            }
-        } else {
-            let mut best_score = f32::INFINITY;
-            for chessmove in candidates {
-                board.apply(chessmove).unwrap();
-                board.next_turn();
-                let score = self.minimax_alpha_beta(alpha, beta, self.search_depth, board, targets);
-                board.undo(chessmove).unwrap();
-                board.next_turn();
+        for chessmove in candidates {
+            board.apply(chessmove).unwrap();
+            board.next_turn();
+            let score = self.minimax_alpha_beta(self.search_depth, board, targets);
+            board.undo(chessmove).unwrap();
+            board.next_turn();
 
-                if score <= best_score {
-                    best_score = score;
-                    best_move = Some(chessmove);
-                }
+            if cmp(score, best_score) {
+                best_score = score;
+                best_move = Some(chessmove);
             }
         }
 
         Ok(best_move.unwrap())
     }
 
-    fn minimax_alpha_beta(
-        &mut self,
-        mut alpha: f32,
-        mut beta: f32,
-        depth: u8,
-        board: &mut Board,
-        targets: &mut Targets,
-    ) -> f32 {
+    fn minimax_alpha_beta(&mut self, depth: u8, board: &mut Board, targets: &mut Targets) -> f32 {
         let current_turn = board.turn();
         let candidates = moves::generate(board, current_turn, targets);
         let search_node = (board.current_position_hash(), depth, current_turn as u8);
-        let mut best_score;
         self.last_searched_position_count += 1;
 
         match self.search_result_cache.get(&search_node) {
@@ -111,55 +110,54 @@ impl Searcher {
             return evaluate::score(board, targets, current_turn);
         }
 
-        if current_turn.maximize_score() {
-            best_score = f32::NEG_INFINITY;
-            for chessmove in candidates {
-                board.apply(chessmove).unwrap();
-                board.next_turn();
-                let score = self.minimax_alpha_beta(alpha, beta, depth - 1, board, targets);
-                board.undo(chessmove).unwrap();
-                board.next_turn();
+        // set search context relative to the player who we are maximizing for
+        let (mut best_score, rel_alpha, rel_beta, cmp, cmpe): (
+            f32,
+            f32,
+            f32,
+            ScoreComparator,
+            ScoreComparator,
+        ) = match current_turn.maximize_score() {
+            true => (f32::NEG_INFINITY, self.alpha, self.beta, gt, gte),
+            false => (f32::INFINITY, self.beta, self.alpha, lt, lte),
+        };
 
-                if score > best_score {
-                    best_score = score;
-                }
+        for chessmove in candidates {
+            board.apply(chessmove).unwrap();
+            board.next_turn();
+            let score = self.minimax_alpha_beta(depth - 1, board, targets);
+            board.undo(chessmove).unwrap();
+            board.next_turn();
 
-                if score > alpha {
-                    alpha = score;
-                }
+            if cmp(score, best_score) {
+                best_score = score;
+            }
 
-                if score >= beta {
-                    self.last_alpha_beta_termination_count += 1;
-                    break;
+            if cmp(score, rel_alpha) {
+                if current_turn.maximize_score() {
+                    self.set_alpha(score);
+                } else {
+                    self.set_beta(score);
                 }
             }
-        } else {
-            best_score = f32::INFINITY;
-            for chessmove in candidates {
-                board.apply(chessmove).unwrap();
-                board.next_turn();
-                let score = self.minimax_alpha_beta(alpha, beta, depth - 1, board, targets);
-                board.undo(chessmove).unwrap();
-                board.next_turn();
 
-                if score < best_score {
-                    best_score = score;
-                }
-
-                if score < beta {
-                    beta = score;
-                }
-
-                if score <= alpha {
-                    self.last_alpha_beta_termination_count += 1;
-                    break;
-                }
+            if cmpe(score, rel_beta) {
+                self.last_alpha_beta_termination_count += 1;
+                break;
             }
         }
 
         self.search_result_cache.insert(search_node, best_score);
 
         best_score
+    }
+
+    fn set_alpha(&mut self, to: f32) {
+        self.alpha = to
+    }
+
+    fn set_beta(&mut self, to: f32) {
+        self.beta = to
     }
 }
 
