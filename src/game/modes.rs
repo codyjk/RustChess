@@ -2,18 +2,13 @@ use super::command::{Command, MakeWaterfallMove};
 use super::{Game, GameEnding};
 use crate::board::color::Color;
 use crate::input_handler;
-use rand::{self, Rng};
 use std::time::SystemTime;
 use std::{thread, time};
 use termion::clear;
 
-pub fn play_computer(depth: u8) {
+pub fn play_computer(depth: u8, player_color: Color) {
     let game = &mut Game::new(depth);
-    let rand: u8 = rand::thread_rng().gen();
-    let player_color = match rand % 2 {
-        0 => Color::White,
-        _ => Color::Black,
-    };
+
     println!("{}", clear::All);
     println!("you are {}", player_color);
     loop {

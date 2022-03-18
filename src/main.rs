@@ -18,6 +18,8 @@ enum Chess {
     Play {
         #[structopt(short, long, default_value = "3")]
         depth: u8,
+        #[structopt(short = "c", long = "color", default_value = "random")]
+        color: Color,
     },
     Pvp,
     Watch {
@@ -34,7 +36,7 @@ fn main() {
 
     match args {
         Chess::CountPositions { depth } => run_count_positions(depth),
-        Chess::Play { depth } => play_computer(depth),
+        Chess::Play { depth, color } => play_computer(depth, color),
         Chess::Watch { depth } => computer_vs_computer(0, 1000, depth),
         Chess::Pvp => player_vs_player(),
         Chess::FindMagic => run_find_magic(),
