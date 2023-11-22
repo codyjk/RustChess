@@ -1,5 +1,5 @@
 use crate::board::bitboard::{A_FILE, H_FILE, RANK_1, RANK_8};
-use crate::board::square;
+use crate::board::square::*;
 use rustc_hash::FxHashMap;
 
 #[derive(Clone, Copy, PartialEq, Debug, Eq, Hash)]
@@ -56,7 +56,7 @@ impl RayTable {
     pub fn populate(&mut self) -> &Self {
         for x in 0..64 {
             let square_bit = 1 << x;
-            let square = square::assert(square_bit);
+            let square = assert(square_bit);
 
             self.north
                 .insert(square, generate_rook_ray(square, Direction::North));
@@ -155,7 +155,7 @@ mod tests {
 
     #[test]
     fn test_generate_rook_ray_on_corner() {
-        let sq = square::A1;
+        let sq = A1;
         let expected_ray_n = 0x0101010101010100; // A_FILE without A1
         let expected_ray_e = 0xFE; // RANK_1 without A1
         assert_eq!(expected_ray_n, generate_rook_ray(sq, Direction::North));
@@ -166,10 +166,10 @@ mod tests {
 
     #[test]
     fn test_generate_rook_ray_on_boundary() {
-        let sq = square::A2;
-        let expected_ray_n = A_FILE ^ square::A1 ^ square::A2;
-        let expected_ray_s = square::A1;
-        let expected_ray_e = RANK_2 ^ square::A2;
+        let sq = A2;
+        let expected_ray_n = A_FILE ^ A1 ^ A2;
+        let expected_ray_s = A1;
+        let expected_ray_e = RANK_2 ^ A2;
         assert_eq!(expected_ray_n, generate_rook_ray(sq, Direction::North));
         assert_eq!(expected_ray_e, generate_rook_ray(sq, Direction::East));
         assert_eq!(expected_ray_s, generate_rook_ray(sq, Direction::South));
@@ -178,14 +178,12 @@ mod tests {
 
     #[test]
     fn test_generate_rook_ray_in_middle() {
-        let sq = square::C3;
+        let sq = C3;
         // crude way of building rays...
-        let expected_ray_n = C_FILE ^ square::C3 ^ square::C2 ^ square::C1;
-        let expected_ray_s =
-            C_FILE ^ square::C3 ^ square::C4 ^ square::C5 ^ square::C6 ^ square::C7 ^ square::C8;
-        let expected_ray_e = RANK_3 ^ square::C3 ^ square::B3 ^ square::A3;
-        let expected_ray_w =
-            RANK_3 ^ square::C3 ^ square::D3 ^ square::E3 ^ square::F3 ^ square::G3 ^ square::H3;
+        let expected_ray_n = C_FILE ^ C3 ^ C2 ^ C1;
+        let expected_ray_s = C_FILE ^ C3 ^ C4 ^ C5 ^ C6 ^ C7 ^ C8;
+        let expected_ray_e = RANK_3 ^ C3 ^ B3 ^ A3;
+        let expected_ray_w = RANK_3 ^ C3 ^ D3 ^ E3 ^ F3 ^ G3 ^ H3;
         assert_eq!(expected_ray_n, generate_rook_ray(sq, Direction::North));
         assert_eq!(expected_ray_s, generate_rook_ray(sq, Direction::South));
         assert_eq!(expected_ray_e, generate_rook_ray(sq, Direction::East));
@@ -194,14 +192,8 @@ mod tests {
 
     #[test]
     fn test_generate_bishop_ray_on_corner() {
-        let sq = square::A1;
-        let expected_ray_ne = square::B2
-            | square::C3
-            | square::D4
-            | square::E5
-            | square::F6
-            | square::G7
-            | square::H8;
+        let sq = A1;
+        let expected_ray_ne = B2 | C3 | D4 | E5 | F6 | G7 | H8;
         assert_eq!(
             expected_ray_ne,
             generate_bishop_ray(sq, Direction::NorthEast)
@@ -213,9 +205,9 @@ mod tests {
 
     #[test]
     fn test_generate_bishop_ray_on_boundary() {
-        let sq = square::A3;
-        let expected_ray_ne = square::B4 | square::C5 | square::D6 | square::E7 | square::F8;
-        let expected_ray_se = square::B2 | square::C1;
+        let sq = A3;
+        let expected_ray_ne = B4 | C5 | D6 | E7 | F8;
+        let expected_ray_se = B2 | C1;
         assert_eq!(
             expected_ray_ne,
             generate_bishop_ray(sq, Direction::NorthEast)
@@ -230,11 +222,11 @@ mod tests {
 
     #[test]
     fn test_generate_bishop_ray_in_middle() {
-        let sq = square::C3;
-        let expected_ray_ne = square::D4 | square::E5 | square::F6 | square::G7 | square::H8;
-        let expected_ray_nw = square::B4 | square::A5;
-        let expected_ray_se = square::D2 | square::E1;
-        let expected_ray_sw = square::B2 | square::A1;
+        let sq = C3;
+        let expected_ray_ne = D4 | E5 | F6 | G7 | H8;
+        let expected_ray_nw = B4 | A5;
+        let expected_ray_se = D2 | E1;
+        let expected_ray_sw = B2 | A1;
         assert_eq!(
             expected_ray_ne,
             generate_bishop_ray(sq, Direction::NorthEast)

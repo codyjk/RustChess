@@ -1,6 +1,6 @@
 use chess::board::color::Color;
 use chess::board::piece::Piece;
-use chess::board::square;
+use chess::board::square::*;
 use chess::board::{Board, ALL_CASTLE_RIGHTS};
 use chess::evaluate::{self, GameEnding};
 use chess::moves::targets::Targets;
@@ -22,14 +22,14 @@ fn find_alpha_beta_mate_in_2() {
     let mut targets = Targets::new();
     let mut searcher = Searcher::new(2);
 
-    board.put(square::F2, Piece::Pawn, Color::White).unwrap();
-    board.put(square::G2, Piece::Pawn, Color::White).unwrap();
-    board.put(square::H2, Piece::Pawn, Color::White).unwrap();
-    board.put(square::G1, Piece::King, Color::White).unwrap();
-    board.put(square::A1, Piece::Rook, Color::White).unwrap();
-    board.put(square::E8, Piece::Rook, Color::Black).unwrap();
-    board.put(square::E7, Piece::Queen, Color::Black).unwrap();
-    board.put(square::H8, Piece::King, Color::Black).unwrap();
+    board.put(F2, Piece::Pawn, Color::White).unwrap();
+    board.put(G2, Piece::Pawn, Color::White).unwrap();
+    board.put(H2, Piece::Pawn, Color::White).unwrap();
+    board.put(G1, Piece::King, Color::White).unwrap();
+    board.put(A1, Piece::Rook, Color::White).unwrap();
+    board.put(E8, Piece::Rook, Color::Black).unwrap();
+    board.put(E7, Piece::Queen, Color::Black).unwrap();
+    board.put(H8, Piece::King, Color::Black).unwrap();
     board.set_turn(Color::Black);
     board.lose_castle_rights(ALL_CASTLE_RIGHTS);
 

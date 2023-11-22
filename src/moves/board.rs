@@ -2,7 +2,7 @@ use crate::board::bitboard::{EMPTY, RANK_1, RANK_2, RANK_4, RANK_5, RANK_7, RANK
 use crate::board::color::Color;
 use crate::board::error::BoardError;
 use crate::board::piece::Piece;
-use crate::board::square;
+use crate::board::square::*;
 use crate::board::{
     Board, BLACK_KINGSIDE_RIGHTS, BLACK_QUEENSIDE_RIGHTS, WHITE_KINGSIDE_RIGHTS,
     WHITE_QUEENSIDE_RIGHTS,
@@ -69,25 +69,21 @@ impl Board {
 
         // adjust castle rights if a rook or king moved
         let mut lost_castle_rights = match (piece_to_move, color, from_square) {
-            (Piece::Rook, Color::White, square::A1) => WHITE_QUEENSIDE_RIGHTS,
-            (Piece::Rook, Color::White, square::H1) => WHITE_KINGSIDE_RIGHTS,
-            (Piece::Rook, Color::Black, square::A8) => BLACK_QUEENSIDE_RIGHTS,
-            (Piece::Rook, Color::Black, square::H8) => BLACK_KINGSIDE_RIGHTS,
-            (Piece::King, Color::White, square::E1) => {
-                WHITE_KINGSIDE_RIGHTS | WHITE_QUEENSIDE_RIGHTS
-            }
-            (Piece::King, Color::Black, square::E8) => {
-                BLACK_KINGSIDE_RIGHTS | BLACK_QUEENSIDE_RIGHTS
-            }
+            (Piece::Rook, Color::White, A1) => WHITE_QUEENSIDE_RIGHTS,
+            (Piece::Rook, Color::White, H1) => WHITE_KINGSIDE_RIGHTS,
+            (Piece::Rook, Color::Black, A8) => BLACK_QUEENSIDE_RIGHTS,
+            (Piece::Rook, Color::Black, H8) => BLACK_KINGSIDE_RIGHTS,
+            (Piece::King, Color::White, E1) => WHITE_KINGSIDE_RIGHTS | WHITE_QUEENSIDE_RIGHTS,
+            (Piece::King, Color::Black, E8) => BLACK_KINGSIDE_RIGHTS | BLACK_QUEENSIDE_RIGHTS,
             _ => 0,
         };
 
         // adjust castle rights if a rook is taken
         lost_castle_rights |= match (captured_piece, to_square) {
-            (Some((Piece::Rook, Color::White)), square::A1) => WHITE_QUEENSIDE_RIGHTS,
-            (Some((Piece::Rook, Color::White)), square::H1) => WHITE_KINGSIDE_RIGHTS,
-            (Some((Piece::Rook, Color::Black)), square::A8) => BLACK_QUEENSIDE_RIGHTS,
-            (Some((Piece::Rook, Color::Black)), square::H8) => BLACK_KINGSIDE_RIGHTS,
+            (Some((Piece::Rook, Color::White)), A1) => WHITE_QUEENSIDE_RIGHTS,
+            (Some((Piece::Rook, Color::White)), H1) => WHITE_KINGSIDE_RIGHTS,
+            (Some((Piece::Rook, Color::Black)), A8) => BLACK_QUEENSIDE_RIGHTS,
+            (Some((Piece::Rook, Color::Black)), H8) => BLACK_KINGSIDE_RIGHTS,
             _ => 0,
         };
 
@@ -164,10 +160,10 @@ impl Board {
         };
 
         let (rook_from, rook_to) = match (color, kingside) {
-            (Color::White, true) => (square::H1, square::F1),
-            (Color::White, false) => (square::A1, square::D1),
-            (Color::Black, true) => (square::H8, square::F8),
-            (Color::Black, false) => (square::A8, square::D8),
+            (Color::White, true) => (H1, F1),
+            (Color::White, false) => (A1, D1),
+            (Color::Black, true) => (H8, F8),
+            (Color::Black, false) => (A8, D8),
         };
 
         if self.get(king_from) != Some((Piece::King, color)) {
@@ -320,10 +316,10 @@ impl Board {
         };
 
         let (rook_from, rook_to) = match (color, kingside) {
-            (Color::White, true) => (square::H1, square::F1),
-            (Color::White, false) => (square::A1, square::D1),
-            (Color::Black, true) => (square::H8, square::F8),
-            (Color::Black, false) => (square::A8, square::D8),
+            (Color::White, true) => (H1, F1),
+            (Color::White, false) => (A1, D1),
+            (Color::Black, true) => (H8, F8),
+            (Color::Black, false) => (A8, D8),
         };
 
         if self.get(king_to) != Some((Piece::King, color)) {
@@ -377,12 +373,12 @@ mod tests {
 
         // using a queens gambit accepted opening to test basic chess move application
         let moves: Vec<(u64, u64, (Piece, Color), Option<(Piece, Color)>)> = vec![
-            (square::E2, square::E4, (Piece::Pawn, Color::White), None),
-            (square::E7, square::E5, (Piece::Pawn, Color::Black), None),
-            (square::D2, square::D4, (Piece::Pawn, Color::White), None),
+            (E2, E4, (Piece::Pawn, Color::White), None),
+            (E7, E5, (Piece::Pawn, Color::Black), None),
+            (D2, D4, (Piece::Pawn, Color::White), None),
             (
-                square::E5,
-                square::D4,
+                E5,
+                D4,
                 (Piece::Pawn, Color::Black),
                 Some((Piece::Pawn, Color::White)),
             ),
@@ -404,7 +400,7 @@ mod tests {
         let original_board = format!("{}", board);
         println!("Testing board:\n{}", board);
 
-        let chessmove = ChessMove::new(square::A2, square::A4, None);
+        let chessmove = ChessMove::new(A2, A4, None);
         board.apply(chessmove).unwrap();
         println!("Result after applying move:\n{}", board);
         board.undo(chessmove).unwrap();
@@ -420,13 +416,13 @@ mod tests {
         let original_board = format!("{}", board);
         println!("Testing board:\n{}", board);
 
-        let chessmove = ChessMove::new(square::B1, square::C3, None);
+        let chessmove = ChessMove::new(B1, C3, None);
         board.apply(chessmove).unwrap();
         println!("Result after applying move:\n{}", board);
         board.undo(chessmove).unwrap();
         println!("Result after undoing move:\n{}", board);
 
-        let chessmove2 = ChessMove::new(square::B1, square::A3, None);
+        let chessmove2 = ChessMove::new(B1, A3, None);
         board.apply(chessmove2).unwrap();
         println!("Result after applying move:\n{}", board);
         board.undo(chessmove2).unwrap();
@@ -439,242 +435,223 @@ mod tests {
     #[test]
     fn test_undo_capture() {
         let mut board = Board::new();
-        board.put(square::A2, Piece::Knight, Color::White).unwrap();
-        board.put(square::B4, Piece::Pawn, Color::Black).unwrap();
-        let capture = ChessMove::new(square::A2, square::B4, Some((Piece::Pawn, Color::Black)));
+        board.put(A2, Piece::Knight, Color::White).unwrap();
+        board.put(B4, Piece::Pawn, Color::Black).unwrap();
+        let capture = ChessMove::new(A2, B4, Some((Piece::Pawn, Color::Black)));
 
         board.apply(capture).unwrap();
         board.undo(capture).unwrap();
 
-        assert_eq!(Some((Piece::Knight, Color::White)), board.get(square::A2));
-        assert_eq!(Some((Piece::Pawn, Color::Black)), board.get(square::B4));
+        assert_eq!(Some((Piece::Knight, Color::White)), board.get(A2));
+        assert_eq!(Some((Piece::Pawn, Color::Black)), board.get(B4));
     }
 
     #[test]
     fn test_apply_and_undo_en_passant() {
         let mut board = Board::new();
-        board.put(square::D2, Piece::Pawn, Color::White).unwrap();
-        board.put(square::E4, Piece::Pawn, Color::Black).unwrap();
+        board.put(D2, Piece::Pawn, Color::White).unwrap();
+        board.put(E4, Piece::Pawn, Color::Black).unwrap();
         println!("Testing board:\n{}", board);
 
-        board
-            .apply(ChessMove::new(square::D2, square::D4, None))
-            .unwrap();
+        board.apply(ChessMove::new(D2, D4, None)).unwrap();
         println!("After move that reveals en passant:\n{}", board);
-        assert_eq!(Some((Piece::Pawn, Color::White)), board.get(square::D4));
-        assert_eq!(square::D3, board.peek_en_passant_target());
+        assert_eq!(Some((Piece::Pawn, Color::White)), board.get(D4));
+        assert_eq!(D3, board.peek_en_passant_target());
 
-        let en_passant = ChessMove::en_passant(square::E4, square::D3, (Piece::Pawn, Color::White));
+        let en_passant = ChessMove::en_passant(E4, D3, (Piece::Pawn, Color::White));
 
         board.apply(en_passant).unwrap();
         println!("After en passant:\n{}", board);
-        assert_eq!(Some((Piece::Pawn, Color::Black)), board.get(square::D3));
-        assert_eq!(None, board.get(square::D4));
+        assert_eq!(Some((Piece::Pawn, Color::Black)), board.get(D3));
+        assert_eq!(None, board.get(D4));
         assert_eq!(EMPTY, board.peek_en_passant_target());
 
         board.undo(en_passant).unwrap();
         println!("Undo en passant:\n{}", board);
-        assert_eq!(Some((Piece::Pawn, Color::White)), board.get(square::D4));
-        assert_eq!(Some((Piece::Pawn, Color::Black)), board.get(square::E4));
-        assert_eq!(square::D3, board.peek_en_passant_target());
+        assert_eq!(Some((Piece::Pawn, Color::White)), board.get(D4));
+        assert_eq!(Some((Piece::Pawn, Color::Black)), board.get(E4));
+        assert_eq!(D3, board.peek_en_passant_target());
     }
 
     #[test]
     fn test_apply_and_undo_promote() {
         let mut board = Board::new();
-        board.put(square::A7, Piece::Pawn, Color::White).unwrap();
+        board.put(A7, Piece::Pawn, Color::White).unwrap();
         println!("Testing board:\n{}", board);
 
-        let promotion = ChessMove::promote(square::A7, square::A8, None, Piece::Queen);
+        let promotion = ChessMove::promote(A7, A8, None, Piece::Queen);
 
         board.apply(promotion).unwrap();
         println!("After applying promotion:\n{}", board);
-        assert_eq!(None, board.get(square::A7));
-        assert_eq!(Some((Piece::Queen, Color::White)), board.get(square::A8));
+        assert_eq!(None, board.get(A7));
+        assert_eq!(Some((Piece::Queen, Color::White)), board.get(A8));
 
         board.undo(promotion).unwrap();
         println!("After undoing promotion:\n{}", board);
-        assert_eq!(Some((Piece::Pawn, Color::White)), board.get(square::A7));
-        assert_eq!(None, board.get(square::A8));
+        assert_eq!(Some((Piece::Pawn, Color::White)), board.get(A7));
+        assert_eq!(None, board.get(A8));
     }
 
     #[test]
     fn test_apply_and_undo_promote_with_capture() {
         let mut board = Board::new();
-        board.put(square::A7, Piece::Pawn, Color::White).unwrap();
-        board.put(square::B8, Piece::Rook, Color::Black).unwrap();
+        board.put(A7, Piece::Pawn, Color::White).unwrap();
+        board.put(B8, Piece::Rook, Color::Black).unwrap();
         println!("Testing board:\n{}", board);
 
-        let promotion = ChessMove::promote(
-            square::A7,
-            square::B8,
-            Some((Piece::Rook, Color::Black)),
-            Piece::Queen,
-        );
+        let promotion = ChessMove::promote(A7, B8, Some((Piece::Rook, Color::Black)), Piece::Queen);
 
         board.apply(promotion).unwrap();
         println!("After applying promotion:\n{}", board);
-        assert_eq!(None, board.get(square::A7));
-        assert_eq!(Some((Piece::Queen, Color::White)), board.get(square::B8));
+        assert_eq!(None, board.get(A7));
+        assert_eq!(Some((Piece::Queen, Color::White)), board.get(B8));
 
         board.undo(promotion).unwrap();
         println!("After undoing promotion:\n{}", board);
-        assert_eq!(Some((Piece::Pawn, Color::White)), board.get(square::A7));
-        assert_eq!(Some((Piece::Rook, Color::Black)), board.get(square::B8));
+        assert_eq!(Some((Piece::Pawn, Color::White)), board.get(A7));
+        assert_eq!(Some((Piece::Rook, Color::Black)), board.get(B8));
     }
 
     #[test]
     fn test_apply_and_undo_castle_white_kingside() {
         let mut board = Board::new();
-        board.put(square::E1, Piece::King, Color::White).unwrap();
-        board.put(square::H1, Piece::Rook, Color::White).unwrap();
+        board.put(E1, Piece::King, Color::White).unwrap();
+        board.put(H1, Piece::Rook, Color::White).unwrap();
         println!("Testing board:\n{}", board);
 
         let castle = ChessMove::castle_kingside(Color::White);
 
         board.apply(castle).unwrap();
         println!("After applying castle:\n{}", board);
-        assert_eq!(Some((Piece::King, Color::White)), board.get(square::G1));
-        assert_eq!(Some((Piece::Rook, Color::White)), board.get(square::F1));
+        assert_eq!(Some((Piece::King, Color::White)), board.get(G1));
+        assert_eq!(Some((Piece::Rook, Color::White)), board.get(F1));
 
         board.undo(castle).unwrap();
         println!("After undoing castle:\n{}", board);
-        assert_eq!(Some((Piece::King, Color::White)), board.get(square::E1));
-        assert_eq!(Some((Piece::Rook, Color::White)), board.get(square::H1));
+        assert_eq!(Some((Piece::King, Color::White)), board.get(E1));
+        assert_eq!(Some((Piece::Rook, Color::White)), board.get(H1));
     }
 
     #[test]
     fn test_apply_and_undo_castle_black_kingside() {
         let mut board = Board::new();
-        board.put(square::E8, Piece::King, Color::Black).unwrap();
-        board.put(square::H8, Piece::Rook, Color::Black).unwrap();
+        board.put(E8, Piece::King, Color::Black).unwrap();
+        board.put(H8, Piece::Rook, Color::Black).unwrap();
         println!("Testing board:\n{}", board);
 
         let castle = ChessMove::castle_kingside(Color::Black);
 
         board.apply(castle).unwrap();
         println!("After applying castle:\n{}", board);
-        assert_eq!(Some((Piece::King, Color::Black)), board.get(square::G8));
-        assert_eq!(Some((Piece::Rook, Color::Black)), board.get(square::F8));
+        assert_eq!(Some((Piece::King, Color::Black)), board.get(G8));
+        assert_eq!(Some((Piece::Rook, Color::Black)), board.get(F8));
 
         board.undo(castle).unwrap();
         println!("After undoing castle:\n{}", board);
-        assert_eq!(Some((Piece::King, Color::Black)), board.get(square::E8));
-        assert_eq!(Some((Piece::Rook, Color::Black)), board.get(square::H8));
+        assert_eq!(Some((Piece::King, Color::Black)), board.get(E8));
+        assert_eq!(Some((Piece::Rook, Color::Black)), board.get(H8));
     }
 
     #[test]
     fn test_apply_and_undo_castle_white_queenside() {
         let mut board = Board::new();
-        board.put(square::E1, Piece::King, Color::White).unwrap();
-        board.put(square::A1, Piece::Rook, Color::White).unwrap();
+        board.put(E1, Piece::King, Color::White).unwrap();
+        board.put(A1, Piece::Rook, Color::White).unwrap();
         println!("Testing board:\n{}", board);
 
         let castle = ChessMove::castle_queenside(Color::White);
 
         board.apply(castle).unwrap();
         println!("After applying castle:\n{}", board);
-        assert_eq!(Some((Piece::King, Color::White)), board.get(square::C1));
-        assert_eq!(Some((Piece::Rook, Color::White)), board.get(square::D1));
+        assert_eq!(Some((Piece::King, Color::White)), board.get(C1));
+        assert_eq!(Some((Piece::Rook, Color::White)), board.get(D1));
 
         board.undo(castle).unwrap();
         println!("After undoing castle:\n{}", board);
-        assert_eq!(Some((Piece::King, Color::White)), board.get(square::E1));
-        assert_eq!(Some((Piece::Rook, Color::White)), board.get(square::A1));
+        assert_eq!(Some((Piece::King, Color::White)), board.get(E1));
+        assert_eq!(Some((Piece::Rook, Color::White)), board.get(A1));
     }
 
     #[test]
     fn test_apply_and_undo_castle_black_queenside() {
         let mut board = Board::new();
-        board.put(square::E8, Piece::King, Color::Black).unwrap();
-        board.put(square::A8, Piece::Rook, Color::Black).unwrap();
+        board.put(E8, Piece::King, Color::Black).unwrap();
+        board.put(A8, Piece::Rook, Color::Black).unwrap();
         println!("Testing board:\n{}", board);
 
         let castle = ChessMove::castle_queenside(Color::Black);
 
         board.apply(castle).unwrap();
         println!("After applying castle:\n{}", board);
-        assert_eq!(Some((Piece::King, Color::Black)), board.get(square::C8));
-        assert_eq!(Some((Piece::Rook, Color::Black)), board.get(square::D8));
+        assert_eq!(Some((Piece::King, Color::Black)), board.get(C8));
+        assert_eq!(Some((Piece::Rook, Color::Black)), board.get(D8));
 
         board.undo(castle).unwrap();
         println!("After undoing castle:\n{}", board);
-        assert_eq!(Some((Piece::King, Color::Black)), board.get(square::E8));
-        assert_eq!(Some((Piece::Rook, Color::Black)), board.get(square::A8));
+        assert_eq!(Some((Piece::King, Color::Black)), board.get(E8));
+        assert_eq!(Some((Piece::Rook, Color::Black)), board.get(A8));
     }
 
     #[test]
     fn test_white_lose_kingside_castle_rights() {
         let mut board = Board::new();
-        board.put(square::E1, Piece::King, Color::White).unwrap();
-        board.put(square::H1, Piece::Rook, Color::White).unwrap();
+        board.put(E1, Piece::King, Color::White).unwrap();
+        board.put(H1, Piece::Rook, Color::White).unwrap();
         println!("Testing board:\n{}", board);
 
         assert!(board.peek_castle_rights() & WHITE_KINGSIDE_RIGHTS > 0);
-        board
-            .apply(ChessMove::new(square::H1, square::H2, None))
-            .unwrap();
+        board.apply(ChessMove::new(H1, H2, None)).unwrap();
         assert_eq!(0, board.peek_castle_rights() & WHITE_KINGSIDE_RIGHTS);
     }
 
     #[test]
     fn test_white_lose_queenside_castle_rights() {
         let mut board = Board::new();
-        board.put(square::E1, Piece::King, Color::White).unwrap();
-        board.put(square::A1, Piece::Rook, Color::White).unwrap();
+        board.put(E1, Piece::King, Color::White).unwrap();
+        board.put(A1, Piece::Rook, Color::White).unwrap();
         println!("Testing board:\n{}", board);
 
         assert!(board.peek_castle_rights() & WHITE_QUEENSIDE_RIGHTS > 0);
-        board
-            .apply(ChessMove::new(square::A1, square::A2, None))
-            .unwrap();
+        board.apply(ChessMove::new(A1, A2, None)).unwrap();
         assert_eq!(0, board.peek_castle_rights() & WHITE_QUEENSIDE_RIGHTS);
     }
 
     #[test]
     fn test_black_lose_kingside_castle_rights() {
         let mut board = Board::new();
-        board.put(square::E8, Piece::King, Color::Black).unwrap();
-        board.put(square::H8, Piece::Rook, Color::Black).unwrap();
+        board.put(E8, Piece::King, Color::Black).unwrap();
+        board.put(H8, Piece::Rook, Color::Black).unwrap();
         println!("Testing board:\n{}", board);
 
         assert!(board.peek_castle_rights() & BLACK_KINGSIDE_RIGHTS > 0);
-        board
-            .apply(ChessMove::new(square::H8, square::H2, None))
-            .unwrap();
+        board.apply(ChessMove::new(H8, H2, None)).unwrap();
         assert_eq!(0, board.peek_castle_rights() & BLACK_KINGSIDE_RIGHTS);
     }
 
     #[test]
     fn test_black_lose_queenside_castle_rights() {
         let mut board = Board::new();
-        board.put(square::E8, Piece::King, Color::Black).unwrap();
-        board.put(square::A8, Piece::Rook, Color::Black).unwrap();
+        board.put(E8, Piece::King, Color::Black).unwrap();
+        board.put(A8, Piece::Rook, Color::Black).unwrap();
         println!("Testing board:\n{}", board);
 
         assert!(board.peek_castle_rights() & BLACK_QUEENSIDE_RIGHTS > 0);
-        board
-            .apply(ChessMove::new(square::A8, square::A2, None))
-            .unwrap();
+        board.apply(ChessMove::new(A8, A2, None)).unwrap();
         assert_eq!(0, board.peek_castle_rights() & BLACK_QUEENSIDE_RIGHTS);
     }
 
     #[test]
     fn test_white_lose_queenside_castle_rights_from_capture() {
         let mut board = Board::new();
-        board.put(square::E1, Piece::King, Color::White).unwrap();
-        board.put(square::A1, Piece::Rook, Color::White).unwrap();
-        board.put(square::H1, Piece::Rook, Color::White).unwrap();
-        board.put(square::H8, Piece::Bishop, Color::Black).unwrap();
+        board.put(E1, Piece::King, Color::White).unwrap();
+        board.put(A1, Piece::Rook, Color::White).unwrap();
+        board.put(H1, Piece::Rook, Color::White).unwrap();
+        board.put(H8, Piece::Bishop, Color::Black).unwrap();
         println!("Testing board:\n{}", board);
 
         assert!(board.peek_castle_rights() & WHITE_QUEENSIDE_RIGHTS > 0);
         board
-            .apply(ChessMove::new(
-                square::H8,
-                square::A1,
-                Some((Piece::Rook, Color::White)),
-            ))
+            .apply(ChessMove::new(H8, A1, Some((Piece::Rook, Color::White))))
             .unwrap();
         assert_eq!(0, board.peek_castle_rights() & WHITE_QUEENSIDE_RIGHTS);
     }
@@ -682,19 +659,15 @@ mod tests {
     #[test]
     fn test_white_lose_kingside_castle_rights_from_capture() {
         let mut board = Board::new();
-        board.put(square::E1, Piece::King, Color::White).unwrap();
-        board.put(square::A1, Piece::Rook, Color::White).unwrap();
-        board.put(square::H1, Piece::Rook, Color::White).unwrap();
-        board.put(square::A8, Piece::Bishop, Color::Black).unwrap();
+        board.put(E1, Piece::King, Color::White).unwrap();
+        board.put(A1, Piece::Rook, Color::White).unwrap();
+        board.put(H1, Piece::Rook, Color::White).unwrap();
+        board.put(A8, Piece::Bishop, Color::Black).unwrap();
         println!("Testing board:\n{}", board);
 
         assert!(board.peek_castle_rights() & WHITE_KINGSIDE_RIGHTS > 0);
         board
-            .apply(ChessMove::new(
-                square::A8,
-                square::H1,
-                Some((Piece::Rook, Color::White)),
-            ))
+            .apply(ChessMove::new(A8, H1, Some((Piece::Rook, Color::White))))
             .unwrap();
         assert_eq!(0, board.peek_castle_rights() & WHITE_KINGSIDE_RIGHTS);
     }
@@ -702,19 +675,15 @@ mod tests {
     #[test]
     fn test_black_lose_queenside_castle_rights_from_capture() {
         let mut board = Board::new();
-        board.put(square::E8, Piece::King, Color::Black).unwrap();
-        board.put(square::A8, Piece::Rook, Color::Black).unwrap();
-        board.put(square::H8, Piece::Rook, Color::Black).unwrap();
-        board.put(square::H1, Piece::Bishop, Color::White).unwrap();
+        board.put(E8, Piece::King, Color::Black).unwrap();
+        board.put(A8, Piece::Rook, Color::Black).unwrap();
+        board.put(H8, Piece::Rook, Color::Black).unwrap();
+        board.put(H1, Piece::Bishop, Color::White).unwrap();
         println!("Testing board:\n{}", board);
 
         assert!(board.peek_castle_rights() & BLACK_QUEENSIDE_RIGHTS > 0);
         board
-            .apply(ChessMove::new(
-                square::H1,
-                square::A8,
-                Some((Piece::Rook, Color::Black)),
-            ))
+            .apply(ChessMove::new(H1, A8, Some((Piece::Rook, Color::Black))))
             .unwrap();
         assert_eq!(0, board.peek_castle_rights() & BLACK_QUEENSIDE_RIGHTS);
     }
@@ -722,19 +691,15 @@ mod tests {
     #[test]
     fn test_black_lose_kingside_castle_rights_from_capture() {
         let mut board = Board::new();
-        board.put(square::E8, Piece::King, Color::Black).unwrap();
-        board.put(square::A8, Piece::Rook, Color::Black).unwrap();
-        board.put(square::H8, Piece::Rook, Color::Black).unwrap();
-        board.put(square::A1, Piece::Bishop, Color::White).unwrap();
+        board.put(E8, Piece::King, Color::Black).unwrap();
+        board.put(A8, Piece::Rook, Color::Black).unwrap();
+        board.put(H8, Piece::Rook, Color::Black).unwrap();
+        board.put(A1, Piece::Bishop, Color::White).unwrap();
         println!("Testing board:\n{}", board);
 
         assert!(board.peek_castle_rights() & BLACK_KINGSIDE_RIGHTS > 0);
         board
-            .apply(ChessMove::new(
-                square::A1,
-                square::H8,
-                Some((Piece::Rook, Color::Black)),
-            ))
+            .apply(ChessMove::new(A1, H8, Some((Piece::Rook, Color::Black))))
             .unwrap();
         assert_eq!(0, board.peek_castle_rights() & BLACK_KINGSIDE_RIGHTS);
     }
@@ -742,16 +707,14 @@ mod tests {
     #[test]
     fn test_white_lose_all_castle_rights() {
         let mut board = Board::new();
-        board.put(square::E1, Piece::King, Color::White).unwrap();
-        board.put(square::A1, Piece::Rook, Color::White).unwrap();
-        board.put(square::H1, Piece::Rook, Color::White).unwrap();
+        board.put(E1, Piece::King, Color::White).unwrap();
+        board.put(A1, Piece::Rook, Color::White).unwrap();
+        board.put(H1, Piece::Rook, Color::White).unwrap();
         println!("Testing board:\n{}", board);
 
         assert!(board.peek_castle_rights() & WHITE_KINGSIDE_RIGHTS > 0);
         assert!(board.peek_castle_rights() & WHITE_QUEENSIDE_RIGHTS > 0);
-        board
-            .apply(ChessMove::new(square::E1, square::E2, None))
-            .unwrap();
+        board.apply(ChessMove::new(E1, E2, None)).unwrap();
         assert_eq!(0, board.peek_castle_rights() & WHITE_KINGSIDE_RIGHTS);
         assert_eq!(0, board.peek_castle_rights() & WHITE_QUEENSIDE_RIGHTS);
     }
@@ -759,16 +722,14 @@ mod tests {
     #[test]
     fn test_black_lose_all_castle_rights() {
         let mut board = Board::new();
-        board.put(square::E8, Piece::King, Color::Black).unwrap();
-        board.put(square::A8, Piece::Rook, Color::Black).unwrap();
-        board.put(square::H8, Piece::Rook, Color::Black).unwrap();
+        board.put(E8, Piece::King, Color::Black).unwrap();
+        board.put(A8, Piece::Rook, Color::Black).unwrap();
+        board.put(H8, Piece::Rook, Color::Black).unwrap();
         println!("Testing board:\n{}", board);
 
         assert!(board.peek_castle_rights() & BLACK_KINGSIDE_RIGHTS > 0);
         assert!(board.peek_castle_rights() & BLACK_QUEENSIDE_RIGHTS > 0);
-        board
-            .apply(ChessMove::new(square::E8, square::E7, None))
-            .unwrap();
+        board.apply(ChessMove::new(E8, E7, None)).unwrap();
         assert_eq!(0, board.peek_castle_rights() & BLACK_KINGSIDE_RIGHTS);
         assert_eq!(0, board.peek_castle_rights() & BLACK_QUEENSIDE_RIGHTS);
     }

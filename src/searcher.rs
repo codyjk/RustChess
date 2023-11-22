@@ -306,9 +306,9 @@ mod tests {
         let mut targets = Targets::new();
         let mut searcher = Searcher::new(1);
 
-        board.put(square::C2, Piece::King, Color::White).unwrap();
-        board.put(square::A2, Piece::King, Color::Black).unwrap();
-        board.put(square::B8, Piece::Queen, Color::White).unwrap();
+        board.put(C2, Piece::King, Color::White).unwrap();
+        board.put(A2, Piece::King, Color::Black).unwrap();
+        board.put(B8, Piece::Queen, Color::White).unwrap();
         board.set_turn(Color::White);
         board.lose_castle_rights(ALL_CASTLE_RIGHTS);
         board.update_position_hash();
@@ -316,9 +316,9 @@ mod tests {
 
         let chessmove = searcher.search(&mut board, &mut targets).unwrap();
         let valid_checkmates = vec![
-            ChessMove::new(square::B8, square::B2, None),
-            ChessMove::new(square::B8, square::A8, None),
-            ChessMove::new(square::B8, square::A7, None),
+            ChessMove::new(B8, B2, None),
+            ChessMove::new(B8, A8, None),
+            ChessMove::new(B8, A7, None),
         ];
         assert!(
             valid_checkmates.contains(&chessmove),
@@ -333,9 +333,9 @@ mod tests {
         let mut targets = Targets::new();
         let mut searcher = Searcher::new(1);
 
-        board.put(square::C2, Piece::King, Color::Black).unwrap();
-        board.put(square::A2, Piece::King, Color::White).unwrap();
-        board.put(square::B8, Piece::Queen, Color::Black).unwrap();
+        board.put(C2, Piece::King, Color::Black).unwrap();
+        board.put(A2, Piece::King, Color::White).unwrap();
+        board.put(B8, Piece::Queen, Color::Black).unwrap();
         board.set_turn(Color::Black);
         board.lose_castle_rights(ALL_CASTLE_RIGHTS);
 
@@ -344,9 +344,9 @@ mod tests {
         let chessmove = searcher.search(&mut board, &mut targets).unwrap();
 
         let valid_checkmates = vec![
-            ChessMove::new(square::B8, square::B2, None),
-            ChessMove::new(square::B8, square::A8, None),
-            ChessMove::new(square::B8, square::A7, None),
+            ChessMove::new(B8, B2, None),
+            ChessMove::new(B8, A8, None),
+            ChessMove::new(B8, A7, None),
         ];
         assert!(valid_checkmates.contains(&chessmove));
     }
@@ -357,23 +357,23 @@ mod tests {
         let mut targets = Targets::new();
         let mut searcher = Searcher::new(2);
 
-        board.put(square::A7, Piece::Pawn, Color::Black).unwrap();
-        board.put(square::B7, Piece::Pawn, Color::Black).unwrap();
-        board.put(square::C7, Piece::Pawn, Color::Black).unwrap();
-        board.put(square::B8, Piece::King, Color::Black).unwrap();
-        board.put(square::H8, Piece::Rook, Color::Black).unwrap();
-        board.put(square::D1, Piece::Rook, Color::White).unwrap();
-        board.put(square::D2, Piece::Queen, Color::White).unwrap();
-        board.put(square::A1, Piece::King, Color::White).unwrap();
+        board.put(A7, Piece::Pawn, Color::Black).unwrap();
+        board.put(B7, Piece::Pawn, Color::Black).unwrap();
+        board.put(C7, Piece::Pawn, Color::Black).unwrap();
+        board.put(B8, Piece::King, Color::Black).unwrap();
+        board.put(H8, Piece::Rook, Color::Black).unwrap();
+        board.put(D1, Piece::Rook, Color::White).unwrap();
+        board.put(D2, Piece::Queen, Color::White).unwrap();
+        board.put(A1, Piece::King, Color::White).unwrap();
         board.set_turn(Color::White);
         board.lose_castle_rights(ALL_CASTLE_RIGHTS);
 
         println!("Testing board:\n{}", board);
 
         let expected_moves = [
-            ChessMove::new(square::D2, square::D8, None),
-            ChessMove::new(square::H8, square::D8, Some((Piece::Queen, Color::White))),
-            ChessMove::new(square::D1, square::D8, Some((Piece::Rook, Color::Black))),
+            ChessMove::new(D2, D8, None),
+            ChessMove::new(H8, D8, Some((Piece::Queen, Color::White))),
+            ChessMove::new(D1, D8, Some((Piece::Rook, Color::Black))),
         ];
 
         let move1 = searcher.search(&mut board, &mut targets).unwrap();
@@ -401,23 +401,23 @@ mod tests {
         let mut targets = Targets::new();
         let mut searcher = Searcher::new(3);
 
-        board.put(square::F2, Piece::Pawn, Color::White).unwrap();
-        board.put(square::G2, Piece::Pawn, Color::White).unwrap();
-        board.put(square::H2, Piece::Pawn, Color::White).unwrap();
-        board.put(square::G1, Piece::King, Color::White).unwrap();
-        board.put(square::A1, Piece::Rook, Color::White).unwrap();
-        board.put(square::E8, Piece::Rook, Color::Black).unwrap();
-        board.put(square::E7, Piece::Queen, Color::Black).unwrap();
-        board.put(square::H8, Piece::King, Color::Black).unwrap();
+        board.put(F2, Piece::Pawn, Color::White).unwrap();
+        board.put(G2, Piece::Pawn, Color::White).unwrap();
+        board.put(H2, Piece::Pawn, Color::White).unwrap();
+        board.put(G1, Piece::King, Color::White).unwrap();
+        board.put(A1, Piece::Rook, Color::White).unwrap();
+        board.put(E8, Piece::Rook, Color::Black).unwrap();
+        board.put(E7, Piece::Queen, Color::Black).unwrap();
+        board.put(H8, Piece::King, Color::Black).unwrap();
         board.set_turn(Color::Black);
         board.lose_castle_rights(ALL_CASTLE_RIGHTS);
 
         println!("Testing board:\n{}", board);
 
         let expected_moves = [
-            ChessMove::new(square::E7, square::E1, None),
-            ChessMove::new(square::A1, square::E1, Some((Piece::Queen, Color::Black))),
-            ChessMove::new(square::E8, square::E1, Some((Piece::Rook, Color::White))),
+            ChessMove::new(E7, E1, None),
+            ChessMove::new(A1, E1, Some((Piece::Queen, Color::Black))),
+            ChessMove::new(E8, E1, Some((Piece::Rook, Color::White))),
         ];
 
         let move1 = searcher.search(&mut board, &mut targets).unwrap();

@@ -3,7 +3,8 @@ use crate::board::bitboard::{
 };
 use crate::board::color::Color;
 use crate::board::piece::Piece;
-use crate::board::{square, Board};
+use crate::board::square::*;
+use crate::board::Board;
 use crate::moves::ray_table::{Direction, RayTable, BISHOP_DIRS, ROOK_DIRS};
 use rustc_hash::FxHashMap;
 
@@ -66,7 +67,7 @@ pub fn generate_piece_targets(
     let pieces = board.pieces(color).locate(piece);
     let occupied = board.pieces(color).occupied();
 
-    for &sq in &square::ORDERED {
+    for &sq in &ORDERED {
         if pieces & sq == 0 {
             continue;
         }
@@ -391,48 +392,48 @@ mod tests {
         let mut targets = Targets::new();
         let mut board = Board::new();
 
-        board.put(square::A4, Piece::Pawn, Color::White).unwrap();
-        board.put(square::B5, Piece::Pawn, Color::Black).unwrap();
-        board.put(square::B1, Piece::Rook, Color::White).unwrap();
-        board.put(square::H1, Piece::King, Color::Black).unwrap();
-        board.put(square::A5, Piece::Queen, Color::White).unwrap();
+        board.put(A4, Piece::Pawn, Color::White).unwrap();
+        board.put(B5, Piece::Pawn, Color::Black).unwrap();
+        board.put(B1, Piece::Rook, Color::White).unwrap();
+        board.put(H1, Piece::King, Color::Black).unwrap();
+        board.put(A5, Piece::Queen, Color::White).unwrap();
         println!("Testing board:\n{}", board);
 
         let expected_white_targets = EMPTY
             // pawn
-            | square::B5
+            | B5
             // rook
-            | square::B2
-            | square::B3
-            | square::B4
-            | square::B5
-            | (RANK_1 ^ square::B1)
+            | B2
+            | B3
+            | B4
+            | B5
+            | (RANK_1 ^ B1)
             // queen - north
-            | square::A6
-            | square::A7
-            | square::A8
+            | A6
+            | A7
+            | A8
             // queen - northeast
-            | square::B6
-            | square::C7
-            | square::D8
+            | B6
+            | C7
+            | D8
             // queen - east
-            | square::B5
+            | B5
             // queen - southeast
-            | square::B4
-            | square::C3
-            | square::D2
-            | square::A1;
+            | B4
+            | C3
+            | D2
+            | A1;
         let white_targets = generate_attack_targets(&board, Color::White, &mut targets);
         assert_eq!(expected_white_targets, white_targets);
 
         let expected_black_targets = EMPTY
             // pawn
-            | square::A4
-            | square::C4
+            | A4
+            | C4
             // king
-            | square::G1
-            | square::G2
-            | square::H2;
+            | G1
+            | G2
+            | H2;
         let black_targets = generate_attack_targets(&board, Color::Black, &mut targets);
         assert_eq!(expected_black_targets, black_targets);
     }
@@ -442,18 +443,10 @@ mod tests {
         let mut targets = Targets::new();
         let mut board = Board::starting_position();
 
-        board
-            .apply(ChessMove::new(square::E2, square::E4, None))
-            .unwrap();
-        board
-            .apply(ChessMove::new(square::F7, square::F5, None))
-            .unwrap();
-        board
-            .apply(ChessMove::new(square::D1, square::H5, None))
-            .unwrap();
-        board
-            .apply(ChessMove::new(square::G7, square::G6, None))
-            .unwrap();
+        board.apply(ChessMove::new(E2, E4, None)).unwrap();
+        board.apply(ChessMove::new(F7, F5, None)).unwrap();
+        board.apply(ChessMove::new(D1, H5, None)).unwrap();
+        board.apply(ChessMove::new(G7, G6, None)).unwrap();
         println!("Testing board:\n{}", board);
 
         //   +---+---+---+---+---+---+---+---+
@@ -479,33 +472,33 @@ mod tests {
             // knights
             | RANK_3
             // forward pawn
-            | square::D5
-            | square::F5
+            | D5
+            | F5
             // queen - north
-            | square::H6
-            | square::H7
+            | H6
+            | H7
             // queen - nortwest
-            | square::G6
+            | G6
             // queen - west
-            | square::G5
-            | square::F5
+            | G5
+            | F5
             // queen - southwest
-            | square::G4
-            | square::F3
-            | square::E2
-            | square::D1
+            | G4
+            | F3
+            | E2
+            | D1
             // queen - south
-            | square::H4
-            | square::H3
+            | H4
+            | H3
             // bishop
-            | square::E2
-            | square::D3
-            | square::C4
-            | square::B5
-            | square::A6
+            | E2
+            | D3
+            | C4
+            | B5
+            | A6
             // king
-            | square::D1
-            | square::E2;
+            | D1
+            | E2;
 
         let white_targets = generate_attack_targets(&board, Color::White, &mut targets);
         println!(
