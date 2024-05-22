@@ -384,7 +384,7 @@ fn leftmost_bit(x: u64) -> u64 {
 mod tests {
     use super::*;
     use crate::board::bitboard::{render_occupied, RANK_3};
-    use crate::board::square;
+    use crate::chess_move;
     use crate::moves::ChessMove;
 
     #[test]
@@ -443,10 +443,10 @@ mod tests {
         let mut targets = Targets::new();
         let mut board = Board::starting_position();
 
-        board.apply(ChessMove::new(E2, E4, None)).unwrap();
-        board.apply(ChessMove::new(F7, F5, None)).unwrap();
-        board.apply(ChessMove::new(D1, H5, None)).unwrap();
-        board.apply(ChessMove::new(G7, G6, None)).unwrap();
+        board.apply(chess_move!(E2, E4)).unwrap();
+        board.apply(chess_move!(F7, F5)).unwrap();
+        board.apply(chess_move!(D1, H5)).unwrap();
+        board.apply(chess_move!(G7, G6)).unwrap();
         println!("Testing board:\n{}", board);
 
         //   +---+---+---+---+---+---+---+---+

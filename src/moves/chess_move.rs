@@ -3,6 +3,16 @@ use crate::board::piece::Piece;
 use crate::board::square;
 use std::fmt;
 
+#[macro_export]
+macro_rules! chess_move {
+    ($from:expr, $to:expr) => {
+        ChessMove::new($from, $to, None)
+    };
+    ($from:expr, $to:expr, $capture:expr) => {
+        ChessMove::new($from, $to, Some($capture))
+    };
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub enum ChessOperation {
     Standard, // moves and captures

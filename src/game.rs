@@ -150,6 +150,7 @@ mod tests {
     use super::*;
     use crate::board::piece::Piece;
     use crate::board::{square, ALL_CASTLE_RIGHTS};
+    use crate::chess_move;
 
     #[test]
     fn test_score() {
@@ -197,19 +198,19 @@ mod tests {
         println!("Testing board:\n{}", game.board);
 
         game.board
-            .apply(ChessMove::new(square::A2, square::A3, None))
+            .apply(chess_move!(square::A2, square::A3))
             .unwrap();
         game.board.next_turn();
         game.board
-            .apply(ChessMove::new(square::H8, square::G8, None))
+            .apply(chess_move!(square::H8, square::G8))
             .unwrap();
         game.board.next_turn();
         game.board
-            .apply(ChessMove::new(square::A3, square::A2, None))
+            .apply(chess_move!(square::A3, square::A2))
             .unwrap();
         game.board.next_turn();
         game.board
-            .apply(ChessMove::new(square::G8, square::H8, None))
+            .apply(chess_move!(square::G8, square::H8))
             .unwrap();
         game.board.next_turn();
 
@@ -221,19 +222,19 @@ mod tests {
         assert!(not_draw);
 
         game.board
-            .apply(ChessMove::new(square::A2, square::A3, None))
+            .apply(chess_move!(square::A2, square::A3))
             .unwrap();
         game.board.next_turn();
         game.board
-            .apply(ChessMove::new(square::H8, square::G8, None))
+            .apply(chess_move!(square::H8, square::G8))
             .unwrap();
         game.board.next_turn();
         game.board
-            .apply(ChessMove::new(square::A3, square::A2, None))
+            .apply(chess_move!(square::A3, square::A2))
             .unwrap();
         game.board.next_turn();
         game.board
-            .apply(ChessMove::new(square::G8, square::H8, None))
+            .apply(chess_move!(square::G8, square::H8))
             .unwrap();
         game.board.next_turn();
 

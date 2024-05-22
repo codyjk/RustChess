@@ -298,7 +298,9 @@ mod tests {
     use super::*;
     use crate::board::color::Color;
     use crate::board::piece::Piece;
-    use crate::board::{square, ALL_CASTLE_RIGHTS};
+    use crate::board::square::*;
+    use crate::board::ALL_CASTLE_RIGHTS;
+    use crate::chess_move;
 
     #[test]
     fn test_find_mate_in_1_white() {
@@ -316,9 +318,9 @@ mod tests {
 
         let chessmove = searcher.search(&mut board, &mut targets).unwrap();
         let valid_checkmates = vec![
-            ChessMove::new(B8, B2, None),
-            ChessMove::new(B8, A8, None),
-            ChessMove::new(B8, A7, None),
+            chess_move!(B8, B2),
+            chess_move!(B8, A8),
+            chess_move!(B8, A7),
         ];
         assert!(
             valid_checkmates.contains(&chessmove),
@@ -344,9 +346,9 @@ mod tests {
         let chessmove = searcher.search(&mut board, &mut targets).unwrap();
 
         let valid_checkmates = vec![
-            ChessMove::new(B8, B2, None),
-            ChessMove::new(B8, A8, None),
-            ChessMove::new(B8, A7, None),
+            chess_move!(B8, B2),
+            chess_move!(B8, A8),
+            chess_move!(B8, A7),
         ];
         assert!(valid_checkmates.contains(&chessmove));
     }
@@ -371,9 +373,9 @@ mod tests {
         println!("Testing board:\n{}", board);
 
         let expected_moves = [
-            ChessMove::new(D2, D8, None),
-            ChessMove::new(H8, D8, Some((Piece::Queen, Color::White))),
-            ChessMove::new(D1, D8, Some((Piece::Rook, Color::Black))),
+            chess_move!(D2, D8),
+            chess_move!(H8, D8, (Piece::Queen, Color::White)),
+            chess_move!(D1, D8, (Piece::Rook, Color::Black)),
         ];
 
         let move1 = searcher.search(&mut board, &mut targets).unwrap();
@@ -415,9 +417,9 @@ mod tests {
         println!("Testing board:\n{}", board);
 
         let expected_moves = [
-            ChessMove::new(E7, E1, None),
-            ChessMove::new(A1, E1, Some((Piece::Queen, Color::Black))),
-            ChessMove::new(E8, E1, Some((Piece::Rook, Color::White))),
+            chess_move!(E7, E1),
+            chess_move!(A1, E1, (Piece::Queen, Color::Black)),
+            chess_move!(E8, E1, (Piece::Rook, Color::White)),
         ];
 
         let move1 = searcher.search(&mut board, &mut targets).unwrap();
