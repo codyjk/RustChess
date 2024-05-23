@@ -1,80 +1,79 @@
 use crate::board::square::*;
 pub mod board;
-pub mod chess_move;
 pub mod ray_table;
 pub mod targets;
 
 use crate::board::bitboard::{A_FILE, H_FILE, RANK_1, RANK_8};
 use crate::board::color::Color;
-use crate::board::error::BoardError;
 use crate::board::piece::Piece;
 use crate::board::{
     Board, BLACK_KINGSIDE_RIGHTS, BLACK_QUEENSIDE_RIGHTS, WHITE_KINGSIDE_RIGHTS,
     WHITE_QUEENSIDE_RIGHTS,
 };
-use chess_move::ChessMove;
+use crate::chess_move::castle::CastleChessMove;
+use crate::chess_move::chess_move_collection::ChessMoveCollection;
+use crate::chess_move::en_passant::EnPassantChessMove;
+use crate::chess_move::pawn_promotion::PawnPromotionChessMove;
+use crate::chess_move::standard::StandardChessMove;
 use targets::{PieceTarget, Targets};
 
 pub const PAWN_PROMOTIONS: [Piece; 4] = [Piece::Queen, Piece::Rook, Piece::Bishop, Piece::Knight];
 
-pub fn generate(board: &mut Board, color: Color, targets: &mut Targets) -> Vec<ChessMove> {
-    let mut moves = vec![];
+pub fn generate(board: &mut Board, color: Color, targets: &mut Targets) -> ChessMoveCollection {
+    let mut moves = ChessMoveCollection::new();
 
-    moves.append(&mut generate_knight_moves(board, color, targets));
-    moves.append(&mut generate_bishop_moves(board, color, targets));
-    moves.append(&mut generate_pawn_moves(board, color));
-    moves.append(&mut generate_rook_moves(board, color, targets));
-    moves.append(&mut generate_queen_moves(board, color, targets));
-    moves.append(&mut generate_castle_moves(board, color, targets));
-    moves.append(&mut generate_king_moves(board, color, targets));
-
-    moves = remove_invalid_moves(moves, board, color, targets);
+    generate_knight_moves(&mut moves, board, color, targets);
+    generate_rook_moves(&mut moves, board, color, targets);
+    generate_bishop_moves(&mut moves, board, color, targets);
+    generate_queen_moves(&mut moves, board, color, targets);
+    generate_king_moves(&mut moves, board, color, targets);
+    generate_pawn_moves(&mut moves, board, color);
+    generate_castle_moves(&mut moves, board, color, targets);
+    remove_invalid_moves(&mut moves, board, color, targets);
 
     moves
 }
 
-fn generate_pawn_moves(board: &Board, color: Color) -> Vec<ChessMove> {
-    let mut moves = vec![];
-
+fn generate_pawn_moves(moves: &mut ChessMoveCollection, board: &Board, color: Color) {
     // `generate_pawn_targets` blindly generates all pawn "targets": squares
     // that pawns can either move or capture. to get promotions, we will apply
     // some special logic to find the targets that are at the end of the board,
     // and then expand those targets into the candidate promotion pieces.
     let piece_targets = targets::generate_pawn_targets(board, color);
-    let all_pawn_moves = expand_piece_targets(board, color, piece_targets);
+    let mut all_pawn_moves = ChessMoveCollection::new();
+    expand_piece_targets(&mut all_pawn_moves, board, color, piece_targets);
 
-    let promotion_rank = match color {
-        Color::White => RANK_8,
-        Color::Black => RANK_1,
-    };
-    let (partial_promotions, mut standard_pawn_moves): (Vec<ChessMove>, Vec<ChessMove>) =
-        all_pawn_moves
-            .iter()
-            .partition(|&chessmove| chessmove.to_square() & promotion_rank > 0);
+    let (mut standard_pawn_moves, promotable_pawn_moves) = all_pawn_moves.partition(|chess_move| {
+        let to_square = chess_move.to_square();
+        let promotion_rank = match color {
+            Color::White => RANK_8,
+            Color::Black => RANK_1,
+        };
+        to_square & promotion_rank == 0
+    });
 
-    for pawn_move in partial_promotions.iter() {
-        for promote_to_piece in &PAWN_PROMOTIONS {
-            moves.push(ChessMove::promote(
-                pawn_move.from_square(),
-                pawn_move.to_square(),
-                pawn_move.capture(),
-                *promote_to_piece,
-            ));
+    for promotable_pawn_move in promotable_pawn_moves.iter() {
+        let from_square = promotable_pawn_move.from_square();
+        let to_square = promotable_pawn_move.to_square();
+        let capture = promotable_pawn_move.capture();
+        for &promotion in &PAWN_PROMOTIONS {
+            moves.push(Box::new(PawnPromotionChessMove::new(
+                from_square,
+                to_square,
+                capture,
+                promotion,
+            )));
         }
     }
-
     moves.append(&mut standard_pawn_moves);
-    moves.append(&mut generate_en_passant_moves(board, color));
-
-    moves
+    generate_en_passant_moves(moves, board, color);
 }
 
-fn generate_en_passant_moves(board: &Board, color: Color) -> Vec<ChessMove> {
-    let mut moves: Vec<ChessMove> = vec![];
+fn generate_en_passant_moves(moves: &mut ChessMoveCollection, board: &Board, color: Color) {
     let en_passant_target = board.peek_en_passant_target();
 
     if en_passant_target == 0 {
-        return moves;
+        return;
     }
 
     let pawns = board.pieces(color).locate(Piece::Pawn);
@@ -94,11 +93,10 @@ fn generate_en_passant_moves(board: &Board, color: Color) -> Vec<ChessMove> {
             Color::White => en_passant_target >> 9,
             Color::Black => en_passant_target << 7,
         };
-        moves.push(ChessMove::en_passant(
+        moves.push(Box::new(EnPassantChessMove::new(
             from_square,
             en_passant_target,
-            (Piece::Pawn, color.opposite()),
-        ));
+        )));
     }
 
     if attacks_east & en_passant_target > 0 {
@@ -106,45 +104,64 @@ fn generate_en_passant_moves(board: &Board, color: Color) -> Vec<ChessMove> {
             Color::White => en_passant_target >> 7,
             Color::Black => en_passant_target << 9,
         };
-        moves.push(ChessMove::en_passant(
+        moves.push(Box::new(EnPassantChessMove::new(
             from_square,
             en_passant_target,
-            (Piece::Pawn, color.opposite()),
-        ));
+        )));
     }
-
-    moves
 }
 
-fn generate_knight_moves(board: &Board, color: Color, targets: &Targets) -> Vec<ChessMove> {
+fn generate_knight_moves(
+    moves: &mut ChessMoveCollection,
+    board: &Board,
+    color: Color,
+    targets: &Targets,
+) {
     expand_piece_targets(
+        moves,
         board,
         color,
         targets::generate_piece_targets(board, color, Piece::Knight, targets),
     )
 }
 
-pub fn generate_rook_moves(board: &Board, color: Color, targets: &Targets) -> Vec<ChessMove> {
+pub fn generate_rook_moves(
+    moves: &mut ChessMoveCollection,
+    board: &Board,
+    color: Color,
+    targets: &Targets,
+) {
     let piece_targets = targets::generate_rook_targets(board, color, targets);
-    expand_piece_targets(board, color, piece_targets)
+    expand_piece_targets(moves, board, color, piece_targets)
 }
 
-fn generate_bishop_moves(board: &Board, color: Color, targets: &Targets) -> Vec<ChessMove> {
+fn generate_bishop_moves(
+    moves: &mut ChessMoveCollection,
+    board: &Board,
+    color: Color,
+    targets: &Targets,
+) {
     let piece_targets = targets::generate_bishop_targets(board, color, targets);
-    expand_piece_targets(board, color, piece_targets)
+    expand_piece_targets(moves, board, color, piece_targets)
 }
 
-fn generate_queen_moves(board: &Board, color: Color, targets: &Targets) -> Vec<ChessMove> {
+fn generate_queen_moves(
+    moves: &mut ChessMoveCollection,
+    board: &Board,
+    color: Color,
+    targets: &Targets,
+) {
     let piece_targets = targets::generate_queen_targets(board, color, targets);
-    expand_piece_targets(board, color, piece_targets)
+    expand_piece_targets(moves, board, color, piece_targets)
 }
 
 fn expand_piece_targets(
+    moves: &mut ChessMoveCollection,
     board: &Board,
     color: Color,
     piece_targets: Vec<PieceTarget>,
-) -> Vec<ChessMove> {
-    let mut moves: Vec<ChessMove> = vec![];
+) {
+    // TODO(codyjk): Do we need to loop over every square?
     for (piece, target_squares) in piece_targets {
         let piece_sq = assert(piece);
         for &target in &ORDERED {
@@ -157,26 +174,35 @@ fn expand_piece_targets(
                 .get(target)
                 .map(|piece| (piece, color.opposite()));
 
-            moves.push(ChessMove::new(piece_sq, target, capture));
+            moves.push(Box::new(StandardChessMove::new(piece_sq, target, capture)));
         }
     }
-    moves
 }
 
-fn generate_king_moves(board: &Board, color: Color, targets: &Targets) -> Vec<ChessMove> {
+fn generate_king_moves(
+    moves: &mut ChessMoveCollection,
+    board: &Board,
+    color: Color,
+    targets: &Targets,
+) {
     expand_piece_targets(
+        moves,
         board,
         color,
         targets::generate_piece_targets(board, color, Piece::King, targets),
     )
 }
 
-fn generate_castle_moves(board: &Board, color: Color, targets: &mut Targets) -> Vec<ChessMove> {
-    let mut moves: Vec<ChessMove> = vec![];
+fn generate_castle_moves(
+    moves: &mut ChessMoveCollection,
+    board: &Board,
+    color: Color,
+    targets: &mut Targets,
+) {
     let attacked_squares = targets::generate_attack_targets(board, color.opposite(), targets);
 
     if board.pieces(color).locate(Piece::King) & attacked_squares > 0 {
-        return moves;
+        return;
     }
 
     let castle_rights = board.peek_castle_rights();
@@ -214,7 +240,7 @@ fn generate_castle_moves(board: &Board, color: Color, targets: &mut Targets) -> 
         && kingside_transit_square & occupied == 0
         && kingside_target_square & occupied == 0
     {
-        moves.push(ChessMove::castle_kingside(color));
+        moves.push(Box::new(CastleChessMove::castle_kingside(color)));
     }
 
     if queenside_rights > 0
@@ -224,53 +250,32 @@ fn generate_castle_moves(board: &Board, color: Color, targets: &mut Targets) -> 
         && queenside_rook_transit_square & occupied == 0
         && queenside_target_square & occupied == 0
     {
-        moves.push(ChessMove::castle_queenside(color));
+        moves.push(Box::new(CastleChessMove::castle_queenside(color)));
     }
-
-    moves
 }
 
 fn remove_invalid_moves(
-    candidates: Vec<ChessMove>,
+    candidates: &mut ChessMoveCollection,
     board: &mut Board,
     color: Color,
     targets: &mut Targets,
-) -> Vec<ChessMove> {
-    let mut moves = vec![];
+) {
+    let mut valid_moves = ChessMoveCollection::new();
 
-    // simulate each chessmove and see if it leaves the player's king in check.
+    // simulate each chess_move and see if it leaves the player's king in check.
     // if it does, it's invalid.
-    for chessmove in candidates {
-        board
-            .apply(chessmove)
-            .map_err(|e| enrich_error(board, chessmove, e))
-            .unwrap();
-
+    for chess_move in candidates.drain() {
+        chess_move.apply(board).unwrap();
         let king = board.pieces(color).locate(Piece::King);
         let attacked_squares = targets::generate_attack_targets(board, color.opposite(), targets);
+        chess_move.undo(board).unwrap();
 
         if king & attacked_squares == 0 {
-            moves.push(chessmove);
+            valid_moves.push(chess_move);
         }
-
-        board
-            .undo(chessmove)
-            .map_err(|e| enrich_error(board, chessmove, e))
-            .unwrap();
     }
 
-    moves
-}
-
-fn enrich_error(board: &Board, chessmove: ChessMove, error: BoardError) -> String {
-    let enriched_error = format!(
-        "error: {}\nmove:{}\nboard:\n{}fen:\n{}",
-        error,
-        chessmove,
-        board,
-        board.to_fen()
-    );
-    enriched_error
+    candidates.append(&mut valid_moves);
 }
 
 pub fn count_positions(depth: u8, board: &mut Board, targets: &mut Targets, color: Color) -> usize {
@@ -283,10 +288,10 @@ pub fn count_positions(depth: u8, board: &mut Board, targets: &mut Targets, colo
 
     let next_color = color.opposite();
 
-    for chessmove in candidates {
-        board.apply(chessmove).unwrap();
+    for chess_move in candidates.iter() {
+        chess_move.apply(board).unwrap();
         count += count_positions(depth - 1, board, targets, next_color);
-        board.undo(chessmove).unwrap();
+        chess_move.undo(board).unwrap();
     }
 
     count
@@ -295,7 +300,8 @@ pub fn count_positions(depth: u8, board: &mut Board, targets: &mut Targets, colo
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::chess_move;
+    use crate::chess_move::ChessMove;
+    use crate::{castle_kingside, castle_queenside, chess_moves, promotion, std_move};
 
     #[test]
     fn test_generate_pawn_moves() {
@@ -313,40 +319,42 @@ mod tests {
         board.put(F3, Piece::Rook, Color::Black).unwrap();
         println!("Testing board:\n{}", board);
 
-        let mut expected_white_moves: Vec<ChessMove> = vec![
-            chess_move!(D2, D3),
-            chess_move!(D2, D4),
-            chess_move!(G6, G7),
-            chess_move!(G6, H7, (Piece::Pawn, Color::Black)),
-            ChessMove::promote(B7, B8, None, Piece::Queen),
-            ChessMove::promote(B7, B8, None, Piece::Rook),
-            ChessMove::promote(B7, B8, None, Piece::Knight),
-            ChessMove::promote(B7, B8, None, Piece::Bishop),
-            ChessMove::promote(B7, C8, Some((Piece::Rook, Color::Black)), Piece::Queen),
-            ChessMove::promote(B7, C8, Some((Piece::Rook, Color::Black)), Piece::Rook),
-            ChessMove::promote(B7, C8, Some((Piece::Rook, Color::Black)), Piece::Knight),
-            ChessMove::promote(B7, C8, Some((Piece::Rook, Color::Black)), Piece::Bishop),
+        let mut expected_white_moves = chess_moves![
+            std_move!(D2, D3),
+            std_move!(D2, D4),
+            std_move!(G6, G7),
+            std_move!(G6, H7, (Piece::Pawn, Color::Black)),
+            promotion!(B7, B8, None, Piece::Queen),
+            promotion!(B7, B8, None, Piece::Rook),
+            promotion!(B7, B8, None, Piece::Knight),
+            promotion!(B7, B8, None, Piece::Bishop),
+            promotion!(B7, C8, Some((Piece::Rook, Color::Black)), Piece::Queen),
+            promotion!(B7, C8, Some((Piece::Rook, Color::Black)), Piece::Rook),
+            promotion!(B7, C8, Some((Piece::Rook, Color::Black)), Piece::Knight),
+            promotion!(B7, C8, Some((Piece::Rook, Color::Black)), Piece::Bishop),
         ];
         expected_white_moves.sort();
 
-        let mut expected_black_moves: Vec<ChessMove> = vec![
-            chess_move!(D7, D6),
-            chess_move!(D7, D5),
-            chess_move!(H7, H6),
-            chess_move!(H7, H5),
-            chess_move!(H7, G6, (Piece::Pawn, Color::White)),
-            ChessMove::promote(A2, A1, None, Piece::Queen),
-            ChessMove::promote(A2, A1, None, Piece::Rook),
-            ChessMove::promote(A2, A1, None, Piece::Knight),
-            ChessMove::promote(A2, A1, None, Piece::Bishop),
+        let mut expected_black_moves = chess_moves![
+            std_move!(D7, D6),
+            std_move!(D7, D5),
+            std_move!(H7, H6),
+            std_move!(H7, H5),
+            std_move!(H7, G6, (Piece::Pawn, Color::White)),
+            promotion!(A2, A1, None, Piece::Queen),
+            promotion!(A2, A1, None, Piece::Rook),
+            promotion!(A2, A1, None, Piece::Knight),
+            promotion!(A2, A1, None, Piece::Bishop),
         ];
         expected_black_moves.sort();
 
-        let mut white_moves = generate_pawn_moves(&board, Color::White);
+        let mut white_moves = ChessMoveCollection::new();
+        generate_pawn_moves(&mut white_moves, &board, Color::White);
         white_moves.sort();
         assert_eq!(expected_white_moves, white_moves);
 
-        let mut black_moves = generate_pawn_moves(&board, Color::Black);
+        let mut black_moves = ChessMoveCollection::new();
+        generate_pawn_moves(&mut black_moves, &board, Color::Black);
         black_moves.sort();
         assert_eq!(expected_black_moves, black_moves);
     }
@@ -361,14 +369,12 @@ mod tests {
         board.put(E3, Piece::Pawn, Color::Black).unwrap();
         println!("Testing board:\n{}", board);
 
-        let mut expected_moves = vec![
-            chess_move!(B2, B3),
-            chess_move!(B2, B4),
-            chess_move!(C3, C4),
-        ];
+        let mut expected_moves =
+            chess_moves![std_move!(B2, B3), std_move!(B2, B4), std_move!(C3, C4),];
         expected_moves.sort();
 
-        let mut moves = generate_pawn_moves(&board, Color::White);
+        let mut moves = ChessMoveCollection::new();
+        generate_pawn_moves(&mut moves, &board, Color::White);
         moves.sort();
 
         assert_eq!(expected_moves, moves);
@@ -385,30 +391,32 @@ mod tests {
         board.put(H6, Piece::Knight, Color::Black).unwrap();
         println!("Testing board:\n{}", board);
 
-        let mut expected_white_moves: Vec<ChessMove> = vec![
-            chess_move!(C3, D5, (Piece::Pawn, Color::Black)),
-            chess_move!(C3, E2),
-            chess_move!(C3, D1),
-            chess_move!(C3, B5),
-            chess_move!(C3, A4),
-            chess_move!(C3, A2),
-            chess_move!(C3, B1),
+        let mut expected_white_moves = chess_moves![
+            std_move!(C3, D5, (Piece::Pawn, Color::Black)),
+            std_move!(C3, E2),
+            std_move!(C3, D1),
+            std_move!(C3, B5),
+            std_move!(C3, A4),
+            std_move!(C3, A2),
+            std_move!(C3, B1),
         ];
         expected_white_moves.sort();
 
-        let mut expected_black_moves: Vec<ChessMove> = vec![
-            chess_move!(H6, G8),
-            chess_move!(H6, F7),
-            chess_move!(H6, F5),
-            chess_move!(H6, G4),
+        let mut expected_black_moves = chess_moves![
+            std_move!(H6, G8),
+            std_move!(H6, F7),
+            std_move!(H6, F5),
+            std_move!(H6, G4),
         ];
         expected_black_moves.sort();
 
-        let mut white_moves = generate_knight_moves(&board, Color::White, &targets);
+        let mut white_moves = ChessMoveCollection::new();
+        generate_knight_moves(&mut white_moves, &board, Color::White, &targets);
         white_moves.sort();
         assert_eq!(expected_white_moves, white_moves);
 
-        let mut black_moves = generate_knight_moves(&board, Color::Black, &targets);
+        let mut black_moves = ChessMoveCollection::new();
+        generate_knight_moves(&mut black_moves, &board, Color::Black, &targets);
         black_moves.sort();
         assert_eq!(expected_black_moves, black_moves);
     }
@@ -423,21 +431,22 @@ mod tests {
         board.put(C7, Piece::Pawn, Color::White).unwrap();
         println!("Testing board:\n{}", board);
 
-        let mut expected_moves: Vec<ChessMove> = vec![
-            chess_move!(C3, C2),
-            chess_move!(C3, C4),
-            chess_move!(C3, C5),
-            chess_move!(C3, C6),
-            chess_move!(C3, B3),
-            chess_move!(C3, D3),
-            chess_move!(C3, E3),
-            chess_move!(C3, F3),
-            chess_move!(C3, G3),
-            chess_move!(C3, H3, (Piece::Pawn, Color::Black)),
+        let mut expected_moves = chess_moves![
+            std_move!(C3, C2),
+            std_move!(C3, C4),
+            std_move!(C3, C5),
+            std_move!(C3, C6),
+            std_move!(C3, B3),
+            std_move!(C3, D3),
+            std_move!(C3, E3),
+            std_move!(C3, F3),
+            std_move!(C3, G3),
+            std_move!(C3, H3, (Piece::Pawn, Color::Black)),
         ];
         expected_moves.sort();
 
-        let mut moves = generate_rook_moves(&board, Color::White, &Targets::new());
+        let mut moves = ChessMoveCollection::new();
+        generate_rook_moves(&mut moves, &board, Color::White, &Targets::new());
         moves.sort();
 
         assert_eq!(expected_moves, moves);
@@ -451,10 +460,11 @@ mod tests {
         board.put(B2, Piece::Pawn, Color::White).unwrap();
         println!("Testing board:\n{}", board);
 
-        let mut expected_moves: Vec<ChessMove> = vec![chess_move!(A2, A1), chess_move!(A2, A3)];
+        let mut expected_moves = chess_moves![std_move!(A2, A1), std_move!(A2, A3)];
         expected_moves.sort();
 
-        let mut moves = generate_rook_moves(&board, Color::White, &Targets::new());
+        let mut moves = ChessMoveCollection::new();
+        generate_rook_moves(&mut moves, &board, Color::White, &Targets::new());
         moves.sort();
 
         assert_eq!(expected_moves, moves);
@@ -470,18 +480,19 @@ mod tests {
         board.put(G7, Piece::Pawn, Color::Black).unwrap();
         println!("Testing board:\n{}", board);
 
-        let mut expected_moves: Vec<ChessMove> = vec![
-            chess_move!(E5, D4),
-            chess_move!(E5, D6),
-            chess_move!(E5, F4),
-            chess_move!(E5, F6),
-            chess_move!(E5, G3),
-            chess_move!(E5, G7, (Piece::Pawn, Color::Black)),
-            chess_move!(E5, H2),
+        let mut expected_moves = chess_moves![
+            std_move!(E5, D4),
+            std_move!(E5, D6),
+            std_move!(E5, F4),
+            std_move!(E5, F6),
+            std_move!(E5, G3),
+            std_move!(E5, G7, (Piece::Pawn, Color::Black)),
+            std_move!(E5, H2),
         ];
         expected_moves.sort();
 
-        let mut moves = generate_bishop_moves(&board, Color::White, &Targets::new());
+        let mut moves = ChessMoveCollection::new();
+        generate_bishop_moves(&mut moves, &board, Color::White, &Targets::new());
         moves.sort();
 
         assert_eq!(expected_moves, moves);
@@ -500,38 +511,39 @@ mod tests {
         board.put(H2, Piece::Pawn, Color::White).unwrap();
         println!("Testing board:\n{}", board);
 
-        let mut expected_moves: Vec<ChessMove> = vec![
+        let mut expected_moves = chess_moves![
             // North - no moves
             // NorthEast
-            chess_move!(E5, F6),
-            chess_move!(E5, G7),
-            chess_move!(E5, H8, (Piece::Pawn, Color::Black)),
+            std_move!(E5, F6),
+            std_move!(E5, G7),
+            std_move!(E5, H8, (Piece::Pawn, Color::Black)),
             // East
-            chess_move!(E5, F5),
-            chess_move!(E5, G5),
-            chess_move!(E5, H5),
+            std_move!(E5, F5),
+            std_move!(E5, G5),
+            std_move!(E5, H5),
             // SouthEast
-            chess_move!(E5, F4),
-            chess_move!(E5, G3, (Piece::Pawn, Color::Black)),
+            std_move!(E5, F4),
+            std_move!(E5, G3, (Piece::Pawn, Color::Black)),
             // South
-            chess_move!(E5, E4),
-            chess_move!(E5, E3),
-            chess_move!(E5, E2),
-            chess_move!(E5, E1),
+            std_move!(E5, E4),
+            std_move!(E5, E3),
+            std_move!(E5, E2),
+            std_move!(E5, E1),
             // SouthWest
-            chess_move!(E5, D4),
-            chess_move!(E5, C3),
+            std_move!(E5, D4),
+            std_move!(E5, C3),
             // West
-            chess_move!(E5, D5),
-            chess_move!(E5, C5),
+            std_move!(E5, D5),
+            std_move!(E5, C5),
             // NorthWest
-            chess_move!(E5, D6),
-            chess_move!(E5, C7),
-            chess_move!(E5, B8),
+            std_move!(E5, D6),
+            std_move!(E5, C7),
+            std_move!(E5, B8),
         ];
         expected_moves.sort();
 
-        let mut moves = generate_queen_moves(&board, Color::White, &Targets::new());
+        let mut moves = ChessMoveCollection::new();
+        generate_queen_moves(&mut moves, &board, Color::White, &Targets::new());
         moves.sort();
 
         assert_eq!(expected_moves, moves);
@@ -543,14 +555,12 @@ mod tests {
         board.put(A1, Piece::King, Color::White).unwrap();
         println!("Testing board:\n{}", board);
 
-        let mut expected_moves: Vec<ChessMove> = vec![
-            chess_move!(A1, A2),
-            chess_move!(A1, B1),
-            chess_move!(A1, B2),
-        ];
+        let mut expected_moves =
+            chess_moves![std_move!(A1, A2), std_move!(A1, B1), std_move!(A1, B2),];
         expected_moves.sort();
 
-        let mut moves = generate_king_moves(&board, Color::White, &Targets::new());
+        let mut moves = ChessMoveCollection::new();
+        generate_king_moves(&mut moves, &board, Color::White, &Targets::new());
         moves.sort();
 
         assert_eq!(expected_moves, moves);
@@ -563,16 +573,17 @@ mod tests {
         board.put(D2, Piece::Pawn, Color::Black).unwrap();
         println!("Testing board:\n{}", board);
 
-        let mut expected_moves: Vec<ChessMove> = vec![
-            chess_move!(E1, D1),
-            chess_move!(E1, D2, (Piece::Pawn, Color::Black)),
-            chess_move!(E1, E2),
-            chess_move!(E1, F1),
-            chess_move!(E1, F2),
+        let mut expected_moves = chess_moves![
+            std_move!(E1, D1),
+            std_move!(E1, D2, (Piece::Pawn, Color::Black)),
+            std_move!(E1, E2),
+            std_move!(E1, F1),
+            std_move!(E1, F2),
         ];
         expected_moves.sort();
 
-        let mut moves = generate_king_moves(&board, Color::White, &Targets::new());
+        let mut moves = ChessMoveCollection::new();
+        generate_king_moves(&mut moves, &board, Color::White, &Targets::new());
         moves.sort();
 
         assert_eq!(expected_moves, moves);
@@ -586,18 +597,19 @@ mod tests {
         board.put(E4, Piece::Pawn, Color::Black).unwrap();
         println!("Testing board:\n{}", board);
 
-        let mut expected_moves: Vec<ChessMove> = vec![
-            chess_move!(E5, D4),
-            chess_move!(E5, D5),
-            chess_move!(E5, D6),
-            chess_move!(E5, E4, (Piece::Pawn, Color::Black)),
-            chess_move!(E5, F4),
-            chess_move!(E5, F5),
-            chess_move!(E5, F6),
+        let mut expected_moves = chess_moves![
+            std_move!(E5, D4),
+            std_move!(E5, D5),
+            std_move!(E5, D6),
+            std_move!(E5, E4, (Piece::Pawn, Color::Black)),
+            std_move!(E5, F4),
+            std_move!(E5, F5),
+            std_move!(E5, F6),
         ];
         expected_moves.sort();
 
-        let mut moves = generate_king_moves(&board, Color::White, &Targets::new());
+        let mut moves = ChessMoveCollection::new();
+        generate_king_moves(&mut moves, &board, Color::White, &Targets::new());
         moves.sort();
 
         assert_eq!(expected_moves, moves);
@@ -610,17 +622,18 @@ mod tests {
         board.put(D4, Piece::Pawn, Color::Black).unwrap();
         println!("Testing board:\n{}", board);
 
-        let move_that_reveals_en_passant_target = chess_move!(C2, C4);
-        board.apply(move_that_reveals_en_passant_target).unwrap();
+        let move_that_reveals_en_passant_target = std_move!(C2, C4);
+        move_that_reveals_en_passant_target
+            .apply(&mut board)
+            .unwrap();
         assert_eq!(C3, board.peek_en_passant_target());
 
-        let mut expected_black_moves: Vec<ChessMove> = vec![
-            chess_move!(D4, D3),
-            ChessMove::en_passant(D4, C3, (Piece::Pawn, Color::White)),
-        ];
+        let mut expected_black_moves =
+            chess_moves![std_move!(D4, D3), EnPassantChessMove::new(D4, C3)];
         expected_black_moves.sort();
 
-        let mut moves = generate_pawn_moves(&board, Color::Black);
+        let mut moves = ChessMoveCollection::new();
+        generate_pawn_moves(&mut moves, &board, Color::Black);
         moves.sort();
 
         assert_eq!(expected_black_moves, moves);
@@ -637,28 +650,30 @@ mod tests {
         board.put(H8, Piece::Rook, Color::Black).unwrap();
         println!("Testing board:\n{}", board);
 
-        let mut expected_white_moves: Vec<ChessMove> = vec![
-            ChessMove::castle_kingside(Color::White),
-            ChessMove::castle_queenside(Color::White),
+        let mut expected_white_moves = chess_moves![
+            castle_kingside!(Color::White),
+            castle_queenside!(Color::White),
         ];
         expected_white_moves.sort();
 
-        let mut expected_black_moves: Vec<ChessMove> = vec![
-            ChessMove::castle_kingside(Color::Black),
-            ChessMove::castle_queenside(Color::Black),
+        let mut expected_black_moves = chess_moves![
+            castle_kingside!(Color::Black),
+            castle_queenside!(Color::Black),
         ];
         expected_black_moves.sort();
 
         let mut targets = Targets::new();
 
-        let mut white_moves = generate_castle_moves(&board, Color::White, &mut targets);
+        let mut white_moves = ChessMoveCollection::new();
+        generate_castle_moves(&mut white_moves, &board, Color::White, &mut targets);
         white_moves.sort();
 
-        let mut black_moves = generate_castle_moves(&board, Color::Black, &mut targets);
+        let mut black_moves = ChessMoveCollection::new();
+        generate_castle_moves(&mut black_moves, &board, Color::Black, &mut targets);
         black_moves.sort();
 
-        assert_eq!(expected_white_moves, white_moves);
-        assert_eq!(expected_black_moves, black_moves);
+        assert_eq!(expected_white_moves, white_moves, "failed to generate white castling moves");
+        assert_eq!(expected_black_moves, black_moves, "failed to generate black castling moves");
     }
 
     #[test]
@@ -676,20 +691,21 @@ mod tests {
 
         println!("Testing board:\n{}", board);
 
-        let mut expected_white_moves: Vec<ChessMove> =
-            vec![ChessMove::castle_kingside(Color::White)];
+        let mut expected_white_moves = chess_moves![castle_kingside!(Color::White)];
         expected_white_moves.sort();
 
-        let mut expected_black_moves: Vec<ChessMove> =
-            vec![ChessMove::castle_queenside(Color::Black)];
+        let mut expected_black_moves = chess_moves![castle_queenside!(Color::Black)];
         expected_black_moves.sort();
 
         let mut targets = Targets::new();
         targets::generate_attack_targets(&board, Color::Black, &mut targets);
 
-        let mut white_moves = generate_castle_moves(&board, Color::White, &mut targets);
+        let mut white_moves = ChessMoveCollection::new();
+        generate_castle_moves(&mut white_moves, &board, Color::White, &mut targets);
         white_moves.sort();
-        let mut black_moves = generate_castle_moves(&board, Color::Black, &mut targets);
+
+        let mut black_moves = ChessMoveCollection::new();
+        generate_castle_moves(&mut black_moves, &board, Color::Black, &mut targets);
         black_moves.sort();
 
         assert_eq!(expected_white_moves, white_moves);
@@ -706,8 +722,9 @@ mod tests {
         board.put(G1, Piece::Knight, Color::Black).unwrap();
         println!("Testing board:\n{}", board);
 
-        let expected_white_moves: Vec<ChessMove> = vec![];
-        let white_moves = generate_castle_moves(&board, Color::White, &mut Targets::new());
+        let expected_white_moves = ChessMoveCollection::new();
+        let mut white_moves = ChessMoveCollection::new();
+        generate_castle_moves(&mut white_moves, &board, Color::White, &mut Targets::new());
 
         assert_eq!(expected_white_moves, white_moves);
     }

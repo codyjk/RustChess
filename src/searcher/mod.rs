@@ -1,6 +1,6 @@
 use crate::board::color::Color;
 use crate::board::Board;
-use crate::moves::chess_move::ChessMove;
+use crate::chess_move::ChessMove;
 use crate::moves::targets::Targets;
 use crate::{evaluate, moves};
 use log::{debug, log_enabled, trace, Level};
@@ -39,7 +39,7 @@ impl Searcher {
         &mut self,
         board: &mut Board,
         targets: &mut Targets,
-    ) -> Result<ChessMove, SearchError> {
+    ) -> Result<Box<dyn ChessMove>, SearchError> {
         self.last_searched_position_count = 0;
         self.last_cache_hit_count = 0;
         self.last_alpha_beta_termination_count = 0;
@@ -47,16 +47,16 @@ impl Searcher {
         debug!("starting `search` depth={}", self.search_depth);
 
         let current_turn = board.turn();
-        let candidates = moves::generate(board, current_turn, targets);
+        let mut candidates = moves::generate(board, current_turn, targets);
 
         if candidates.is_empty() {
             return Err(SearchError::NoAvailableMoves);
         }
 
-        let mut results = candidates
+        let scores: Vec<f32> = candidates
             .iter()
-            .map(|&chessmove| {
-                board.apply(chessmove).unwrap();
+            .map(|chess_move| {
+                chess_move.apply(board).unwrap();
                 board.next_turn();
                 let score = self.alpha_beta_max(
                     self.search_depth,
@@ -65,19 +65,25 @@ impl Searcher {
                     f32::NEG_INFINITY,
                     f32::INFINITY,
                 );
-                board.undo(chessmove).unwrap();
+                chess_move.undo(board).unwrap();
                 board.prev_turn();
-                (score, chessmove)
+                score
             })
-            .collect::<Vec<(f32, ChessMove)>>();
+            .collect();
 
-        results.sort_by(|(a, _mv_a), (b, _mv_b)| a.partial_cmp(b).unwrap());
-        let (_score, best_move) = results[0];
+        // Drain so all of the candidates are moved out of the vector.
+        let mut results = candidates.drain().zip(scores.iter()).collect::<Vec<_>>();
+
+        // Sort worst to best, then pop the best move so that we have the instance here.
+        // No copying during the entire move generation and search process.
+        results.sort_by(|a, b| a.1.partial_cmp(b.1).unwrap());
+        println!("results: {:?}", results);
+        let (best_move, _) = results.pop().unwrap();
 
         if log_enabled!(Level::Debug) {
             debug!("ending `search`. results:");
-            for (score, chessmove) in results {
-                debug!("chessmove={} score={}", chessmove, score);
+            for (score, chess_move) in results {
+                debug!("chess_move={} score={}", chess_move, score);
             }
             debug!("best_move={}", best_move);
         }
@@ -131,21 +137,21 @@ impl Searcher {
 
         let candidates = moves::generate(board, board.turn(), targets);
 
-        for chessmove in candidates {
+        for chess_move in candidates.iter() {
             trace!(
-                "alpha_beta_max(depth={}, alpha={}, beta={}, position={}) evaluating chessmove={}",
+                "alpha_beta_max(depth={}, alpha={}, beta={}, position={}) evaluating chess_move={}",
                 depth,
                 alpha,
                 beta,
                 board.current_position_hash(),
-                chessmove
+                chess_move
             );
-            board.apply(chessmove).unwrap();
+            chess_move.apply(board).unwrap();
             board.next_turn();
             let score = self.alpha_beta_min(depth - 1, board, targets, alpha, beta);
-            board.undo(chessmove).unwrap();
+            chess_move.undo(board).unwrap();
             board.prev_turn();
-            trace!("alpha_beta_max(depth={}, alpha={}, beta={}, position={}) evaluated chessmove={} score={}", depth, alpha, beta, board.current_position_hash(), chessmove, score);
+            trace!("alpha_beta_max(depth={}, alpha={}, beta={}, position={}) evaluated chess_move={} score={}", depth, alpha, beta, board.current_position_hash(), chess_move, score);
 
             if score >= beta {
                 self.last_alpha_beta_termination_count += 1;
@@ -226,21 +232,21 @@ impl Searcher {
 
         let candidates = moves::generate(board, board.turn(), targets);
 
-        for chessmove in candidates {
+        for chess_move in candidates.iter() {
             trace!(
-                "alpha_beta_min(depth={}, alpha={}, beta={}, position={}) evaluating chessmove={}",
+                "alpha_beta_min(depth={}, alpha={}, beta={}, position={}) evaluating chess_move={}",
                 depth,
                 alpha,
                 beta,
                 board.current_position_hash(),
-                chessmove
+                chess_move
             );
-            board.apply(chessmove).unwrap();
+            chess_move.apply(board).unwrap();
             board.next_turn();
             let score = self.alpha_beta_max(depth - 1, board, targets, alpha, beta);
-            board.undo(chessmove).unwrap();
+            chess_move.undo(board).unwrap();
             board.prev_turn();
-            trace!("alpha_beta_min(depth={}, alpha={}, beta={}, position={}) evaluated chessmove={} score={}", depth, alpha, beta, board.current_position_hash(), chessmove, score);
+            trace!("alpha_beta_min(depth={}, alpha={}, beta={}, position={}) evaluated chess_move={} score={}", depth, alpha, beta, board.current_position_hash(), chess_move, score);
 
             if score <= alpha {
                 self.last_alpha_beta_termination_count += 1;
@@ -300,7 +306,10 @@ mod tests {
     use crate::board::piece::Piece;
     use crate::board::square::*;
     use crate::board::ALL_CASTLE_RIGHTS;
-    use crate::chess_move;
+    use crate::chess_move::chess_move_collection::ChessMoveCollection;
+    use crate::chess_move::standard::StandardChessMove;
+    use crate::chess_moves;
+    use crate::std_move;
 
     #[test]
     fn test_find_mate_in_1_white() {
@@ -316,16 +325,13 @@ mod tests {
         board.update_position_hash();
         println!("Testing board:\n{}", board);
 
-        let chessmove = searcher.search(&mut board, &mut targets).unwrap();
-        let valid_checkmates = [
-            chess_move!(B8, B2),
-            chess_move!(B8, A8),
-            chess_move!(B8, A7),
-        ];
+        let chess_move = searcher.search(&mut board, &mut targets).unwrap();
+        let valid_checkmates =
+            chess_moves![std_move!(B8, B2), std_move!(B8, A8), std_move!(B8, A7),];
         assert!(
-            valid_checkmates.contains(&chessmove),
+            valid_checkmates.contains(&chess_move),
             "{} does not leed to checkmate",
-            chessmove
+            chess_move
         );
     }
 
@@ -343,14 +349,11 @@ mod tests {
 
         println!("Testing board:\n{}", board);
 
-        let chessmove = searcher.search(&mut board, &mut targets).unwrap();
+        let chess_move = searcher.search(&mut board, &mut targets).unwrap();
 
-        let valid_checkmates = [
-            chess_move!(B8, B2),
-            chess_move!(B8, A8),
-            chess_move!(B8, A7),
-        ];
-        assert!(valid_checkmates.contains(&chessmove));
+        let valid_checkmates =
+            chess_moves![std_move!(B8, B2), std_move!(B8, A8), std_move!(B8, A7),];
+        assert!(valid_checkmates.contains(&chess_move));
     }
 
     #[test]
@@ -372,28 +375,28 @@ mod tests {
 
         println!("Testing board:\n{}", board);
 
-        let expected_moves = [
-            chess_move!(D2, D8),
-            chess_move!(H8, D8, (Piece::Queen, Color::White)),
-            chess_move!(D1, D8, (Piece::Rook, Color::Black)),
+        let expected_moves = chess_moves![
+            std_move!(D2, D8),
+            std_move!(H8, D8, (Piece::Queen, Color::White)),
+            std_move!(D1, D8, (Piece::Rook, Color::Black)),
         ];
 
         let move1 = searcher.search(&mut board, &mut targets).unwrap();
-        board.apply(move1).unwrap();
+        move1.apply(&mut board).unwrap();
         board.next_turn();
-        assert_eq!(expected_moves[0], move1);
+        assert_eq!(expected_moves.iter().next().unwrap(), &move1);
         println!("Testing board:\n{}", board);
 
         let move2 = searcher.search(&mut board, &mut targets).unwrap();
-        board.apply(move2).unwrap();
+        move2.apply(&mut board).unwrap();
         board.next_turn();
-        assert_eq!(expected_moves[1], move2);
+        assert_eq!(expected_moves.iter().next().unwrap(), &move2);
         println!("Testing board:\n{}", board);
 
         let move3 = searcher.search(&mut board, &mut targets).unwrap();
-        board.apply(move3).unwrap();
+        move3.apply(&mut board).unwrap();
         board.next_turn();
-        assert_eq!(expected_moves[2], move3);
+        assert_eq!(expected_moves.iter().next().unwrap(), &move3);
         println!("Testing board:\n{}", board);
     }
 
@@ -416,28 +419,28 @@ mod tests {
 
         println!("Testing board:\n{}", board);
 
-        let expected_moves = [
-            chess_move!(E7, E1),
-            chess_move!(A1, E1, (Piece::Queen, Color::Black)),
-            chess_move!(E8, E1, (Piece::Rook, Color::White)),
+        let expected_moves = chess_moves![
+            std_move!(E7, E1),
+            std_move!(A1, E1, (Piece::Queen, Color::Black)),
+            std_move!(E8, E1, (Piece::Rook, Color::White)),
         ];
 
         let move1 = searcher.search(&mut board, &mut targets).unwrap();
-        board.apply(move1).unwrap();
+        move1.apply(&mut board).unwrap();
         board.next_turn();
-        assert_eq!(expected_moves[0], move1);
+        assert_eq!(expected_moves.iter().next().unwrap(), &move1, "failed to find first move of mate in 2");
         println!("Testing board:\n{}", board);
 
         let move2 = searcher.search(&mut board, &mut targets).unwrap();
-        board.apply(move2).unwrap();
+        move2.apply(&mut board).unwrap();
         board.next_turn();
-        assert_eq!(expected_moves[1], move2);
+        assert_eq!(expected_moves.iter().next().unwrap(), &move2, "failed to find second move of mate in 2");
         println!("Testing board:\n{}", board);
 
         let move3 = searcher.search(&mut board, &mut targets).unwrap();
-        board.apply(move3).unwrap();
+        move3.apply(&mut board).unwrap();
         board.next_turn();
-        assert_eq!(expected_moves[2], move3);
+        assert_eq!(expected_moves.iter().next().unwrap(), &move3, "failed to find third move of mate in 2");
         println!("Testing board:\n{}", board);
     }
 }

@@ -24,4 +24,10 @@ pub enum BoardError {
     CastleNonKingError,
     #[error("castle operation was not applied to a rook")]
     CastleNonRookError,
+    #[error("promotion square did not contain a pawn")]
+    PromotionNonPawnError,
+    #[error("this move is for a pawn on the final rank, it must be a promotion move")]
+    PawnPromotionRequired,
+    #[error("this pawn is not promotable")]
+    PawnNotPromotable,
 }

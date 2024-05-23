@@ -1,6 +1,7 @@
 use chess::board::color::Color;
 use chess::board::piece::Piece;
 use chess::board::{square, Board};
+use chess::chess_move::chess_move_collection::ChessMoveCollection;
 use chess::moves;
 use chess::moves::targets::Targets;
 
@@ -20,7 +21,8 @@ fn test_generate_rook_moves(targets: &Targets) {
     board.put(square::C3, Piece::Rook, Color::White).unwrap();
     board.put(square::C1, Piece::King, Color::White).unwrap();
     board.put(square::C7, Piece::Pawn, Color::White).unwrap();
-    moves::generate_rook_moves(&board, Color::White, targets);
+    let mut rook_moves = ChessMoveCollection::new();
+    moves::generate_rook_moves(&mut rook_moves, &board, Color::White, targets);
 }
 
 criterion_group!(benches, criterion_benchmark);

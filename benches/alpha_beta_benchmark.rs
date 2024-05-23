@@ -10,7 +10,7 @@ use criterion::{criterion_group, criterion_main, Criterion};
 
 fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("alpha beta mate in 2", |b| {
-        b.iter(|| find_alpha_beta_mate_in_2())
+        b.iter(find_alpha_beta_mate_in_2)
     });
 }
 
@@ -34,18 +34,17 @@ fn find_alpha_beta_mate_in_2() {
     board.lose_castle_rights(ALL_CASTLE_RIGHTS);
 
     let move1 = searcher.search(&mut board, &mut targets).unwrap();
-    board.apply(move1).unwrap();
+    move1.apply(&mut board).unwrap();
     board.next_turn();
     let move2 = searcher.search(&mut board, &mut targets).unwrap();
-    board.apply(move2).unwrap();
+    move2.apply(&mut board).unwrap();
     board.next_turn();
     let move3 = searcher.search(&mut board, &mut targets).unwrap();
-    board.apply(move3).unwrap();
+    move3.apply(&mut board).unwrap();
     let current_turn = board.next_turn();
 
-    let checkmate = match evaluate::game_ending(&mut board, &mut targets, current_turn) {
-        Some(GameEnding::Checkmate) => true,
-        _ => false,
-    };
-    assert!(checkmate);
+    matches!(
+        evaluate::game_ending(&mut board, &mut targets, current_turn),
+        Some(GameEnding::Checkmate)
+    );
 }

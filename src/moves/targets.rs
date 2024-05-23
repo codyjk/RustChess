@@ -386,9 +386,12 @@ fn leftmost_bit(x: u64) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::board::bitboard::{render_occupied, RANK_3};
-    use crate::chess_move;
-    use crate::moves::ChessMove;
+    use crate::chess_move::chess_move_collection::ChessMoveCollection;
+    use crate::chess_move::standard::StandardChessMove;
+    use crate::{
+        board::bitboard::{render_occupied, RANK_3},
+        chess_moves, std_move,
+    };
 
     #[test]
     fn test_generate_attack_targets() {
@@ -445,11 +448,17 @@ mod tests {
     pub fn test_generate_attack_targets_2() {
         let mut targets = Targets::new();
         let mut board = Board::starting_position();
+        let mut moves = chess_moves![
+            std_move!(E2, E4),
+            std_move!(F7, F5),
+            std_move!(D1, H5),
+            std_move!(G7, G6),
+        ];
 
-        board.apply(chess_move!(E2, E4)).unwrap();
-        board.apply(chess_move!(F7, F5)).unwrap();
-        board.apply(chess_move!(D1, H5)).unwrap();
-        board.apply(chess_move!(G7, G6)).unwrap();
+        for m in moves.drain() {
+            m.apply(&mut board).unwrap();
+            board.next_turn();
+        }
         println!("Testing board:\n{}", board);
 
         //   +---+---+---+---+---+---+---+---+
