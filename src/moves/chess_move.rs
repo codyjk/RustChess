@@ -35,17 +35,17 @@ impl ChessMove {
     pub fn new(from_square: u64, to_square: u64, capture: Option<Capture>) -> Self {
         Self {
             op: ChessOperation::Standard,
-            from_square: from_square,
-            to_square: to_square,
-            capture: capture,
+            from_square,
+            to_square,
+            capture,
         }
     }
 
     pub fn en_passant(from_square: u64, to_square: u64, capture: Capture) -> Self {
         Self {
             op: ChessOperation::EnPassant,
-            from_square: from_square,
-            to_square: to_square,
+            from_square,
+            to_square,
             capture: Some(capture),
         }
     }
@@ -60,9 +60,9 @@ impl ChessMove {
             op: ChessOperation::Promote {
                 to_piece: promote_to_piece,
             },
-            from_square: from_square,
-            to_square: to_square,
-            capture: capture,
+            from_square,
+            to_square,
+            capture,
         }
     }
 
@@ -70,8 +70,8 @@ impl ChessMove {
         Self {
             op: ChessOperation::Castle,
             // from and to square refers to the king's square. rook is handled in a special way
-            from_square: from_square,
-            to_square: to_square,
+            from_square,
+            to_square,
             capture: None,
         }
     }

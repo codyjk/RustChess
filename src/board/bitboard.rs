@@ -13,7 +13,7 @@ pub const G_FILE: u64 = A_FILE << 6;
 pub const H_FILE: u64 = A_FILE << 7;
 
 pub const RANK_1: u64 = 0xFF;
-pub const RANK_2: u64 = RANK_1 << (8 * 1);
+pub const RANK_2: u64 = RANK_1 << 8;
 pub const RANK_3: u64 = RANK_1 << (8 * 2);
 pub const RANK_4: u64 = RANK_1 << (8 * 3);
 pub const RANK_5: u64 = RANK_1 << (8 * 4);

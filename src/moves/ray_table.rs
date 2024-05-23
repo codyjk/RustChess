@@ -28,6 +28,7 @@ pub const BISHOP_DIRS: [Direction; 4] = [
     Direction::SouthWest,
 ];
 
+#[derive(Default)]
 pub struct RayTable {
     north: FxHashMap<u64, u64>,
     east: FxHashMap<u64, u64>,
@@ -41,16 +42,7 @@ pub struct RayTable {
 
 impl RayTable {
     pub fn new() -> Self {
-        Self {
-            north: FxHashMap::default(),
-            east: FxHashMap::default(),
-            south: FxHashMap::default(),
-            west: FxHashMap::default(),
-            northeast: FxHashMap::default(),
-            northwest: FxHashMap::default(),
-            southeast: FxHashMap::default(),
-            southwest: FxHashMap::default(),
-        }
+        Default::default()
     }
 
     pub fn populate(&mut self) -> &Self {

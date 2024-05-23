@@ -22,11 +22,8 @@ pub const WHITE_KINGSIDE_RIGHTS: CastleRightsBitmask = 0b1000;
 pub const BLACK_KINGSIDE_RIGHTS: CastleRightsBitmask = 0b0100;
 pub const WHITE_QUEENSIDE_RIGHTS: CastleRightsBitmask = 0b0010;
 pub const BLACK_QUEENSIDE_RIGHTS: CastleRightsBitmask = 0b0001;
-pub const ALL_CASTLE_RIGHTS: CastleRightsBitmask = 0b0000
-    | WHITE_KINGSIDE_RIGHTS
-    | BLACK_KINGSIDE_RIGHTS
-    | WHITE_QUEENSIDE_RIGHTS
-    | BLACK_QUEENSIDE_RIGHTS;
+pub const ALL_CASTLE_RIGHTS: CastleRightsBitmask =
+    WHITE_KINGSIDE_RIGHTS | BLACK_KINGSIDE_RIGHTS | WHITE_QUEENSIDE_RIGHTS | BLACK_QUEENSIDE_RIGHTS;
 
 pub struct Board {
     white: Pieces,
@@ -41,8 +38,8 @@ pub struct Board {
     current_position_hash: u64,
 }
 
-impl Board {
-    pub fn new() -> Self {
+impl Default for Board {
+    fn default() -> Self {
         let mut board = Board {
             white: Pieces::new(),
             black: Pieces::new(),
@@ -57,6 +54,12 @@ impl Board {
         };
         board.update_position_hash();
         board
+    }
+}
+
+impl Board {
+    pub fn new() -> Self {
+        Default::default()
     }
 
     pub fn pieces(&self, color: Color) -> &Pieces {

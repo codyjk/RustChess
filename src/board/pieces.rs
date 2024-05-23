@@ -13,8 +13,8 @@ pub struct Pieces {
     occupied: u64,
 }
 
-impl Pieces {
-    pub fn new() -> Self {
+impl Default for Pieces {
+    fn default() -> Self {
         Pieces {
             bishops: EMPTY,
             kings: EMPTY,
@@ -22,9 +22,15 @@ impl Pieces {
             pawns: EMPTY,
             queens: EMPTY,
             rooks: EMPTY,
-
+            // helper
             occupied: EMPTY,
         }
+    }
+}
+
+impl Pieces {
+    pub fn new() -> Self {
+        Default::default()
     }
 
     pub fn locate(&self, piece: Piece) -> u64 {

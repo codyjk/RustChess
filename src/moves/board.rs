@@ -172,7 +172,7 @@ impl Board {
             });
         }
 
-        if self.get(king_to) != None {
+        if self.get(king_to).is_some() {
             return Err(BoardError::InvalidCastleStateError {
                 msg: "king_to is not empty",
             });
@@ -184,7 +184,7 @@ impl Board {
             });
         }
 
-        if self.get(rook_to) != None {
+        if self.get(rook_to).is_some() {
             return Err(BoardError::InvalidCastleStateError {
                 msg: "rook_to is not empty",
             });
@@ -328,7 +328,7 @@ impl Board {
             });
         }
 
-        if self.get(king_from) != None {
+        if self.get(king_from).is_some() {
             return Err(BoardError::InvalidCastleStateError {
                 msg: "king_from is not empty",
             });
@@ -340,7 +340,7 @@ impl Board {
             });
         }
 
-        if self.get(rook_from) != None {
+        if self.get(rook_from).is_some() {
             return Err(BoardError::InvalidCastleStateError {
                 msg: "rook_from is not empty",
             });
@@ -372,7 +372,7 @@ mod tests {
         println!("Testing board:\n{}", board);
 
         // using a queens gambit accepted opening to test basic chess move application
-        let moves: Vec<(u64, u64, (Piece, Color), Option<(Piece, Color)>)> = vec![
+        let moves = vec![
             (E2, E4, (Piece::Pawn, Color::White), None),
             (E7, E5, (Piece::Pawn, Color::Black), None),
             (D2, D4, (Piece::Pawn, Color::White), None),

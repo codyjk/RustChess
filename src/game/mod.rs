@@ -38,7 +38,7 @@ impl Game {
 
     pub fn from_board(board: Board, search_depth: u8) -> Self {
         Self {
-            board: board,
+            board,
             move_history: vec![],
             book: generate_opening_book(),
             targets: Targets::new(),
@@ -70,7 +70,7 @@ impl Game {
                 self.save_move(chessmove);
                 Ok(chessmove)
             }
-            Err(error) => Err(GameError::BoardError { error: error }),
+            Err(error) => Err(GameError::BoardError { error }),
         }
     }
 
@@ -85,7 +85,7 @@ impl Game {
                 self.save_move(best_move);
                 Ok(best_move)
             }
-            Err(error) => Err(GameError::BoardError { error: error }),
+            Err(error) => Err(GameError::BoardError { error }),
         }
     }
 
@@ -120,7 +120,7 @@ impl Game {
                 self.save_move(chessmove);
                 Ok(chessmove)
             }
-            Err(error) => Err(GameError::BoardError { error: error }),
+            Err(error) => Err(GameError::BoardError { error }),
         }
     }
 
@@ -172,12 +172,10 @@ mod tests {
         game.make_move(square::D8, square::H4).unwrap();
         game.board.next_turn();
         println!("Testing board:\n{}", game.board);
-        let checkmate = match game.check_game_over_for_current_turn() {
-            Some(GameEnding::Checkmate) => true,
-            _ => false,
-        };
-
-        assert!(checkmate);
+        matches!(
+            game.check_game_over_for_current_turn(),
+            Some(GameEnding::Checkmate)
+        );
     }
 
     #[test]
@@ -215,11 +213,10 @@ mod tests {
         game.board.next_turn();
 
         // back in starting position for second time
-        let not_draw = match game.check_game_over_for_current_turn() {
-            Some(GameEnding::Draw) => false,
-            _ => true,
-        };
-        assert!(not_draw);
+        matches!(
+            game.check_game_over_for_current_turn(),
+            Some(GameEnding::Draw)
+        );
 
         game.board
             .apply(chess_move!(square::A2, square::A3))
@@ -239,10 +236,9 @@ mod tests {
         game.board.next_turn();
 
         // back in starting position for third time, should be draw
-        let draw = match game.check_game_over_for_current_turn() {
-            Some(GameEnding::Draw) => true,
-            _ => false,
-        };
-        assert!(draw);
+        matches!(
+            game.check_game_over_for_current_turn(),
+            Some(GameEnding::Draw)
+        );
     }
 }

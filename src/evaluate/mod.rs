@@ -35,7 +35,7 @@ pub fn game_ending(
     let candidates = moves::generate(board, current_turn, targets);
     let check = current_player_is_in_check(board, targets);
 
-    if candidates.len() == 0 {
+    if candidates.is_empty() {
         if check {
             return Some(GameEnding::Checkmate);
         } else {
@@ -43,7 +43,7 @@ pub fn game_ending(
         }
     }
 
-    return None;
+    None
 }
 
 pub fn score(board: &mut Board, targets: &mut Targets, current_turn: Color) -> f32 {

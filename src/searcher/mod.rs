@@ -49,7 +49,7 @@ impl Searcher {
         let current_turn = board.turn();
         let candidates = moves::generate(board, current_turn, targets);
 
-        if candidates.len() == 0 {
+        if candidates.is_empty() {
             return Err(SearchError::NoAvailableMoves);
         }
 
@@ -126,7 +126,7 @@ impl Searcher {
                     board.current_position_hash(),
                     score
                 );
-                return score;
+                score
             });
 
         let candidates = moves::generate(board, board.turn(), targets);
@@ -177,7 +177,7 @@ impl Searcher {
             board.current_position_hash()
         );
 
-        return alpha;
+        alpha
     }
 
     fn alpha_beta_min(
@@ -221,7 +221,7 @@ impl Searcher {
                     board.current_position_hash(),
                     score
                 );
-                return score;
+                score
             });
 
         let candidates = moves::generate(board, board.turn(), targets);
@@ -273,7 +273,7 @@ impl Searcher {
             board.current_position_hash()
         );
 
-        return beta;
+        beta
     }
 
     fn set_cache(&mut self, position_hash: u64, depth: u8, current_turn: Color, score: f32) {
@@ -317,7 +317,7 @@ mod tests {
         println!("Testing board:\n{}", board);
 
         let chessmove = searcher.search(&mut board, &mut targets).unwrap();
-        let valid_checkmates = vec![
+        let valid_checkmates = [
             chess_move!(B8, B2),
             chess_move!(B8, A8),
             chess_move!(B8, A7),
@@ -345,7 +345,7 @@ mod tests {
 
         let chessmove = searcher.search(&mut board, &mut targets).unwrap();
 
-        let valid_checkmates = vec![
+        let valid_checkmates = [
             chess_move!(B8, B2),
             chess_move!(B8, A8),
             chess_move!(B8, A7),

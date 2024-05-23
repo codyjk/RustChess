@@ -252,8 +252,8 @@ pub fn find_magic(sq: u64, bits: u8, bishop: bool) -> u64 {
             continue;
         }
 
-        for i in 0..4096 {
-            used[i] = 0;
+        for item in &mut used {
+            *item = 0;
         }
 
         let mut fail = false;

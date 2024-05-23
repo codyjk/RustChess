@@ -19,8 +19,8 @@ pub struct Targets {
     attacks_cache: FxHashMap<(u8, u64), u64>,
 }
 
-impl Targets {
-    pub fn new() -> Self {
+impl Default for Targets {
+    fn default() -> Self {
         let mut ray_table = RayTable::new();
         ray_table.populate();
 
@@ -30,6 +30,12 @@ impl Targets {
             rays: ray_table,
             attacks_cache: FxHashMap::default(),
         }
+    }
+}
+
+impl Targets {
+    pub fn new() -> Self {
+        Default::default()
     }
 
     pub fn get(&self, square: u64, piece: Piece) -> u64 {
@@ -41,9 +47,7 @@ impl Targets {
     }
 
     pub fn get_cached_attack(&self, color: Color, board_hash: u64) -> Option<u64> {
-        self.attacks_cache
-            .get(&(color as u8, board_hash))
-            .map(|b| *b)
+        self.attacks_cache.get(&(color as u8, board_hash)).copied()
     }
 
     pub fn cache_attack(&mut self, color: Color, board_hash: u64, attack_targets: u64) -> u64 {
@@ -327,10 +331,9 @@ pub fn generate_queen_targets(board: &Board, color: Color, targets: &Targets) ->
 pub fn generate_attack_targets(board: &Board, color: Color, targets: &mut Targets) -> u64 {
     let board_hash = board.current_position_hash();
 
-    match targets.get_cached_attack(color, board_hash) {
-        Some(cached_targets) => return cached_targets,
-        None => (),
-    };
+    if let Some(cached_targets) = targets.get_cached_attack(color, board_hash) {
+        return cached_targets;
+    }
 
     let mut piece_targets: Vec<PieceTarget> = vec![];
     let mut attack_targets = EMPTY;

@@ -15,8 +15,8 @@ pub struct MakeMove {
 impl MakeMove {
     pub fn new(from_square: u64, to_square: u64) -> Self {
         Self {
-            from_square: from_square,
-            to_square: to_square,
+            from_square,
+            to_square,
         }
     }
 }

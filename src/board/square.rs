@@ -81,17 +81,17 @@ pub fn from_rank_file(rank: u8, file: u8) -> u64 {
 
 pub fn from_algebraic(algebraic_coord: &str) -> u64 {
     let re = Regex::new("^([a-hA-H]{1})([1-8]{1})$").unwrap();
-    let caps = re.captures(&algebraic_coord).unwrap();
+    let caps = re.captures(algebraic_coord).unwrap();
     let rank_raw = &caps[2];
     let file_raw = &caps[1];
 
-    let rank = (rank_raw.chars().nth(0).unwrap().to_digit(10).unwrap() - 1) as u8;
+    let rank = (rank_raw.chars().next().unwrap().to_digit(10).unwrap() - 1) as u8;
     let file_char = file_raw
         .chars()
-        .nth(0)
+        .next()
         .unwrap()
         .to_lowercase()
-        .nth(0)
+        .next()
         .unwrap();
     let file = match file_char {
         'a' => Some(0),
@@ -113,7 +113,7 @@ pub fn to_algebraic(square: u64) -> &'static str {
     let mut b = assert(square);
     let mut i = 0;
     while b > 0 {
-        b = b >> 1;
+        b >>= 1;
         i += 1;
     }
     tables::ALGEBRAIC[i - 1]
@@ -136,7 +136,7 @@ mod tables {
         H1, H2, H3, H4, H5, H6, H7, H8,
     ];
 
-    pub const ALGEBRAIC: [&'static str; 64] = [
+    pub const ALGEBRAIC: [&str; 64] = [
         "A1", "B1", "C1", "D1", "E1", "F1", "G1", "H1",
         "A2", "B2", "C2", "D2", "E2", "F2", "G2", "H2",
         "A3", "B3", "C3", "D3", "E3", "F3", "G3", "H3",

@@ -25,7 +25,7 @@ pub fn parse_command() -> Result<Box<dyn Command>, InputError> {
     };
 
     let re = Regex::new("^([a-h][1-8])([a-h][1-8])$").unwrap();
-    let caps = match re.captures(&raw) {
+    let caps = match re.captures(raw) {
         Some(captures) => captures,
         None => {
             return Err(InputError::InvalidInput {

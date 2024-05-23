@@ -47,7 +47,7 @@ impl Board {
         )
         .unwrap();
 
-        let caps = match re.captures(&fen) {
+        let caps = match re.captures(fen) {
             Some(captures) => captures,
             None => return Err(format!("invalid FEN; could not parse board from `{}`", fen)),
         };
@@ -257,14 +257,14 @@ mod tests {
         }
         let occupied_squares: Vec<u64> = tests
             .into_iter()
-            .map(|(square, _expected_piece, _expected_color)| square.clone())
+            .map(|(square, _expected_piece, _expected_color)| square)
             .collect();
 
         for square in &square::ORDERED {
-            if occupied_squares.contains(&square) {
+            if occupied_squares.contains(square) {
                 continue;
             }
-            assert!(matches!(board.get(*square), None));
+            assert!(board.get(*square).is_none());
         }
 
         assert_eq!(Color::Black, board.turn());

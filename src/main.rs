@@ -4,7 +4,6 @@ use chess::board::Board;
 use chess::game::modes::{computer_vs_computer, play_computer, player_vs_player};
 use chess::moves::count_positions;
 use chess::moves::targets::Targets;
-use env_logger;
 use log::debug;
 use structopt::StructOpt;
 

@@ -152,10 +152,10 @@ fn expand_piece_targets(
                 continue;
             }
 
-            let capture = match board.pieces(color.opposite()).get(target) {
-                Some(piece) => Some((piece, color.opposite())),
-                None => None,
-            };
+            let capture = board
+                .pieces(color.opposite())
+                .get(target)
+                .map(|piece| (piece, color.opposite()));
 
             moves.push(ChessMove::new(piece_sq, target, capture));
         }
@@ -620,7 +620,7 @@ mod tests {
         ];
         expected_black_moves.sort();
 
-        let mut moves = generate_pawn_moves(&mut board, Color::Black);
+        let mut moves = generate_pawn_moves(&board, Color::Black);
         moves.sort();
 
         assert_eq!(expected_black_moves, moves);
@@ -651,10 +651,10 @@ mod tests {
 
         let mut targets = Targets::new();
 
-        let mut white_moves = generate_castle_moves(&mut board, Color::White, &mut targets);
+        let mut white_moves = generate_castle_moves(&board, Color::White, &mut targets);
         white_moves.sort();
 
-        let mut black_moves = generate_castle_moves(&mut board, Color::Black, &mut targets);
+        let mut black_moves = generate_castle_moves(&board, Color::Black, &mut targets);
         black_moves.sort();
 
         assert_eq!(expected_white_moves, white_moves);
@@ -687,9 +687,9 @@ mod tests {
         let mut targets = Targets::new();
         targets::generate_attack_targets(&board, Color::Black, &mut targets);
 
-        let mut white_moves = generate_castle_moves(&mut board, Color::White, &mut targets);
+        let mut white_moves = generate_castle_moves(&board, Color::White, &mut targets);
         white_moves.sort();
-        let mut black_moves = generate_castle_moves(&mut board, Color::Black, &mut targets);
+        let mut black_moves = generate_castle_moves(&board, Color::Black, &mut targets);
         black_moves.sort();
 
         assert_eq!(expected_white_moves, white_moves);
@@ -707,7 +707,7 @@ mod tests {
         println!("Testing board:\n{}", board);
 
         let expected_white_moves: Vec<ChessMove> = vec![];
-        let white_moves = generate_castle_moves(&mut board, Color::White, &mut Targets::new());
+        let white_moves = generate_castle_moves(&board, Color::White, &mut Targets::new());
 
         assert_eq!(expected_white_moves, white_moves);
     }
