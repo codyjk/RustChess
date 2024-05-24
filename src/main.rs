@@ -2,8 +2,8 @@ use chess::board::color::Color;
 use chess::board::magic::run_find_magic;
 use chess::board::Board;
 use chess::game::modes::{play_computer, player_vs_player};
-use chess::moves::count_positions;
-use chess::moves::targets::Targets;
+use chess::move_generation::count_positions;
+use chess::move_generation::targets::Targets;
 use log::debug;
 use structopt::StructOpt;
 

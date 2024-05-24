@@ -1,12 +1,6 @@
 use core::fmt;
 
-use crate::board::{
-    color::Color,
-    error::BoardError,
-    piece::Piece,
-    square::to_algebraic,
-    Board,
-};
+use crate::board::{color::Color, error::BoardError, piece::Piece, square::to_algebraic, Board};
 
 pub mod castle;
 pub mod chess_move_collection;

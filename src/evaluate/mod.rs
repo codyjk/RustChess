@@ -4,8 +4,8 @@ use crate::board::color::Color;
 use crate::board::piece::{Piece, ALL_PIECES};
 use crate::board::square::to_algebraic;
 use crate::board::Board;
-use crate::moves;
-use crate::moves::targets::{self, Targets};
+use crate::move_generation::generate_valid_moves;
+use crate::move_generation::targets::{self, Targets};
 
 use self::piece_values::material_value;
 
@@ -38,7 +38,7 @@ pub fn game_ending(
         return Some(GameEnding::Draw);
     }
 
-    let candidates = moves::generate(board, current_turn, targets);
+    let candidates = generate_valid_moves(board, current_turn, targets);
     let check = current_player_is_in_check(board, targets);
 
     if candidates.is_empty() {
@@ -108,7 +108,10 @@ fn material_score(board: &Board, color: Color) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::board::{square::{A1, H7, H8}, Board, ALL_CASTLE_RIGHTS};
+    use crate::board::{
+        square::{A1, H7, H8},
+        Board, ALL_CASTLE_RIGHTS,
+    };
 
     #[test]
     fn test_starting_material_score() {

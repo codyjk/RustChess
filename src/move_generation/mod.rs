@@ -18,7 +18,11 @@ use targets::{PieceTarget, Targets};
 
 pub const PAWN_PROMOTIONS: [Piece; 4] = [Piece::Queen, Piece::Rook, Piece::Bishop, Piece::Knight];
 
-pub fn generate(board: &mut Board, color: Color, targets: &mut Targets) -> ChessMoveCollection {
+pub fn generate_valid_moves(
+    board: &mut Board,
+    color: Color,
+    targets: &mut Targets,
+) -> ChessMoveCollection {
     let mut moves = ChessMoveCollection::new();
 
     generate_knight_moves(&mut moves, board, color, targets);
@@ -278,7 +282,7 @@ fn remove_invalid_moves(
 }
 
 pub fn count_positions(depth: u8, board: &mut Board, targets: &mut Targets, color: Color) -> usize {
-    let candidates = generate(board, color, targets);
+    let candidates = generate_valid_moves(board, color, targets);
     let mut count = candidates.len();
 
     if depth == 0 {
@@ -671,8 +675,14 @@ mod tests {
         generate_castle_moves(&mut black_moves, &board, Color::Black, &mut targets);
         black_moves.sort();
 
-        assert_eq!(expected_white_moves, white_moves, "failed to generate white castling moves");
-        assert_eq!(expected_black_moves, black_moves, "failed to generate black castling moves");
+        assert_eq!(
+            expected_white_moves, white_moves,
+            "failed to generate white castling moves"
+        );
+        assert_eq!(
+            expected_black_moves, black_moves,
+            "failed to generate black castling moves"
+        );
     }
 
     #[test]

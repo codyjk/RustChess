@@ -6,8 +6,8 @@ use crate::board::error::BoardError;
 use crate::board::Board;
 use crate::book::{generate_opening_book, Book};
 use crate::evaluate::{self, GameEnding};
-use crate::moves;
-use crate::moves::targets::Targets;
+use crate::move_generation::generate_valid_moves;
+use crate::move_generation::targets::Targets;
 use crate::searcher::{SearchError, Searcher};
 use rand::{self, Rng};
 use thiserror::Error;
@@ -62,7 +62,7 @@ impl Game {
 
     pub fn make_move(&mut self, from_square: u64, to_square: u64) -> Result<BoardMove, GameError> {
         let turn = self.board.turn();
-        let mut candidates = moves::generate(&mut self.board, turn, &mut self.targets);
+        let mut candidates = generate_valid_moves(&mut self.board, turn, &mut self.targets);
         let chess_move = candidates
             .drain()
             .find(|m| m.from_square() == from_square && m.to_square() == to_square)
@@ -102,7 +102,7 @@ impl Game {
 
         let rng = rand::thread_rng().gen_range(0..book_moves.len());
         let (from_square, to_square) = book_moves[rng];
-        let mut candidates = moves::generate(&mut self.board, current_turn, &mut self.targets);
+        let mut candidates = generate_valid_moves(&mut self.board, current_turn, &mut self.targets);
 
         let maybe_chess_move = candidates
             .drain()

@@ -1,8 +1,8 @@
-use crate::board::color::Color;
 use crate::board::Board;
 use crate::chess_move::ChessMove;
-use crate::moves::targets::Targets;
-use crate::{evaluate, moves};
+use crate::move_generation::generate_valid_moves;
+use crate::move_generation::targets::Targets;
+use crate::{board::color::Color, evaluate};
 use log::{debug, log_enabled, trace, Level};
 use rustc_hash::FxHashMap;
 use thiserror::Error;
@@ -47,7 +47,7 @@ impl Searcher {
         debug!("starting `search` depth={}", self.search_depth);
 
         let current_turn = board.turn();
-        let mut candidates = moves::generate(board, current_turn, targets);
+        let mut candidates = generate_valid_moves(board, current_turn, targets);
 
         if candidates.is_empty() {
             return Err(SearchError::NoAvailableMoves);
@@ -136,7 +136,7 @@ impl Searcher {
                 score
             });
 
-        let candidates = moves::generate(board, board.turn(), targets);
+        let candidates = generate_valid_moves(board, board.turn(), targets);
 
         for chess_move in candidates.iter() {
             trace!(
@@ -231,7 +231,7 @@ impl Searcher {
                 score
             });
 
-        let candidates = moves::generate(board, board.turn(), targets);
+        let candidates = generate_valid_moves(board, board.turn(), targets);
 
         for chess_move in candidates.iter() {
             trace!(
@@ -429,19 +429,31 @@ mod tests {
         let move1 = searcher.search(&mut board, &mut targets).unwrap();
         move1.apply(&mut board).unwrap();
         board.next_turn();
-        assert_eq!(expected_moves.iter().next().unwrap(), &move1, "failed to find first move of mate in 2");
+        assert_eq!(
+            expected_moves.iter().next().unwrap(),
+            &move1,
+            "failed to find first move of mate in 2"
+        );
         println!("Testing board:\n{}", board);
 
         let move2 = searcher.search(&mut board, &mut targets).unwrap();
         move2.apply(&mut board).unwrap();
         board.next_turn();
-        assert_eq!(expected_moves.iter().next().unwrap(), &move2, "failed to find second move of mate in 2");
+        assert_eq!(
+            expected_moves.iter().next().unwrap(),
+            &move2,
+            "failed to find second move of mate in 2"
+        );
         println!("Testing board:\n{}", board);
 
         let move3 = searcher.search(&mut board, &mut targets).unwrap();
         move3.apply(&mut board).unwrap();
         board.next_turn();
-        assert_eq!(expected_moves.iter().next().unwrap(), &move3, "failed to find third move of mate in 2");
+        assert_eq!(
+            expected_moves.iter().next().unwrap(),
+            &move3,
+            "failed to find third move of mate in 2"
+        );
         println!("Testing board:\n{}", board);
     }
 }

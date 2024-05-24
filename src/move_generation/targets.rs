@@ -5,8 +5,9 @@ use crate::board::color::Color;
 use crate::board::piece::Piece;
 use crate::board::square::*;
 use crate::board::Board;
-use crate::moves::ray_table::{Direction, RayTable, BISHOP_DIRS, ROOK_DIRS};
 use rustc_hash::FxHashMap;
+
+use super::ray_table::{Direction, RayTable, BISHOP_DIRS, ROOK_DIRS};
 
 pub type PieceTarget = (u64, u64); // (piece_square, targets)
 
