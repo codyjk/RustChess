@@ -1,7 +1,7 @@
 use chess::board::color::Color;
 use chess::board::magic::run_find_magic;
 use chess::board::Board;
-use chess::game::modes::{play_computer, player_vs_player};
+use chess::game::modes::{computer_vs_computer, play_computer, player_vs_player};
 use chess::move_generation::count_positions;
 use chess::move_generation::targets::Targets;
 use log::debug;
@@ -36,10 +36,9 @@ fn main() {
     match args {
         Chess::CountPositions { depth } => run_count_positions(depth),
         Chess::Play { depth, color } => play_computer(depth, color),
-        // Chess::Watch { depth } => computer_vs_computer(0, 1000, depth),
+        Chess::Watch { depth } => computer_vs_computer(0, 1000, depth),
         Chess::Pvp => player_vs_player(),
         Chess::FindMagic => run_find_magic(),
-        _ => unimplemented!(),
     }
 }
 

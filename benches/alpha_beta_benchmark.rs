@@ -3,7 +3,7 @@ use chess::board::piece::Piece;
 use chess::board::square::*;
 use chess::board::{Board, ALL_CASTLE_RIGHTS};
 use chess::evaluate::{self, GameEnding};
-use chess::moves::targets::Targets;
+use chess::move_generation::targets::Targets;
 use chess::searcher::Searcher;
 
 use criterion::{criterion_group, criterion_main, Criterion};
