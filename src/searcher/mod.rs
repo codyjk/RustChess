@@ -78,7 +78,6 @@ impl Searcher {
         // No copying during the entire move generation and search process.
         results.sort_by(|(_, score_a), (_, score_b)| score_a.partial_cmp(score_b).unwrap());
         results.reverse();
-        println!("results: {:?}", results);
         let (best_move, _) = results.pop().unwrap();
 
         if log_enabled!(Level::Debug) {
