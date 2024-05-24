@@ -381,23 +381,24 @@ mod tests {
             std_move!(H8, D8, (Piece::Queen, Color::White)),
             std_move!(D1, D8, (Piece::Rook, Color::Black)),
         ];
+        let mut expected_move_iter = expected_moves.iter();
 
         let move1 = searcher.search(&mut board, &mut targets).unwrap();
         move1.apply(&mut board).unwrap();
         board.next_turn();
-        assert_eq!(expected_moves.iter().next().unwrap(), &move1);
+        assert_eq!(expected_move_iter.next().unwrap(), &move1);
         println!("Testing board:\n{}", board);
 
         let move2 = searcher.search(&mut board, &mut targets).unwrap();
         move2.apply(&mut board).unwrap();
         board.next_turn();
-        assert_eq!(expected_moves.iter().next().unwrap(), &move2);
+        assert_eq!(expected_move_iter.next().unwrap(), &move2);
         println!("Testing board:\n{}", board);
 
         let move3 = searcher.search(&mut board, &mut targets).unwrap();
         move3.apply(&mut board).unwrap();
         board.next_turn();
-        assert_eq!(expected_moves.iter().next().unwrap(), &move3);
+        assert_eq!(expected_move_iter.next().unwrap(), &move3);
         println!("Testing board:\n{}", board);
     }
 
@@ -425,12 +426,13 @@ mod tests {
             std_move!(A1, E1, (Piece::Queen, Color::Black)),
             std_move!(E8, E1, (Piece::Rook, Color::White)),
         ];
+        let mut expected_move_iter = expected_moves.iter();
 
         let move1 = searcher.search(&mut board, &mut targets).unwrap();
         move1.apply(&mut board).unwrap();
         board.next_turn();
         assert_eq!(
-            expected_moves.iter().next().unwrap(),
+            expected_move_iter.next().unwrap(),
             &move1,
             "failed to find first move of mate in 2"
         );
@@ -440,7 +442,7 @@ mod tests {
         move2.apply(&mut board).unwrap();
         board.next_turn();
         assert_eq!(
-            expected_moves.iter().next().unwrap(),
+            expected_move_iter.next().unwrap(),
             &move2,
             "failed to find second move of mate in 2"
         );
@@ -450,7 +452,7 @@ mod tests {
         move3.apply(&mut board).unwrap();
         board.next_turn();
         assert_eq!(
-            expected_moves.iter().next().unwrap(),
+            expected_move_iter.next().unwrap(),
             &move3,
             "failed to find third move of mate in 2"
         );
