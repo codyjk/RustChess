@@ -1,10 +1,16 @@
+use log::debug;
+
 use crate::board::color::Color;
 use crate::board::piece::{Piece, ALL_PIECES};
+use crate::board::square::to_algebraic;
 use crate::board::Board;
 use crate::moves;
 use crate::moves::targets::{self, Targets};
 
+use self::piece_values::material_value;
+
 mod bonus_tables;
+mod piece_values;
 
 #[derive(Debug)]
 pub enum GameEnding {
@@ -64,10 +70,10 @@ fn material_score(board: &Board, color: Color) -> f32 {
     let mut material = 0.;
     let pieces = board.pieces(color);
 
-    for piece in &ALL_PIECES {
-        let bonuses = bonus_tables::get(*piece);
-        let squares = pieces.locate(*piece);
-        let piece_value = f32::from(piece.material_value());
+    for &piece in &ALL_PIECES {
+        let bonuses = bonus_tables::get(piece);
+        let squares = pieces.locate(piece);
+        let piece_value = f32::from(material_value(piece));
 
         for i in 0..64 {
             let sq = 1 << i;
@@ -87,6 +93,12 @@ fn material_score(board: &Board, color: Color) -> f32 {
             };
 
             material += piece_value + bonuses[bonus_i];
+
+            let square_name = to_algebraic(sq);
+            debug!(
+                "{} at {} has value {} + bonus {} (total {})",
+                piece, square_name, piece_value, bonuses[bonus_i], material
+            );
         }
     }
 
@@ -96,21 +108,48 @@ fn material_score(board: &Board, color: Color) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::board::Board;
+    use crate::board::{square::{A1, H7, H8}, Board, ALL_CASTLE_RIGHTS};
 
     #[test]
     fn test_starting_material_score() {
         let board = Board::starting_position();
-        // (piece value) * (piece quantity) * (starting tile bonus)
-        // 8 * 1 * 1.0 = 8 pawns
-        // 1 * 9 * 1.0 = 9 queens
-        // 2 * 5 * 1.0 = 10 rooks
-        // 2 * 3 * .75 = 4.5 knights
-        // 2 * 3 * 1.0 = 6 bishops
-        // total = 37.5
-        assert_eq!(
-            material_score(&board, Color::White),
-            material_score(&board, Color::Black)
-        );
+        println!("Testing board:\n{}", board);
+
+        let white_score = material_score(&board, Color::White);
+        assert_eq!(white_score, 100.0);
+
+        let black_score = material_score(&board, Color::Black);
+        assert_eq!(black_score, 100.0);
+    }
+
+    #[test]
+    fn test_game_ending_stalemate() {
+        let mut board = Board::new();
+        let mut targets = Targets::new();
+
+        board.put(A1, Piece::King, Color::White).unwrap();
+        board.put(H8, Piece::King, Color::Black).unwrap();
+        board.set_turn(Color::Black);
+        board.lose_castle_rights(ALL_CASTLE_RIGHTS);
+        println!("Testing board:\n{}", board);
+
+        let ending = game_ending(&mut board, &mut targets, Color::Black);
+        matches!(ending, Some(GameEnding::Stalemate));
+    }
+
+    #[test]
+    fn test_game_ending_checkmate() {
+        let mut board = Board::new();
+        let mut targets = Targets::new();
+
+        board.put(A1, Piece::King, Color::White).unwrap();
+        board.put(H8, Piece::King, Color::Black).unwrap();
+        board.put(H7, Piece::Queen, Color::Black).unwrap();
+        board.set_turn(Color::Black);
+        board.lose_castle_rights(ALL_CASTLE_RIGHTS);
+        println!("Testing board:\n{}", board);
+
+        let ending = game_ending(&mut board, &mut targets, Color::Black);
+        matches!(ending, Some(GameEnding::Checkmate));
     }
 }

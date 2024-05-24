@@ -76,7 +76,8 @@ impl Searcher {
 
         // Sort worst to best, then pop the best move so that we have the instance here.
         // No copying during the entire move generation and search process.
-        results.sort_by(|a, b| a.1.partial_cmp(b.1).unwrap());
+        results.sort_by(|(_, score_a), (_, score_b)| score_a.partial_cmp(score_b).unwrap());
+        results.reverse();
         println!("results: {:?}", results);
         let (best_move, _) = results.pop().unwrap();
 

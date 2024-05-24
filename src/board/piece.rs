@@ -19,19 +19,6 @@ pub const ALL_PIECES: [Piece; 6] = [
     Piece::Rook,
 ];
 
-impl Piece {
-    pub fn material_value(self) -> u16 {
-        match self {
-            Piece::Pawn => 100,
-            Piece::Knight => 320,
-            Piece::Bishop => 330,
-            Piece::Rook => 500,
-            Piece::Queen => 900,
-            Piece::King => 20000,
-        }
-    }
-}
-
 impl fmt::Display for Piece {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let msg = match self {

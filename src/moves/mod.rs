@@ -1,5 +1,4 @@
 use crate::board::square::*;
-pub mod board;
 pub mod ray_table;
 pub mod targets;
 
