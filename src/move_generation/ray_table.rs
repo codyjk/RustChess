@@ -4,7 +4,14 @@ use crate::board::bitboard::{A_FILE, H_FILE, RANK_1, RANK_8};
 
 #[derive(Clone, Copy, PartialEq, Debug, Eq, Hash)]
 pub enum Direction {
-    East, North, NorthEast, NorthWest, South, SouthEast, SouthWest, West,
+    East,
+    North,
+    NorthEast,
+    NorthWest,
+    South,
+    SouthEast,
+    SouthWest,
+    West,
 }
 
 impl Direction {
@@ -39,7 +46,7 @@ impl fmt::Display for Direction {
 }
 
 pub struct RayTable {
-    rays: [u64; 64 * 8],  // One entry for each square and direction combination
+    rays: [u64; 64 * 8], // One entry for each square and direction combination
 }
 
 impl Default for RayTable {
@@ -72,11 +79,12 @@ impl RayTable {
 
     fn index(square: u64, dir: Direction) -> usize {
         let square_i = square.trailing_zeros(); // nth bit set to 1
-        let dir_i = dir as usize;  // nth direction
+        let dir_i = dir as usize; // nth direction
         (square_i as usize) * 8 + dir_i
     }
 }
 
+#[rustfmt::skip]
 fn generate_ray(square_bit: u64, dir: Direction) -> u64 {
     let mut ray = 0;
     let mut pos = square_bit;
@@ -101,7 +109,10 @@ fn generate_ray(square_bit: u64, dir: Direction) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::board::{bitboard::EMPTY, square::{A1, A4, B2, B4, C1, C2, C3, C4, D4, D5, E5, E6, F6, F7, G7, G8, H8}};
+    use crate::board::{
+        bitboard::EMPTY,
+        square::{A1, A4, B2, B4, C1, C2, C3, C4, D4, D5, E5, E6, F6, F7, G7, G8, H8},
+    };
 
     #[test]
     fn test_generate_ray() {
@@ -138,7 +149,10 @@ mod tests {
         let table = RayTable::new();
         assert_eq!(table.get(A1, Direction::North), A_FILE ^ A1);
         assert_eq!(table.get(A1, Direction::East), RANK_1 ^ A1);
-        assert_eq!(table.get(A1, Direction::NorthEast), B2 | C3 | D4 | E5 | F6 | G7 | H8);
+        assert_eq!(
+            table.get(A1, Direction::NorthEast),
+            B2 | C3 | D4 | E5 | F6 | G7 | H8
+        );
         assert_eq!(table.get(A1, Direction::NorthWest), EMPTY);
         assert_eq!(table.get(A1, Direction::SouthEast), EMPTY);
         assert_eq!(table.get(A1, Direction::SouthWest), EMPTY);

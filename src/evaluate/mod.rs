@@ -109,8 +109,9 @@ fn material_score(board: &Board, color: Color) -> f32 {
 mod tests {
     use super::*;
     use crate::board::{
+        castle_rights::ALL_CASTLE_RIGHTS,
         square::{A1, H7, H8},
-        Board, ALL_CASTLE_RIGHTS,
+        Board,
     };
 
     #[test]

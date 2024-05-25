@@ -1,5 +1,6 @@
 use rustc_hash::FxHashMap;
 
+/// Stores information about state changes related to the current (and previous) positions.
 pub struct PositionInfo {
     position_count: FxHashMap<u64, u8>,
     max_seen_position_count_stack: Vec<u8>,

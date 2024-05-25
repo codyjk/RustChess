@@ -2,12 +2,15 @@ use core::fmt;
 
 use crate::board::{
     bitboard::{EMPTY, RANK_1, RANK_8},
+    castle_rights::{
+        BLACK_KINGSIDE_RIGHTS, BLACK_QUEENSIDE_RIGHTS, WHITE_KINGSIDE_RIGHTS,
+        WHITE_QUEENSIDE_RIGHTS,
+    },
     color::Color,
     error::BoardError,
     piece::Piece,
     square::{self, A1, A8, D1, D8, F1, F8, H1, H8},
-    Board, BLACK_KINGSIDE_RIGHTS, BLACK_QUEENSIDE_RIGHTS, WHITE_KINGSIDE_RIGHTS,
-    WHITE_QUEENSIDE_RIGHTS,
+    Board,
 };
 
 use super::{Capture, ChessMove};

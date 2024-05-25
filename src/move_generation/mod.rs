@@ -1,14 +1,13 @@
-use crate::board::square::*;
+use crate::board::castle_rights::{
+    BLACK_KINGSIDE_RIGHTS, BLACK_QUEENSIDE_RIGHTS, WHITE_KINGSIDE_RIGHTS, WHITE_QUEENSIDE_RIGHTS,
+};
+use crate::board::{square::*, Board};
 pub mod ray_table;
 pub mod targets;
 
 use crate::board::bitboard::{A_FILE, H_FILE, RANK_1, RANK_8};
 use crate::board::color::Color;
 use crate::board::piece::Piece;
-use crate::board::{
-    Board, BLACK_KINGSIDE_RIGHTS, BLACK_QUEENSIDE_RIGHTS, WHITE_KINGSIDE_RIGHTS,
-    WHITE_QUEENSIDE_RIGHTS,
-};
 use crate::chess_move::castle::CastleChessMove;
 use crate::chess_move::chess_move_collection::ChessMoveCollection;
 use crate::chess_move::en_passant::EnPassantChessMove;

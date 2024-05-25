@@ -1,10 +1,9 @@
+use super::castle_rights::{
+    BLACK_KINGSIDE_RIGHTS, BLACK_QUEENSIDE_RIGHTS, WHITE_KINGSIDE_RIGHTS, WHITE_QUEENSIDE_RIGHTS,
+};
 use super::color::Color;
 use super::piece::Piece;
-use super::square;
-use super::{
-    Board, BLACK_KINGSIDE_RIGHTS, BLACK_QUEENSIDE_RIGHTS, WHITE_KINGSIDE_RIGHTS,
-    WHITE_QUEENSIDE_RIGHTS,
-};
+use super::{square, Board};
 use regex::Regex;
 
 pub const STARTING_POSITION_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";

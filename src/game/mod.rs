@@ -146,8 +146,9 @@ impl Game {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::board::castle_rights::ALL_CASTLE_RIGHTS;
     use crate::board::piece::Piece;
-    use crate::board::{square, ALL_CASTLE_RIGHTS};
+    use crate::board::square;
     use crate::chess_move::chess_move_collection::ChessMoveCollection;
     use crate::chess_move::standard::StandardChessMove;
     use crate::{chess_moves, std_move};

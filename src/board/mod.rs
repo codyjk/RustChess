@@ -1,4 +1,5 @@
 pub mod bitboard;
+pub mod castle_rights;
 pub mod color;
 pub mod error;
 pub mod magic;
@@ -8,9 +9,9 @@ pub mod square;
 
 mod display;
 mod fen;
+mod move_info;
 mod position_info;
 
-use bitboard::EMPTY;
 use color::Color;
 use error::BoardError;
 use piece::Piece;
@@ -18,27 +19,15 @@ use piece_set::PieceSet;
 use rustc_hash::FxHasher;
 use std::hash::{Hash, Hasher};
 
-use self::position_info::PositionInfo;
-
-type CastleRightsBitmask = u8;
-pub const WHITE_KINGSIDE_RIGHTS: CastleRightsBitmask = 0b1000;
-pub const BLACK_KINGSIDE_RIGHTS: CastleRightsBitmask = 0b0100;
-pub const WHITE_QUEENSIDE_RIGHTS: CastleRightsBitmask = 0b0010;
-pub const BLACK_QUEENSIDE_RIGHTS: CastleRightsBitmask = 0b0001;
-pub const ALL_CASTLE_RIGHTS: CastleRightsBitmask =
-    WHITE_KINGSIDE_RIGHTS | BLACK_KINGSIDE_RIGHTS | WHITE_QUEENSIDE_RIGHTS | BLACK_QUEENSIDE_RIGHTS;
+use self::{castle_rights::CastleRightsBitmask, move_info::MoveInfo, position_info::PositionInfo};
 
 pub struct Board {
     white: PieceSet,
     black: PieceSet,
     turn: Color,
-    fullmove_clock: u8,
-    en_passant_target_stack: Vec<u64>,
-    castle_rights_stack: Vec<CastleRightsBitmask>,
-    halfmove_clock_stack: Vec<u8>,
+    move_info: MoveInfo,
     position_info: PositionInfo,
 }
-
 
 impl Default for Board {
     fn default() -> Self {
@@ -46,10 +35,7 @@ impl Default for Board {
             white: PieceSet::new(),
             black: PieceSet::new(),
             turn: Color::White,
-            en_passant_target_stack: vec![EMPTY],
-            castle_rights_stack: vec![ALL_CASTLE_RIGHTS],
-            halfmove_clock_stack: vec![0],
-            fullmove_clock: 1,
+            move_info: MoveInfo::new(),
             position_info: PositionInfo::new(),
         };
         board.update_position_hash();
@@ -134,81 +120,67 @@ impl Board {
     }
 
     pub fn push_en_passant_target(&mut self, target_square: u64) -> u64 {
-        self.en_passant_target_stack.push(target_square);
-        target_square
+        self.move_info.push_en_passant_target(target_square)
     }
 
     pub fn peek_en_passant_target(&self) -> u64 {
-        *self.en_passant_target_stack.last().unwrap()
+        self.move_info.peek_en_passant_target()
     }
 
     pub fn pop_en_passant_target(&mut self) -> u64 {
-        self.en_passant_target_stack.pop().unwrap()
+        self.move_info.pop_en_passant_target()
     }
 
     pub fn preserve_castle_rights(&mut self) -> CastleRightsBitmask {
-        let rights = self.peek_castle_rights();
-        self.castle_rights_stack.push(rights);
-        rights
+        self.move_info.preserve_castle_rights()
     }
 
     pub fn lose_castle_rights(&mut self, lost_rights: CastleRightsBitmask) -> CastleRightsBitmask {
-        let old_rights = self.peek_castle_rights();
-        let new_rights = old_rights ^ (old_rights & lost_rights);
-        self.castle_rights_stack.push(new_rights);
-        new_rights
+        self.move_info.lose_castle_rights(lost_rights)
     }
 
     pub fn peek_castle_rights(&self) -> u8 {
-        *self.castle_rights_stack.last().unwrap()
+        self.move_info.peek_castle_rights()
     }
 
     pub fn pop_castle_rights(&mut self) -> CastleRightsBitmask {
-        self.castle_rights_stack.pop().unwrap()
+        self.move_info.pop_castle_rights()
     }
 
     pub fn increment_fullmove_clock(&mut self) -> u8 {
-        self.fullmove_clock += 1;
-        self.fullmove_clock
+        self.move_info.increment_fullmove_clock()
     }
 
     pub fn decrement_fullmove_clock(&mut self) -> u8 {
-        self.fullmove_clock -= 1;
-        self.fullmove_clock
+        self.move_info.decrement_fullmove_clock()
     }
 
     pub fn set_fullmove_clock(&mut self, clock: u8) -> u8 {
-        self.fullmove_clock = clock;
-        clock
+        self.move_info.set_fullmove_clock(clock)
     }
 
     pub fn fullmove_clock(&self) -> u8 {
-        self.fullmove_clock
+        self.move_info.fullmove_clock()
     }
 
     pub fn push_halfmove_clock(&mut self, clock: u8) -> u8 {
-        self.halfmove_clock_stack.push(clock);
-        clock
+        self.move_info.push_halfmove_clock(clock)
     }
 
     pub fn increment_halfmove_clock(&mut self) -> u8 {
-        let old_clock = self.halfmove_clock_stack.last().unwrap();
-        let new_clock = old_clock + 1;
-        self.halfmove_clock_stack.push(new_clock);
-        new_clock
+        self.move_info.increment_halfmove_clock()
     }
 
     pub fn reset_halfmove_clock(&mut self) -> u8 {
-        self.halfmove_clock_stack.push(0);
-        0
+        self.move_info.reset_halfmove_clock()
     }
 
     pub fn halfmove_clock(&self) -> u8 {
-        *self.halfmove_clock_stack.last().unwrap()
+        self.move_info.halfmove_clock()
     }
 
     pub fn pop_halfmove_clock(&mut self) -> u8 {
-        self.halfmove_clock_stack.pop().unwrap()
+        self.move_info.pop_halfmove_clock()
     }
 
     pub fn hashable_position_key(&self) -> [u64; 14] {

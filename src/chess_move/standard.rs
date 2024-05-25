@@ -2,12 +2,15 @@ use core::fmt;
 
 use crate::board::{
     bitboard::{EMPTY, RANK_1, RANK_2, RANK_4, RANK_5, RANK_7, RANK_8},
+    castle_rights::{
+        BLACK_KINGSIDE_RIGHTS, BLACK_QUEENSIDE_RIGHTS, WHITE_KINGSIDE_RIGHTS,
+        WHITE_QUEENSIDE_RIGHTS,
+    },
     color::Color,
     error::BoardError,
     piece::Piece,
     square::{self, A1, A8, E1, E8, H1, H8},
-    Board, BLACK_KINGSIDE_RIGHTS, BLACK_QUEENSIDE_RIGHTS, WHITE_KINGSIDE_RIGHTS,
-    WHITE_QUEENSIDE_RIGHTS,
+    Board,
 };
 
 use super::{pawn_promotion::PawnPromotionChessMove, Capture, ChessMove};
@@ -82,15 +85,19 @@ impl ChessMove for StandardChessMove {
             capture: expected_capture,
         } = self;
 
-        let (piece_to_move, color) = board.remove(*from_square).ok_or(BoardError::FromSquareIsEmpty { op: "apply" })?;
+        let (piece_to_move, color) = board
+            .remove(*from_square)
+            .ok_or(BoardError::FromSquareIsEmpty { op: "apply" })?;
         if board.get(*to_square) != *expected_capture {
             return Err(BoardError::UnexpectedCaptureResult);
         }
         let captured_piece = board.remove(*to_square);
 
-        let en_passant_target = get_en_passant_target_square(piece_to_move, color, *from_square, *to_square);
-        let lost_castle_rights =  get_lost_castle_rights_if_rook_or_king_moved(piece_to_move, color, *from_square)
-            | get_lost_castle_rights_if_rook_taken(captured_piece, *to_square);
+        let en_passant_target =
+            get_en_passant_target_square(piece_to_move, color, *from_square, *to_square);
+        let lost_castle_rights =
+            get_lost_castle_rights_if_rook_or_king_moved(piece_to_move, color, *from_square)
+                | get_lost_castle_rights_if_rook_taken(captured_piece, *to_square);
 
         board.push_en_passant_target(en_passant_target);
         board.lose_castle_rights(lost_castle_rights);
@@ -106,7 +113,9 @@ impl ChessMove for StandardChessMove {
         } = self;
 
         // Remove the moved piece.
-        let (piece_to_move_back, piece_color) = board.remove(*to_square).ok_or(BoardError::ToSquareIsEmpty { op: "undo" })?;
+        let (piece_to_move_back, piece_color) = board
+            .remove(*to_square)
+            .ok_or(BoardError::ToSquareIsEmpty { op: "undo" })?;
 
         // Put the captured piece back.
         if capture.is_some() {
@@ -117,15 +126,21 @@ impl ChessMove for StandardChessMove {
         // Revert the board state.
         board.pop_en_passant_target();
         board.pop_castle_rights();
-        board.put(*from_square, piece_to_move_back, piece_color).unwrap();
+        board
+            .put(*from_square, piece_to_move_back, piece_color)
+            .unwrap();
         Ok(None)
     }
-
 }
 
 /// Determines if a move is an en passant move. If so, it returns the target square.
 /// Otherwise, it returns an empty square.
-fn get_en_passant_target_square(piece_to_move: Piece, color: Color, from_square: u64, to_square: u64) -> u64 {
+fn get_en_passant_target_square(
+    piece_to_move: Piece,
+    color: Color,
+    from_square: u64,
+    to_square: u64,
+) -> u64 {
     if piece_to_move != Piece::Pawn {
         return EMPTY;
     }
@@ -145,7 +160,11 @@ fn get_en_passant_target_square(piece_to_move: Piece, color: Color, from_square:
     }
 }
 
-fn get_lost_castle_rights_if_rook_or_king_moved(piece_to_move: Piece, color: Color, from_square: u64) -> u8 {
+fn get_lost_castle_rights_if_rook_or_king_moved(
+    piece_to_move: Piece,
+    color: Color,
+    from_square: u64,
+) -> u8 {
     match (piece_to_move, color, from_square) {
         (Piece::Rook, Color::White, A1) => WHITE_QUEENSIDE_RIGHTS,
         (Piece::Rook, Color::White, H1) => WHITE_KINGSIDE_RIGHTS,
@@ -157,7 +176,10 @@ fn get_lost_castle_rights_if_rook_or_king_moved(piece_to_move: Piece, color: Col
     }
 }
 
-fn get_lost_castle_rights_if_rook_taken(captured_piece: Option<(Piece, Color)>, to_square: u64) -> u8 {
+fn get_lost_castle_rights_if_rook_taken(
+    captured_piece: Option<(Piece, Color)>,
+    to_square: u64,
+) -> u8 {
     match (captured_piece, to_square) {
         (Some((Piece::Rook, Color::White)), A1) => WHITE_QUEENSIDE_RIGHTS,
         (Some((Piece::Rook, Color::White)), H1) => WHITE_KINGSIDE_RIGHTS,
