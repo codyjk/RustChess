@@ -64,7 +64,7 @@ impl Board {
     }
 
     pub fn is_occupied(&self, square: u64) -> bool {
-        self.get(square).is_some()
+        self.occupied() & square != 0
     }
 
     pub fn get(&self, square: u64) -> Option<(Piece, Color)> {
