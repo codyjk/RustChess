@@ -35,13 +35,13 @@ fn find_alpha_beta_mate_in_2() {
 
     let move1 = searcher.search(&mut board, &mut targets).unwrap();
     move1.apply(&mut board).unwrap();
-    board.next_turn();
+    board.toggle_turn();
     let move2 = searcher.search(&mut board, &mut targets).unwrap();
     move2.apply(&mut board).unwrap();
-    board.next_turn();
+    board.toggle_turn();
     let move3 = searcher.search(&mut board, &mut targets).unwrap();
     move3.apply(&mut board).unwrap();
-    let current_turn = board.next_turn();
+    let current_turn = board.toggle_turn();
 
     matches!(
         evaluate::game_ending(&mut board, &mut targets, current_turn),

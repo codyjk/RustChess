@@ -475,7 +475,7 @@ mod tests {
 
         for m in moves.drain() {
             m.apply(&mut board).unwrap();
-            board.next_turn();
+            board.toggle_turn();
         }
         println!("Testing board:\n{}", board);
 

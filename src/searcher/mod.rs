@@ -57,7 +57,7 @@ impl Searcher {
             .iter()
             .map(|chess_move| {
                 chess_move.apply(board).unwrap();
-                board.next_turn();
+                board.toggle_turn();
                 let score = self.alpha_beta_max(
                     self.search_depth,
                     board,
@@ -66,7 +66,7 @@ impl Searcher {
                     f32::INFINITY,
                 );
                 chess_move.undo(board).unwrap();
-                board.prev_turn();
+                board.toggle_turn();
                 score
             })
             .collect();
@@ -147,10 +147,10 @@ impl Searcher {
                 chess_move
             );
             chess_move.apply(board).unwrap();
-            board.next_turn();
+            board.toggle_turn();
             let score = self.alpha_beta_min(depth - 1, board, targets, alpha, beta);
             chess_move.undo(board).unwrap();
-            board.prev_turn();
+            board.toggle_turn();
             trace!("alpha_beta_max(depth={}, alpha={}, beta={}, position={}) evaluated chess_move={} score={}", depth, alpha, beta, board.current_position_hash(), chess_move, score);
 
             if score >= beta {
@@ -242,10 +242,10 @@ impl Searcher {
                 chess_move
             );
             chess_move.apply(board).unwrap();
-            board.next_turn();
+            board.toggle_turn();
             let score = self.alpha_beta_max(depth - 1, board, targets, alpha, beta);
             chess_move.undo(board).unwrap();
-            board.prev_turn();
+            board.toggle_turn();
             trace!("alpha_beta_min(depth={}, alpha={}, beta={}, position={}) evaluated chess_move={} score={}", depth, alpha, beta, board.current_position_hash(), chess_move, score);
 
             if score <= alpha {
@@ -384,19 +384,19 @@ mod tests {
 
         let move1 = searcher.search(&mut board, &mut targets).unwrap();
         move1.apply(&mut board).unwrap();
-        board.next_turn();
+        board.toggle_turn();
         assert_eq!(expected_move_iter.next().unwrap(), &move1);
         println!("Testing board:\n{}", board);
 
         let move2 = searcher.search(&mut board, &mut targets).unwrap();
         move2.apply(&mut board).unwrap();
-        board.next_turn();
+        board.toggle_turn();
         assert_eq!(expected_move_iter.next().unwrap(), &move2);
         println!("Testing board:\n{}", board);
 
         let move3 = searcher.search(&mut board, &mut targets).unwrap();
         move3.apply(&mut board).unwrap();
-        board.next_turn();
+        board.toggle_turn();
         assert_eq!(expected_move_iter.next().unwrap(), &move3);
         println!("Testing board:\n{}", board);
     }
@@ -429,7 +429,7 @@ mod tests {
 
         let move1 = searcher.search(&mut board, &mut targets).unwrap();
         move1.apply(&mut board).unwrap();
-        board.next_turn();
+        board.toggle_turn();
         assert_eq!(
             expected_move_iter.next().unwrap(),
             &move1,
@@ -439,7 +439,7 @@ mod tests {
 
         let move2 = searcher.search(&mut board, &mut targets).unwrap();
         move2.apply(&mut board).unwrap();
-        board.next_turn();
+        board.toggle_turn();
         assert_eq!(
             expected_move_iter.next().unwrap(),
             &move2,
@@ -449,7 +449,7 @@ mod tests {
 
         let move3 = searcher.search(&mut board, &mut targets).unwrap();
         move3.apply(&mut board).unwrap();
-        board.next_turn();
+        board.toggle_turn();
         assert_eq!(
             expected_move_iter.next().unwrap(),
             &move3,

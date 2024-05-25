@@ -123,12 +123,7 @@ impl Board {
         self.turn
     }
 
-    pub fn prev_turn(&mut self) -> Color {
-        self.turn = self.turn.opposite();
-        self.turn
-    }
-
-    pub fn next_turn(&mut self) -> Color {
+    pub fn toggle_turn(&mut self) -> Color {
         self.turn = self.turn.opposite();
         self.turn
     }

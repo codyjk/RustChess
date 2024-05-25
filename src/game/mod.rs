@@ -156,7 +156,7 @@ mod tests {
     fn test_score() {
         let mut game = Game::new(0);
         game.make_move(square::E2, square::E4).unwrap();
-        game.board.next_turn();
+        game.board.toggle_turn();
         assert!(game.check_game_over_for_current_turn().is_none());
     }
 
@@ -164,13 +164,13 @@ mod tests {
     fn test_checkmate() {
         let mut game = Game::new(0);
         game.make_move(square::F2, square::F3).unwrap();
-        game.board.next_turn();
+        game.board.toggle_turn();
         game.make_move(square::E7, square::E6).unwrap();
-        game.board.next_turn();
+        game.board.toggle_turn();
         game.make_move(square::G2, square::G4).unwrap();
-        game.board.next_turn();
+        game.board.toggle_turn();
         game.make_move(square::D8, square::H4).unwrap();
-        game.board.next_turn();
+        game.board.toggle_turn();
         println!("Testing board:\n{}", game.board);
         matches!(
             game.check_game_over_for_current_turn(),
@@ -204,7 +204,7 @@ mod tests {
 
         for m in first_moves.drain() {
             m.apply(&mut game.board).unwrap();
-            game.board.next_turn();
+            game.board.toggle_turn();
         }
 
         // back in starting position for second time
@@ -222,7 +222,7 @@ mod tests {
 
         for m in second_moves.drain() {
             m.apply(&mut game.board).unwrap();
-            game.board.next_turn();
+            game.board.toggle_turn();
         }
 
         // back in starting position for third time, should be draw

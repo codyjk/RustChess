@@ -48,7 +48,7 @@ pub fn play_computer(depth: u8, player_color: Color) {
                     c if c == game.board.turn() => "you",
                     _ => "computer",
                 };
-                game.board.next_turn();
+                game.board.toggle_turn();
                 let score = game.score(game.board.turn());
                 let from_square = square::to_algebraic(board_move.0);
                 let to_square = square::to_algebraic(board_move.1);
@@ -116,7 +116,7 @@ pub fn computer_vs_computer(move_limit: u8, sleep_between_turns_in_ms: u64, dept
             Ok(board_move) => {
                 let duration = SystemTime::now().duration_since(start_time).unwrap();
                 println!("{}", clear::All);
-                game.board.next_turn();
+                game.board.toggle_turn();
                 let score = game.score(game.board.turn());
                 let from_square = square::to_algebraic(board_move.0);
                 let to_square = square::to_algebraic(board_move.1);
@@ -180,7 +180,7 @@ pub fn player_vs_player() {
 
         match command.execute(game) {
             Ok(_chess_move) => {
-                game.board.next_turn();
+                game.board.toggle_turn();
                 continue;
             }
             Err(error) => println!("error: {}", error),
