@@ -1,43 +1,53 @@
+use core::fmt;
+
 use crate::board::bitboard::{A_FILE, H_FILE, RANK_1, RANK_8};
-use crate::board::square::*;
-use rustc_hash::FxHashMap;
 
 #[derive(Clone, Copy, PartialEq, Debug, Eq, Hash)]
 pub enum Direction {
-    East,
-    North,
-    NorthEast,
-    NorthWest,
-    South,
-    SouthEast,
-    SouthWest,
-    West,
+    East, North, NorthEast, NorthWest, South, SouthEast, SouthWest, West,
 }
 
-pub const ROOK_DIRS: [Direction; 4] = [
-    Direction::East,
-    Direction::North,
-    Direction::South,
-    Direction::West,
-];
+impl Direction {
+    pub fn all() -> [Direction; 8] {
+        [
+            Direction::East,
+            Direction::North,
+            Direction::NorthEast,
+            Direction::NorthWest,
+            Direction::South,
+            Direction::SouthEast,
+            Direction::SouthWest,
+            Direction::West,
+        ]
+    }
+}
 
-pub const BISHOP_DIRS: [Direction; 4] = [
-    Direction::NorthEast,
-    Direction::NorthWest,
-    Direction::SouthEast,
-    Direction::SouthWest,
-];
+impl fmt::Display for Direction {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let dir = match self {
+            Direction::East => "East",
+            Direction::North => "North",
+            Direction::NorthEast => "NorthEast",
+            Direction::NorthWest => "NorthWest",
+            Direction::South => "South",
+            Direction::SouthEast => "SouthEast",
+            Direction::SouthWest => "SouthWest",
+            Direction::West => "West",
+        };
+        write!(f, "{}", dir)
+    }
+}
 
-#[derive(Default)]
 pub struct RayTable {
-    north: FxHashMap<u64, u64>,
-    east: FxHashMap<u64, u64>,
-    south: FxHashMap<u64, u64>,
-    west: FxHashMap<u64, u64>,
-    northeast: FxHashMap<u64, u64>,
-    northwest: FxHashMap<u64, u64>,
-    southeast: FxHashMap<u64, u64>,
-    southwest: FxHashMap<u64, u64>,
+    rays: [u64; 64 * 8],  // One entry for each square and direction combination
+}
+
+impl Default for RayTable {
+    fn default() -> Self {
+        let mut table = RayTable { rays: [0; 64 * 8] };
+        table.populate();
+        table
+    }
 }
 
 impl RayTable {
@@ -45,97 +55,45 @@ impl RayTable {
         Default::default()
     }
 
-    pub fn populate(&mut self) -> &Self {
-        for x in 0..64 {
-            let square_bit = 1 << x;
-            let square = assert(square_bit);
-
-            self.north
-                .insert(square, generate_rook_ray(square, Direction::North));
-            self.east
-                .insert(square, generate_rook_ray(square, Direction::East));
-            self.south
-                .insert(square, generate_rook_ray(square, Direction::South));
-            self.west
-                .insert(square, generate_rook_ray(square, Direction::West));
-            self.northeast
-                .insert(square, generate_bishop_ray(square, Direction::NorthEast));
-            self.northwest
-                .insert(square, generate_bishop_ray(square, Direction::NorthWest));
-            self.southeast
-                .insert(square, generate_bishop_ray(square, Direction::SouthEast));
-            self.southwest
-                .insert(square, generate_bishop_ray(square, Direction::SouthWest));
+    fn populate(&mut self) {
+        for square_i in 0..64 {
+            let square = 1 << square_i;
+            for &dir in &Direction::all() {
+                let index = Self::index(square, dir);
+                self.rays[index] = generate_ray(square, dir);
+            }
         }
-
-        self
     }
 
     pub fn get(&self, square: u64, dir: Direction) -> u64 {
-        let inner_table = match dir {
-            Direction::North => &self.north,
-            Direction::East => &self.east,
-            Direction::South => &self.south,
-            Direction::West => &self.west,
-            Direction::NorthEast => &self.northeast,
-            Direction::NorthWest => &self.northwest,
-            Direction::SouthEast => &self.southeast,
-            Direction::SouthWest => &self.southwest,
-        };
-        *inner_table.get(&square).unwrap()
+        let index = Self::index(square, dir);
+        self.rays[index]
+    }
+
+    fn index(square: u64, dir: Direction) -> usize {
+        let square_i = square.trailing_zeros(); // nth bit set to 1
+        let dir_i = dir as usize;  // nth direction
+        (square_i as usize) * 8 + dir_i
     }
 }
 
-fn generate_rook_ray(square_bit: u64, dir: Direction) -> u64 {
-    let mut ray = square_bit;
+fn generate_ray(square_bit: u64, dir: Direction) -> u64 {
+    let mut ray = 0;
+    let mut pos = square_bit;
 
-    let boundary = match dir {
-        Direction::North => RANK_8,
-        Direction::South => RANK_1,
-        Direction::East => H_FILE,
-        Direction::West => A_FILE,
-        _ => 0,
-    };
-
-    while ray & boundary == 0 {
-        let next_ray = match dir {
-            Direction::North => ray << 8,
-            Direction::South => ray >> 8,
-            Direction::East => ray << 1,
-            Direction::West => ray >> 1,
-            _ => 0,
+    loop {
+        pos = match dir {
+            Direction::North => if pos & RANK_8 != 0 { break } else { pos << 8 },
+            Direction::South => if pos & RANK_1 != 0 { break } else { pos >> 8 },
+            Direction::East => if pos & H_FILE != 0 { break } else { pos << 1 },
+            Direction::West => if pos & A_FILE != 0 { break } else { pos >> 1 },
+            Direction::NorthEast => if pos & (RANK_8 | H_FILE) != 0 { break } else { pos << 9 },
+            Direction::NorthWest => if pos & (RANK_8 | A_FILE) != 0 { break } else { pos << 7 },
+            Direction::SouthEast => if pos & (RANK_1 | H_FILE) != 0 { break } else { pos >> 7 },
+            Direction::SouthWest => if pos & (RANK_1 | A_FILE) != 0 { break } else { pos >> 9 },
         };
-        ray |= next_ray;
+        ray |= pos;
     }
-
-    ray ^= square_bit;
-
-    ray
-}
-
-fn generate_bishop_ray(square_bit: u64, dir: Direction) -> u64 {
-    let mut ray = square_bit;
-
-    let (boundary_rank, boundary_file) = match dir {
-        Direction::NorthWest => (RANK_8, A_FILE),
-        Direction::NorthEast => (RANK_8, H_FILE),
-        Direction::SouthWest => (RANK_1, A_FILE),
-        Direction::SouthEast => (RANK_1, H_FILE),
-        _ => (0, 0),
-    };
-
-    while ray & boundary_rank == 0 && ray & boundary_file == 0 {
-        let next_ray = match dir {
-            Direction::NorthWest => ray << 7,
-            Direction::NorthEast => ray << 9,
-            Direction::SouthWest => ray >> 9,
-            Direction::SouthEast => ray >> 7,
-            _ => 0,
-        };
-        ray |= next_ray;
-    }
-
-    ray ^= square_bit;
 
     ray
 }
@@ -143,97 +101,49 @@ fn generate_bishop_ray(square_bit: u64, dir: Direction) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::board::bitboard::{C_FILE, EMPTY, RANK_2, RANK_3};
+    use crate::board::{bitboard::EMPTY, square::{A1, A4, B2, B4, C1, C2, C3, C4, D4, D5, E5, E6, F6, F7, G7, G8, H8}};
 
     #[test]
-    fn test_generate_rook_ray_on_corner() {
-        let sq = A1;
-        let expected_ray_n = 0x0101010101010100; // A_FILE without A1
-        let expected_ray_e = 0xFE; // RANK_1 without A1
-        assert_eq!(expected_ray_n, generate_rook_ray(sq, Direction::North));
-        assert_eq!(expected_ray_e, generate_rook_ray(sq, Direction::East));
-        assert_eq!(EMPTY, generate_rook_ray(sq, Direction::South));
-        assert_eq!(EMPTY, generate_rook_ray(sq, Direction::West));
+    fn test_generate_ray() {
+        let ray = generate_ray(A1, Direction::North);
+        assert_eq!(ray, A_FILE ^ A1);
+
+        let ray = generate_ray(A1, Direction::East);
+        assert_eq!(ray, RANK_1 ^ A1);
+
+        let ray = generate_ray(A1, Direction::NorthEast);
+        assert_eq!(ray, B2 | C3 | D4 | E5 | F6 | G7 | H8);
+
+        let ray = generate_ray(A1, Direction::NorthWest);
+        assert_eq!(ray, EMPTY);
+
+        let ray = generate_ray(A1, Direction::SouthEast);
+        assert_eq!(ray, EMPTY);
+
+        let ray = generate_ray(A1, Direction::SouthWest);
+        assert_eq!(ray, EMPTY);
+
+        let ray = generate_ray(C4, Direction::South);
+        assert_eq!(ray, C3 | C2 | C1);
+
+        let ray = generate_ray(C4, Direction::West);
+        assert_eq!(ray, B4 | A4);
+
+        let ray = generate_ray(C4, Direction::NorthEast);
+        assert_eq!(ray, D5 | E6 | F7 | G8);
     }
 
     #[test]
-    fn test_generate_rook_ray_on_boundary() {
-        let sq = A2;
-        let expected_ray_n = A_FILE ^ A1 ^ A2;
-        let expected_ray_s = A1;
-        let expected_ray_e = RANK_2 ^ A2;
-        assert_eq!(expected_ray_n, generate_rook_ray(sq, Direction::North));
-        assert_eq!(expected_ray_e, generate_rook_ray(sq, Direction::East));
-        assert_eq!(expected_ray_s, generate_rook_ray(sq, Direction::South));
-        assert_eq!(EMPTY, generate_rook_ray(sq, Direction::West));
-    }
-
-    #[test]
-    fn test_generate_rook_ray_in_middle() {
-        let sq = C3;
-        // crude way of building rays...
-        let expected_ray_n = C_FILE ^ C3 ^ C2 ^ C1;
-        let expected_ray_s = C_FILE ^ C3 ^ C4 ^ C5 ^ C6 ^ C7 ^ C8;
-        let expected_ray_e = RANK_3 ^ C3 ^ B3 ^ A3;
-        let expected_ray_w = RANK_3 ^ C3 ^ D3 ^ E3 ^ F3 ^ G3 ^ H3;
-        assert_eq!(expected_ray_n, generate_rook_ray(sq, Direction::North));
-        assert_eq!(expected_ray_s, generate_rook_ray(sq, Direction::South));
-        assert_eq!(expected_ray_e, generate_rook_ray(sq, Direction::East));
-        assert_eq!(expected_ray_w, generate_rook_ray(sq, Direction::West));
-    }
-
-    #[test]
-    fn test_generate_bishop_ray_on_corner() {
-        let sq = A1;
-        let expected_ray_ne = B2 | C3 | D4 | E5 | F6 | G7 | H8;
-        assert_eq!(
-            expected_ray_ne,
-            generate_bishop_ray(sq, Direction::NorthEast)
-        );
-        assert_eq!(EMPTY, generate_bishop_ray(sq, Direction::NorthWest));
-        assert_eq!(EMPTY, generate_bishop_ray(sq, Direction::SouthWest));
-        assert_eq!(EMPTY, generate_bishop_ray(sq, Direction::SouthEast));
-    }
-
-    #[test]
-    fn test_generate_bishop_ray_on_boundary() {
-        let sq = A3;
-        let expected_ray_ne = B4 | C5 | D6 | E7 | F8;
-        let expected_ray_se = B2 | C1;
-        assert_eq!(
-            expected_ray_ne,
-            generate_bishop_ray(sq, Direction::NorthEast)
-        );
-        assert_eq!(EMPTY, generate_bishop_ray(sq, Direction::NorthWest));
-        assert_eq!(EMPTY, generate_bishop_ray(sq, Direction::SouthWest));
-        assert_eq!(
-            expected_ray_se,
-            generate_bishop_ray(sq, Direction::SouthEast)
-        );
-    }
-
-    #[test]
-    fn test_generate_bishop_ray_in_middle() {
-        let sq = C3;
-        let expected_ray_ne = D4 | E5 | F6 | G7 | H8;
-        let expected_ray_nw = B4 | A5;
-        let expected_ray_se = D2 | E1;
-        let expected_ray_sw = B2 | A1;
-        assert_eq!(
-            expected_ray_ne,
-            generate_bishop_ray(sq, Direction::NorthEast)
-        );
-        assert_eq!(
-            expected_ray_nw,
-            generate_bishop_ray(sq, Direction::NorthWest)
-        );
-        assert_eq!(
-            expected_ray_sw,
-            generate_bishop_ray(sq, Direction::SouthWest)
-        );
-        assert_eq!(
-            expected_ray_se,
-            generate_bishop_ray(sq, Direction::SouthEast)
-        );
+    fn test_construct_ray_table() {
+        let table = RayTable::new();
+        assert_eq!(table.get(A1, Direction::North), A_FILE ^ A1);
+        assert_eq!(table.get(A1, Direction::East), RANK_1 ^ A1);
+        assert_eq!(table.get(A1, Direction::NorthEast), B2 | C3 | D4 | E5 | F6 | G7 | H8);
+        assert_eq!(table.get(A1, Direction::NorthWest), EMPTY);
+        assert_eq!(table.get(A1, Direction::SouthEast), EMPTY);
+        assert_eq!(table.get(A1, Direction::SouthWest), EMPTY);
+        assert_eq!(table.get(C4, Direction::South), C3 | C2 | C1);
+        assert_eq!(table.get(C4, Direction::West), B4 | A4);
+        assert_eq!(table.get(C4, Direction::NorthEast), D5 | E6 | F7 | G8);
     }
 }

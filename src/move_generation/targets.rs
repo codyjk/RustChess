@@ -10,7 +10,7 @@ use crate::board::Board;
 use rustc_hash::FxHashMap;
 use std::hash::{Hash, Hasher};
 
-use super::ray_table::{Direction, RayTable, BISHOP_DIRS, ROOK_DIRS};
+use super::ray_table::{Direction, RayTable};
 
 pub type PieceTarget = (u64, u64); // (piece_square, targets)
 
@@ -23,10 +23,23 @@ pub struct Targets {
     attacks_cache: FxHashMap<(u8, u64), u64>,
 }
 
+const ROOK_DIRS: [Direction; 4] = [
+    Direction::North,
+    Direction::East,
+    Direction::South,
+    Direction::West,
+];
+
+const BISHOP_DIRS: [Direction; 4] = [
+    Direction::NorthWest,
+    Direction::NorthEast,
+    Direction::SouthWest,
+    Direction::SouthEast,
+];
+
 impl Default for Targets {
     fn default() -> Self {
-        let mut ray_table = RayTable::new();
-        ray_table.populate();
+        let ray_table = RayTable::new();
 
         Self {
             kings: generate_king_targets_table(),
