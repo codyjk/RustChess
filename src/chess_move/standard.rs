@@ -82,60 +82,20 @@ impl ChessMove for StandardChessMove {
             capture: expected_capture,
         } = self;
 
-        let maybe_piece = board.remove(*from_square);
-        let (piece_to_move, color) = match maybe_piece {
-            None => return Err(BoardError::FromSquareIsEmpty { op: "apply" }),
-            Some((piece, color)) => (piece, color),
-        };
-
+        let (piece_to_move, color) = board.remove(*from_square).ok_or(BoardError::FromSquareIsEmpty { op: "apply" })?;
         if board.get(*to_square) != *expected_capture {
             return Err(BoardError::UnexpectedCaptureResult);
         }
-
-        // check for en passant
-        let mut en_passant_target = EMPTY;
-        if piece_to_move == Piece::Pawn {
-            let is_en_passant = match color {
-                Color::White => (from_square & RANK_2 > 0) && (to_square & RANK_4 > 0),
-                Color::Black => (from_square & RANK_7 > 0) && (to_square & RANK_5 > 0),
-            };
-
-            if is_en_passant {
-                en_passant_target = match color {
-                    Color::White => from_square << 8,
-                    Color::Black => from_square >> 8,
-                };
-            }
-        }
-        board.push_en_passant_target(en_passant_target);
-
         let captured_piece = board.remove(*to_square);
 
-        // adjust castle rights if a rook or king moved
-        let mut lost_castle_rights = match (piece_to_move, color, *from_square) {
-            (Piece::Rook, Color::White, A1) => WHITE_QUEENSIDE_RIGHTS,
-            (Piece::Rook, Color::White, H1) => WHITE_KINGSIDE_RIGHTS,
-            (Piece::Rook, Color::Black, A8) => BLACK_QUEENSIDE_RIGHTS,
-            (Piece::Rook, Color::Black, H8) => BLACK_KINGSIDE_RIGHTS,
-            (Piece::King, Color::White, E1) => WHITE_KINGSIDE_RIGHTS | WHITE_QUEENSIDE_RIGHTS,
-            (Piece::King, Color::Black, E8) => BLACK_KINGSIDE_RIGHTS | BLACK_QUEENSIDE_RIGHTS,
-            _ => 0,
-        };
+        let en_passant_target = get_en_passant_target_square(piece_to_move, color, *from_square, *to_square);
+        let lost_castle_rights =  get_lost_castle_rights_if_rook_or_king_moved(piece_to_move, color, *from_square)
+            | get_lost_castle_rights_if_rook_taken(captured_piece, *to_square);
 
-        // adjust castle rights if a rook is taken
-        lost_castle_rights |= match (captured_piece, *to_square) {
-            (Some((Piece::Rook, Color::White)), A1) => WHITE_QUEENSIDE_RIGHTS,
-            (Some((Piece::Rook, Color::White)), H1) => WHITE_KINGSIDE_RIGHTS,
-            (Some((Piece::Rook, Color::Black)), A8) => BLACK_QUEENSIDE_RIGHTS,
-            (Some((Piece::Rook, Color::Black)), H8) => BLACK_KINGSIDE_RIGHTS,
-            _ => 0,
-        };
-
+        board.push_en_passant_target(en_passant_target);
         board.lose_castle_rights(lost_castle_rights);
-
-        board
-            .put(*to_square, piece_to_move, color)
-            .map(|_| captured_piece)
+        board.put(*to_square, piece_to_move, color).unwrap();
+        Ok(captured_piece)
     }
 
     fn undo(&self, board: &mut Board) -> Result<Option<Capture>, BoardError> {
@@ -145,28 +105,65 @@ impl ChessMove for StandardChessMove {
             capture,
         } = self;
 
-        // remove the moved piece
-        let maybe_piece = board.remove(*to_square);
-        let (piece_to_move_back, piece_color) = match maybe_piece {
-            None => return Err(BoardError::ToSquareIsEmpty { op: "undo" }),
-            Some((piece, color)) => (piece, color),
-        };
+        // Remove the moved piece.
+        let (piece_to_move_back, piece_color) = board.remove(*to_square).ok_or(BoardError::ToSquareIsEmpty { op: "undo" })?;
 
-        // put the captured piece back
+        // Put the captured piece back.
         if capture.is_some() {
             let (piece, color) = capture.unwrap();
             board.put(*to_square, piece, color).unwrap();
         }
 
-        // return to the previous en passant state
+        // Revert the board state.
         board.pop_en_passant_target();
-
-        // return to the previous castle rights state
         board.pop_castle_rights();
+        board.put(*from_square, piece_to_move_back, piece_color).unwrap();
+        Ok(None)
+    }
 
-        board
-            .put(*from_square, piece_to_move_back, piece_color)
-            .map(|_| None)
+}
+
+/// Determines if a move is an en passant move. If so, it returns the target square.
+/// Otherwise, it returns an empty square.
+fn get_en_passant_target_square(piece_to_move: Piece, color: Color, from_square: u64, to_square: u64) -> u64 {
+    if piece_to_move != Piece::Pawn {
+        return EMPTY;
+    }
+
+    let is_en_passant = match color {
+        Color::White => (from_square & RANK_2 > 0) && (to_square & RANK_4 > 0),
+        Color::Black => (from_square & RANK_7 > 0) && (to_square & RANK_5 > 0),
+    };
+
+    if !is_en_passant {
+        return EMPTY;
+    }
+
+    match color {
+        Color::White => from_square << 8,
+        Color::Black => from_square >> 8,
+    }
+}
+
+fn get_lost_castle_rights_if_rook_or_king_moved(piece_to_move: Piece, color: Color, from_square: u64) -> u8 {
+    match (piece_to_move, color, from_square) {
+        (Piece::Rook, Color::White, A1) => WHITE_QUEENSIDE_RIGHTS,
+        (Piece::Rook, Color::White, H1) => WHITE_KINGSIDE_RIGHTS,
+        (Piece::Rook, Color::Black, A8) => BLACK_QUEENSIDE_RIGHTS,
+        (Piece::Rook, Color::Black, H8) => BLACK_KINGSIDE_RIGHTS,
+        (Piece::King, Color::White, E1) => WHITE_KINGSIDE_RIGHTS | WHITE_QUEENSIDE_RIGHTS,
+        (Piece::King, Color::Black, E8) => BLACK_KINGSIDE_RIGHTS | BLACK_QUEENSIDE_RIGHTS,
+        _ => 0,
+    }
+}
+
+fn get_lost_castle_rights_if_rook_taken(captured_piece: Option<(Piece, Color)>, to_square: u64) -> u8 {
+    match (captured_piece, to_square) {
+        (Some((Piece::Rook, Color::White)), A1) => WHITE_QUEENSIDE_RIGHTS,
+        (Some((Piece::Rook, Color::White)), H1) => WHITE_KINGSIDE_RIGHTS,
+        (Some((Piece::Rook, Color::Black)), A8) => BLACK_QUEENSIDE_RIGHTS,
+        (Some((Piece::Rook, Color::Black)), H8) => BLACK_KINGSIDE_RIGHTS,
+        _ => 0,
     }
 }
 
