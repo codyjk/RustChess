@@ -14,11 +14,9 @@ use super::ray_table::{Direction, RayTable};
 
 pub type PieceTarget = (u64, u64); // (piece_square, targets)
 
-type TargetsTable = FxHashMap<u64, u64>;
-
 pub struct Targets {
-    kings: TargetsTable,
-    knights: TargetsTable,
+    kings: [u64; 64],
+    knights: [u64; 64],
     rays: RayTable,
     attacks_cache: FxHashMap<(u8, u64), u64>,
 }
@@ -56,9 +54,10 @@ impl Targets {
     }
 
     pub fn get(&self, square: u64, piece: Piece) -> u64 {
+        let square_i = square.trailing_zeros() as usize;
         match piece {
-            Piece::Knight => *self.knights.get(&square).unwrap(),
-            Piece::King => *self.kings.get(&square).unwrap(),
+            Piece::Knight => self.knights[square_i],
+            Piece::King => self.kings[square_i],
             _ => 0,
         }
     }
@@ -196,11 +195,11 @@ pub fn generate_pawn_attack_targets(board: &Board, color: Color) -> Vec<PieceTar
     piece_targets
 }
 
-pub fn generate_knight_targets_table() -> TargetsTable {
-    let mut table = FxHashMap::default();
+pub fn generate_knight_targets_table() -> [u64; 64] {
+    let mut table = [0; 64];
 
-    for x in 0..64 {
-        let knight = 1 << x;
+    for square_i in 0..64 {
+        let knight = 1 << square_i;
 
         // nne = north-north-east, nee = north-east-east, etc..
         let move_nne = knight << 17 & !A_FILE;
@@ -215,17 +214,17 @@ pub fn generate_knight_targets_table() -> TargetsTable {
         let targets =
             move_nne | move_nee | move_see | move_sse | move_nnw | move_nww | move_sww | move_ssw;
 
-        table.insert(knight, targets);
+        table[square_i] = targets;
     }
 
     table
 }
 
-pub fn generate_king_targets_table() -> TargetsTable {
-    let mut table = FxHashMap::default();
+pub fn generate_king_targets_table() -> [u64; 64] {
+    let mut table = [0; 64];
 
-    for x in 0..64 {
-        let king = 1 << x;
+    for square_i in 0..64 {
+        let king = 1 << square_i;
 
         let mut targets = EMPTY;
 
@@ -242,7 +241,7 @@ pub fn generate_king_targets_table() -> TargetsTable {
         targets |= (king << 1) & !A_FILE; // east
         targets |= (king >> 1) & !H_FILE; // west
 
-        table.insert(king, targets);
+        table[square_i] = targets;
     }
 
     table
