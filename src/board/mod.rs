@@ -3,7 +3,7 @@ pub mod color;
 pub mod error;
 pub mod magic;
 pub mod piece;
-pub mod pieces;
+pub mod piece_set;
 pub mod square;
 
 mod display;
@@ -13,7 +13,7 @@ use bitboard::EMPTY;
 use color::Color;
 use error::BoardError;
 use piece::Piece;
-use pieces::Pieces;
+use piece_set::PieceSet;
 use rustc_hash::{FxHashMap, FxHasher};
 use std::hash::{Hash, Hasher};
 
@@ -26,8 +26,8 @@ pub const ALL_CASTLE_RIGHTS: CastleRightsBitmask =
     WHITE_KINGSIDE_RIGHTS | BLACK_KINGSIDE_RIGHTS | WHITE_QUEENSIDE_RIGHTS | BLACK_QUEENSIDE_RIGHTS;
 
 pub struct Board {
-    white: Pieces,
-    black: Pieces,
+    white: PieceSet,
+    black: PieceSet,
     turn: Color,
     fullmove_clock: u8,
     en_passant_target_stack: Vec<u64>,
@@ -41,8 +41,8 @@ pub struct Board {
 impl Default for Board {
     fn default() -> Self {
         let mut board = Board {
-            white: Pieces::new(),
-            black: Pieces::new(),
+            white: PieceSet::new(),
+            black: PieceSet::new(),
             turn: Color::White,
             en_passant_target_stack: vec![EMPTY],
             castle_rights_stack: vec![ALL_CASTLE_RIGHTS],
@@ -62,7 +62,7 @@ impl Board {
         Default::default()
     }
 
-    pub fn pieces(&self, color: Color) -> &Pieces {
+    pub fn pieces(&self, color: Color) -> &PieceSet {
         match color {
             Color::White => &self.white,
             Color::Black => &self.black,

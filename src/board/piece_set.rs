@@ -3,22 +3,22 @@ use super::piece::Piece;
 use super::BoardError;
 
 #[derive(Clone, PartialEq)]
-pub struct Pieces {
+pub struct PieceSet {
     // [pawns, rooks, knights, bishops, kings, queens]
     bitboards: [u64; 6],
     occupied: u64,
 }
 
-impl Default for Pieces {
+impl Default for PieceSet {
     fn default() -> Self {
-        Pieces {
+        PieceSet {
             bitboards: [EMPTY; 6],
             occupied: EMPTY,
         }
     }
 }
 
-impl Pieces {
+impl PieceSet {
     pub fn new() -> Self {
         Default::default()
     }
