@@ -8,14 +8,17 @@ pub mod square;
 
 mod display;
 mod fen;
+mod position_info;
 
 use bitboard::EMPTY;
 use color::Color;
 use error::BoardError;
 use piece::Piece;
 use piece_set::PieceSet;
-use rustc_hash::{FxHashMap, FxHasher};
+use rustc_hash::FxHasher;
 use std::hash::{Hash, Hasher};
+
+use self::position_info::PositionInfo;
 
 type CastleRightsBitmask = u8;
 pub const WHITE_KINGSIDE_RIGHTS: CastleRightsBitmask = 0b1000;
@@ -33,10 +36,9 @@ pub struct Board {
     en_passant_target_stack: Vec<u64>,
     castle_rights_stack: Vec<CastleRightsBitmask>,
     halfmove_clock_stack: Vec<u8>,
-    position_count: FxHashMap<u64, u8>,
-    max_seen_position_count_stack: Vec<u8>,
-    current_position_hash: u64,
+    position_info: PositionInfo,
 }
+
 
 impl Default for Board {
     fn default() -> Self {
@@ -48,9 +50,7 @@ impl Default for Board {
             castle_rights_stack: vec![ALL_CASTLE_RIGHTS],
             halfmove_clock_stack: vec![0],
             fullmove_clock: 1,
-            position_count: FxHashMap::default(),
-            max_seen_position_count_stack: vec![1],
-            current_position_hash: 0,
+            position_info: PositionInfo::new(),
         };
         board.update_position_hash();
         board
@@ -211,46 +211,6 @@ impl Board {
         self.halfmove_clock_stack.pop().unwrap()
     }
 
-    pub fn current_position_hash(&self) -> u64 {
-        self.current_position_hash
-    }
-
-    pub fn update_position_hash(&mut self) -> u64 {
-        let mut s = FxHasher::default();
-        self.hash(&mut s);
-        let hash = s.finish();
-        self.current_position_hash = hash;
-        hash
-    }
-
-    pub fn count_current_position(&mut self) -> u8 {
-        self.position_count
-            .entry(self.current_position_hash)
-            .and_modify(|count| *count += 1)
-            .or_insert(1);
-        let count = *self
-            .position_count
-            .get(&self.current_position_hash)
-            .unwrap();
-        self.max_seen_position_count_stack.push(count);
-        count
-    }
-
-    pub fn uncount_current_position(&mut self) -> u8 {
-        self.position_count
-            .entry(self.current_position_hash)
-            .and_modify(|count| *count -= 1);
-        self.max_seen_position_count_stack.pop();
-        *self
-            .position_count
-            .get(&self.current_position_hash)
-            .unwrap()
-    }
-
-    pub fn max_seen_position_count(&self) -> u8 {
-        *self.max_seen_position_count_stack.last().unwrap()
-    }
-
     pub fn hashable_position_key(&self) -> [u64; 14] {
         let (a1, b1, c1, d1, e1, f1) = self.black.position_tuple();
         let (a2, b2, c2, d2, e2, f2) = self.white.position_tuple();
@@ -258,6 +218,32 @@ impl Board {
         let cr = self.peek_castle_rights() as u64;
 
         [a1, b1, c1, d1, e1, f1, a2, b2, c2, d2, e2, f2, ep, cr]
+    }
+
+    // PositionInfo delegation
+
+    pub fn count_current_position(&mut self) -> u8 {
+        self.position_info.count_current_position()
+    }
+
+    pub fn uncount_current_position(&mut self) -> u8 {
+        self.position_info.uncount_current_position()
+    }
+
+    pub fn max_seen_position_count(&self) -> u8 {
+        self.position_info.max_seen_position_count()
+    }
+
+    pub fn current_position_hash(&self) -> u64 {
+        self.position_info.current_position_hash()
+    }
+
+    pub fn update_position_hash(&mut self) -> u64 {
+        // TODO(codyjk): Replace this with Zobrist hashing
+        let mut s = FxHasher::default();
+        self.hash(&mut s);
+        let hash = s.finish();
+        self.position_info.update_position_hash(hash)
     }
 }
 
