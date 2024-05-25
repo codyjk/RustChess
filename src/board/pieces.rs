@@ -4,25 +4,15 @@ use super::BoardError;
 
 #[derive(Clone, PartialEq)]
 pub struct Pieces {
-    pawns: u64,
-    rooks: u64,
-    knights: u64,
-    bishops: u64,
-    kings: u64,
-    queens: u64,
+    // [pawns, rooks, knights, bishops, kings, queens]
+    bitboards: [u64; 6],
     occupied: u64,
 }
 
 impl Default for Pieces {
     fn default() -> Self {
         Pieces {
-            bishops: EMPTY,
-            kings: EMPTY,
-            knights: EMPTY,
-            pawns: EMPTY,
-            queens: EMPTY,
-            rooks: EMPTY,
-            // helper
+            bitboards: [EMPTY; 6],
             occupied: EMPTY,
         }
     }
@@ -34,31 +24,15 @@ impl Pieces {
     }
 
     pub fn locate(&self, piece: Piece) -> u64 {
-        match piece {
-            Piece::Bishop => self.bishops,
-            Piece::King => self.kings,
-            Piece::Knight => self.knights,
-            Piece::Pawn => self.pawns,
-            Piece::Queen => self.queens,
-            Piece::Rook => self.rooks,
-        }
+        self.bitboards[piece as usize]
     }
 
     pub fn get(&self, square: u64) -> Option<Piece> {
-        if square & self.bishops > 0 {
-            return Some(Piece::Bishop);
-        } else if square & self.kings > 0 {
-            return Some(Piece::King);
-        } else if square & self.knights > 0 {
-            return Some(Piece::Knight);
-        } else if square & self.pawns > 0 {
-            return Some(Piece::Pawn);
-        } else if square & self.queens > 0 {
-            return Some(Piece::Queen);
-        } else if square & self.rooks > 0 {
-            return Some(Piece::Rook);
+        for (i, &bitboard) in self.bitboards.iter().enumerate() {
+            if square & bitboard > 0 {
+                return Some(Piece::from_usize(i));
+            }
         }
-
         None
     }
 
@@ -75,15 +49,7 @@ impl Pieces {
             return Err(BoardError::SquareOccupied);
         }
 
-        match piece {
-            Piece::Bishop => self.bishops |= square,
-            Piece::King => self.kings |= square,
-            Piece::Knight => self.knights |= square,
-            Piece::Pawn => self.pawns |= square,
-            Piece::Queen => self.queens |= square,
-            Piece::Rook => self.rooks |= square,
-        };
-
+        self.bitboards[piece as usize] |= square;
         self.occupied |= square;
 
         Ok(())
@@ -96,15 +62,7 @@ impl Pieces {
             None => return None,
         };
 
-        match removed_piece {
-            Piece::Bishop => self.bishops ^= square,
-            Piece::King => self.kings ^= square,
-            Piece::Knight => self.knights ^= square,
-            Piece::Pawn => self.pawns ^= square,
-            Piece::Queen => self.queens ^= square,
-            Piece::Rook => self.rooks ^= square,
-        };
-
+        self.bitboards[removed_piece as usize] ^= square;
         self.occupied ^= square;
 
         removed
@@ -112,12 +70,12 @@ impl Pieces {
 
     pub fn position_tuple(&self) -> (u64, u64, u64, u64, u64, u64) {
         (
-            self.bishops,
-            self.kings,
-            self.knights,
-            self.pawns,
-            self.queens,
-            self.rooks,
+            self.bitboards[Piece::Bishop as usize],
+            self.bitboards[Piece::King as usize],
+            self.bitboards[Piece::Knight as usize],
+            self.bitboards[Piece::Pawn as usize],
+            self.bitboards[Piece::Queen as usize],
+            self.bitboards[Piece::Rook as usize],
         )
     }
 }

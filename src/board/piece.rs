@@ -10,6 +10,20 @@ pub enum Piece {
     Rook,
 }
 
+impl Piece {
+    pub fn from_usize(i: usize) -> Self {
+        match i {
+            0 => Self::Bishop,
+            1 => Self::King,
+            2 => Self::Knight,
+            3 => Self::Pawn,
+            4 => Self::Queen,
+            5 => Self::Rook,
+            _ => panic!("Invalid piece index"),
+        }
+    }
+}
+
 pub const ALL_PIECES: [Piece; 6] = [
     Piece::Bishop,
     Piece::King,
