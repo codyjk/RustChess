@@ -11,13 +11,13 @@ mod display;
 mod fen;
 mod move_info;
 mod position_info;
+mod zobrist_tables;
 
 use color::Color;
 use error::BoardError;
 use piece::Piece;
 use piece_set::PieceSet;
-use rustc_hash::FxHasher;
-use std::hash::{Hash, Hasher};
+use std::hash::Hash;
 
 use self::{castle_rights::CastleRightsBitmask, move_info::MoveInfo, position_info::PositionInfo};
 
@@ -31,15 +31,13 @@ pub struct Board {
 
 impl Default for Board {
     fn default() -> Self {
-        let mut board = Board {
+        Self {
             white: PieceSet::new(),
             black: PieceSet::new(),
             turn: Color::White,
             move_info: MoveInfo::new(),
             position_info: PositionInfo::new(),
-        };
-        board.update_position_hash();
-        board
+        }
     }
 }
 
@@ -89,20 +87,28 @@ impl Board {
             return Err(BoardError::SquareOccupied);
         }
 
-        match color {
+        let result = match color {
             Color::White => self.white.put(square, piece),
             Color::Black => self.black.put(square, piece),
+        };
+
+        if result.is_ok() {
+            self.position_info
+                .update_position_hash_toggle_piece(square, piece, color);
         }
+
+        result
     }
 
     pub fn remove(&mut self, square: u64) -> Option<(Piece, Color)> {
-        self.get(square).map(|(piece, color)| {
-            match color {
-                Color::White => self.white.remove(square),
-                Color::Black => self.black.remove(square),
-            };
-            (piece, color)
-        })
+        let (piece, color) = self.get(square)?;
+        match color {
+            Color::White => self.white.remove(square),
+            Color::Black => self.black.remove(square),
+        }?;
+        self.position_info
+            .update_position_hash_toggle_piece(square, piece, color);
+        Some((piece, color))
     }
 
     pub fn turn(&self) -> Color {
@@ -120,6 +126,8 @@ impl Board {
     }
 
     pub fn push_en_passant_target(&mut self, target_square: u64) -> u64 {
+        self.position_info
+            .update_position_hash_toggle_en_passant_target(target_square);
         self.move_info.push_en_passant_target(target_square)
     }
 
@@ -128,7 +136,10 @@ impl Board {
     }
 
     pub fn pop_en_passant_target(&mut self) -> u64 {
-        self.move_info.pop_en_passant_target()
+        let target_square = self.move_info.pop_en_passant_target();
+        self.position_info
+            .update_position_hash_toggle_en_passant_target(target_square);
+        target_square
     }
 
     pub fn preserve_castle_rights(&mut self) -> CastleRightsBitmask {
@@ -136,6 +147,8 @@ impl Board {
     }
 
     pub fn lose_castle_rights(&mut self, lost_rights: CastleRightsBitmask) -> CastleRightsBitmask {
+        self.position_info
+            .update_position_hash_toggle_castling_rights(lost_rights);
         self.move_info.lose_castle_rights(lost_rights)
     }
 
@@ -144,7 +157,10 @@ impl Board {
     }
 
     pub fn pop_castle_rights(&mut self) -> CastleRightsBitmask {
-        self.move_info.pop_castle_rights()
+        let popped_castle_rights = self.move_info.pop_castle_rights();
+        self.position_info
+            .update_position_hash_toggle_castling_rights(popped_castle_rights);
+        popped_castle_rights
     }
 
     pub fn increment_fullmove_clock(&mut self) -> u8 {
@@ -208,14 +224,6 @@ impl Board {
 
     pub fn current_position_hash(&self) -> u64 {
         self.position_info.current_position_hash()
-    }
-
-    pub fn update_position_hash(&mut self) -> u64 {
-        // TODO(codyjk): Replace this with Zobrist hashing
-        let mut s = FxHasher::default();
-        self.hash(&mut s);
-        let hash = s.finish();
-        self.position_info.update_position_hash(hash)
     }
 }
 

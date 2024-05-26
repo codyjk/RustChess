@@ -322,7 +322,6 @@ mod tests {
         board.put(B8, Piece::Queen, Color::White).unwrap();
         board.set_turn(Color::White);
         board.lose_castle_rights(ALL_CASTLE_RIGHTS);
-        board.update_position_hash();
         println!("Testing board:\n{}", board);
 
         let chess_move = searcher.search(&mut board, &mut targets).unwrap();

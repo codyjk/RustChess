@@ -1,5 +1,14 @@
 use rustc_hash::FxHashMap;
 
+use super::{
+    bitboard::EMPTY,
+    color::Color,
+    piece::Piece,
+    zobrist_tables::{
+        ZOBRIST_CASTLING_RIGHTS_TABLE, ZOBRIST_EN_PASSANT_TABLE, ZOBRIST_PIECES_TABLE,
+    },
+};
+
 /// Stores information about state changes related to the current (and previous) positions.
 pub struct PositionInfo {
     position_count: FxHashMap<u64, u8>,
@@ -50,14 +59,68 @@ impl PositionInfo {
         *self.max_seen_position_count_stack.last().unwrap()
     }
 
-    // TODO(codyjk): Replace this with Zobrist hashing
+    pub fn update_position_hash_toggle_piece(&mut self, square: u64, piece: Piece, color: Color) {
+        let square_num = square.trailing_zeros();
+        self.current_position_hash ^=
+            ZOBRIST_PIECES_TABLE[piece as usize][square_num as usize][color as usize];
+    }
+
+    pub fn update_position_hash_toggle_en_passant_target(&mut self, square: u64) {
+        if square == EMPTY {
+            return;
+        }
+        let square_num = square.trailing_zeros();
+        self.current_position_hash ^= ZOBRIST_EN_PASSANT_TABLE[square_num as usize];
+    }
+
+    pub fn update_position_hash_toggle_castling_rights(&mut self, castling_rights: u8) {
+        self.current_position_hash ^= ZOBRIST_CASTLING_RIGHTS_TABLE[castling_rights as usize];
+    }
 
     pub fn current_position_hash(&self) -> u64 {
         self.current_position_hash
     }
+}
 
-    pub fn update_position_hash(&mut self, hash: u64) -> u64 {
-        self.current_position_hash = hash;
-        hash
+#[cfg(test)]
+mod tests {
+    use crate::board::square::ORDERED;
+
+    use super::*;
+
+    #[test]
+    fn test_zobrist_hashing_piece_placement() {
+        let mut position_info = PositionInfo::new();
+        let mut hash = 0;
+        for i in 0..64 {
+            let random_piece = Piece::from_usize(i % 6);
+            position_info.update_position_hash_toggle_piece(1 << i, random_piece, Color::White);
+            hash ^= ZOBRIST_PIECES_TABLE[random_piece as usize][i][Color::White as usize];
+        }
+        assert_eq!(position_info.current_position_hash(), hash);
+    }
+
+    #[test]
+    fn test_zobrist_hashing_en_passant_target() {
+        let mut position_info = PositionInfo::new();
+        let mut hash = 0;
+        // zip with ORDERED to get the correct square for each zobrist number
+        let pairs = ZOBRIST_EN_PASSANT_TABLE.iter().zip(ORDERED.iter());
+        for (zobrist_num, square) in pairs {
+            position_info.update_position_hash_toggle_en_passant_target(*square);
+            hash ^= zobrist_num;
+        }
+        assert_eq!(position_info.current_position_hash(), hash);
+    }
+
+    #[test]
+    fn test_zobrist_hashing_castling_rights() {
+        let mut position_info = PositionInfo::new();
+        let mut hash = 0;
+        for (i, zobrist_num) in ZOBRIST_CASTLING_RIGHTS_TABLE.iter().enumerate() {
+            position_info.update_position_hash_toggle_castling_rights(i as u8);
+            hash ^= zobrist_num;
+        }
+        assert_eq!(position_info.current_position_hash(), hash);
     }
 }
