@@ -17,7 +17,6 @@ use color::Color;
 use error::BoardError;
 use piece::Piece;
 use piece_set::PieceSet;
-use std::hash::Hash;
 
 use self::{castle_rights::CastleRightsBitmask, move_info::MoveInfo, position_info::PositionInfo};
 
@@ -199,15 +198,6 @@ impl Board {
         self.move_info.pop_halfmove_clock()
     }
 
-    pub fn hashable_position_key(&self) -> [u64; 14] {
-        let (a1, b1, c1, d1, e1, f1) = self.black.position_tuple();
-        let (a2, b2, c2, d2, e2, f2) = self.white.position_tuple();
-        let ep = self.peek_en_passant_target();
-        let cr = self.peek_castle_rights() as u64;
-
-        [a1, b1, c1, d1, e1, f1, a2, b2, c2, d2, e2, f2, ep, cr]
-    }
-
     // PositionInfo delegation
 
     pub fn count_current_position(&mut self) -> u8 {
@@ -224,11 +214,5 @@ impl Board {
 
     pub fn current_position_hash(&self) -> u64 {
         self.position_info.current_position_hash()
-    }
-}
-
-impl Hash for Board {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.hashable_position_key().hash(state);
     }
 }

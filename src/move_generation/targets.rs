@@ -1,5 +1,3 @@
-use std::hash::DefaultHasher;
-
 use crate::board::bitboard::{
     A_FILE, B_FILE, EMPTY, G_FILE, H_FILE, RANK_1, RANK_4, RANK_5, RANK_8,
 };
@@ -7,8 +5,8 @@ use crate::board::color::Color;
 use crate::board::piece::Piece;
 use crate::board::square::*;
 use crate::board::Board;
+use log::debug;
 use rustc_hash::FxHashMap;
-use std::hash::{Hash, Hasher};
 
 use super::ray_table::{Direction, RayTable};
 
@@ -345,11 +343,13 @@ pub fn generate_queen_targets(board: &Board, color: Color, targets: &Targets) ->
 }
 
 pub fn generate_attack_targets(board: &Board, color: Color, targets: &mut Targets) -> u64 {
-    let mut hasher = DefaultHasher::new();
-    board.hash(&mut hasher);
-    let board_hash = hasher.finish();
+    let board_hash = board.current_position_hash();
 
     if let Some(cached_targets) = targets.get_cached_attack(color, board_hash) {
+        debug!(
+            "cached attack targets for color {:?}:\n{}",
+            color, cached_targets
+        );
         return cached_targets;
     }
 
