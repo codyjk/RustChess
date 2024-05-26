@@ -93,7 +93,7 @@ impl Board {
 
         if result.is_ok() {
             self.position_info
-                .update_position_hash_toggle_piece(square, piece, color);
+                .update_zobrist_hash_toggle_piece(square, piece, color);
         }
 
         result
@@ -106,7 +106,7 @@ impl Board {
             Color::Black => self.black.remove(square),
         }?;
         self.position_info
-            .update_position_hash_toggle_piece(square, piece, color);
+            .update_zobrist_hash_toggle_piece(square, piece, color);
         Some((piece, color))
     }
 
@@ -126,7 +126,7 @@ impl Board {
 
     pub fn push_en_passant_target(&mut self, target_square: u64) -> u64 {
         self.position_info
-            .update_position_hash_toggle_en_passant_target(target_square);
+            .update_zobrist_hash_toggle_en_passant_target(target_square);
         self.move_info.push_en_passant_target(target_square)
     }
 
@@ -137,7 +137,7 @@ impl Board {
     pub fn pop_en_passant_target(&mut self) -> u64 {
         let target_square = self.move_info.pop_en_passant_target();
         self.position_info
-            .update_position_hash_toggle_en_passant_target(target_square);
+            .update_zobrist_hash_toggle_en_passant_target(target_square);
         target_square
     }
 
@@ -147,7 +147,7 @@ impl Board {
 
     pub fn lose_castle_rights(&mut self, lost_rights: CastleRightsBitmask) -> CastleRightsBitmask {
         self.position_info
-            .update_position_hash_toggle_castling_rights(lost_rights);
+            .update_zobrist_hash_toggle_castling_rights(lost_rights);
         self.move_info.lose_castle_rights(lost_rights)
     }
 
@@ -158,7 +158,7 @@ impl Board {
     pub fn pop_castle_rights(&mut self) -> CastleRightsBitmask {
         let popped_castle_rights = self.move_info.pop_castle_rights();
         self.position_info
-            .update_position_hash_toggle_castling_rights(popped_castle_rights);
+            .update_zobrist_hash_toggle_castling_rights(popped_castle_rights);
         popped_castle_rights
     }
 
@@ -214,5 +214,54 @@ impl Board {
 
     pub fn current_position_hash(&self) -> u64 {
         self.position_info.current_position_hash()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use tests::square::{B8, C4, C6, E2, E4, E5, E7, F1, F3, F6, G1, G8};
+
+    use crate::{castle_kingside, chess_moves, std_move};
+
+    use super::*;
+    use crate::chess_move::standard::StandardChessMove;
+    use crate::chess_move::castle::CastleChessMove;
+    use crate::chess_move::chess_move_collection::ChessMoveCollection;
+
+    #[test]
+    fn test_zobrist_hashing_is_equal_for_transpositions() {
+        let mut board1 = Board::starting_position();
+        let mut board2 = Board::starting_position();
+        assert_eq!(board1.current_position_hash(), board2.current_position_hash());
+
+        let board1_moves = chess_moves![
+            std_move!(E2, E4),
+            std_move!(E7, E5),
+            std_move!(G1, F3),
+            std_move!(B8, C6),
+            std_move!(F1, C4),
+            std_move!(G8, F6),
+            castle_kingside!(Color::White),
+        ];
+
+        let board2_moves = chess_moves![
+            std_move!(G1, F3),
+            std_move!(B8, C6),
+            std_move!(E2, E4),
+            std_move!(E7, E5),
+            std_move!(F1, C4),
+            std_move!(G8, F6),
+            castle_kingside!(Color::White),
+        ];
+
+        for (move1, move2) in board1_moves.iter().zip(board2_moves.iter()) {
+            move1.apply(&mut board1).unwrap();
+            move2.apply(&mut board2).unwrap();
+        }
+        println!("board1:\n{}", board1);
+        println!("board2:\n{}", board2);
+        println!("hash1: {}", board1.current_position_hash());
+        println!("hash2: {}", board2.current_position_hash());
+        assert_eq!(board1.current_position_hash(), board2.current_position_hash());
     }
 }
