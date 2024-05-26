@@ -38,6 +38,10 @@ pub fn game_ending(
         return Some(GameEnding::Draw);
     }
 
+    if board.halfmove_clock() >= 50 {
+        return Some(GameEnding::Draw);
+    }
+
     let candidates = generate_valid_moves(board, current_turn, targets);
     let check = current_player_is_in_check(board, targets);
 

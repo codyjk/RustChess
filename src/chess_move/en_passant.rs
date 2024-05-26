@@ -58,10 +58,10 @@ impl ChessMove for EnPassantChessMove {
             None => return Err(BoardError::EnPassantNonCapture),
         };
 
+        board.reset_halfmove_clock();
+        board.increment_fullmove_clock();
         board.push_en_passant_target(EMPTY);
-
         board.preserve_castle_rights();
-
         board
             .put(*to_square, piece_to_move, color)
             .map(|_| Some(capture))
@@ -95,12 +95,11 @@ impl ChessMove for EnPassantChessMove {
             Color::Black => to_square << 8,
         };
 
-        // return to the previous en passant state
+        // Revert the board state.
+        board.pop_halfmove_clock();
+        board.decrement_fullmove_clock();
         board.pop_en_passant_target();
-
-        // return to the previous castle rights state
         board.pop_castle_rights();
-
         board
             .put(capture_square, Piece::Pawn, piece_color.opposite())
             .map(|_| None)

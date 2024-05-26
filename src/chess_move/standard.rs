@@ -99,9 +99,16 @@ impl ChessMove for StandardChessMove {
             get_lost_castle_rights_if_rook_or_king_moved(piece_to_move, color, *from_square)
                 | get_lost_castle_rights_if_rook_taken(captured_piece, *to_square);
 
+        if captured_piece.is_some() {
+            board.reset_halfmove_clock();
+        } else {
+            board.increment_halfmove_clock();
+        }
+        board.increment_fullmove_clock();
         board.push_en_passant_target(en_passant_target);
         board.lose_castle_rights(lost_castle_rights);
         board.put(*to_square, piece_to_move, color).unwrap();
+
         Ok(captured_piece)
     }
 
@@ -124,6 +131,8 @@ impl ChessMove for StandardChessMove {
         }
 
         // Revert the board state.
+        board.pop_halfmove_clock();
+        board.decrement_fullmove_clock();
         board.pop_en_passant_target();
         board.pop_castle_rights();
         board

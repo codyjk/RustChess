@@ -119,6 +119,8 @@ impl ChessMove for CastleChessMove {
             Color::Black => BLACK_KINGSIDE_RIGHTS | BLACK_QUEENSIDE_RIGHTS,
         };
 
+        board.increment_halfmove_clock();
+        board.increment_fullmove_clock();
         board.push_en_passant_target(EMPTY);
         board.lose_castle_rights(lost_castle_rights);
 
@@ -179,10 +181,10 @@ impl ChessMove for CastleChessMove {
         board.remove(rook_to).unwrap();
         board.put(rook_from, Piece::Rook, color).unwrap();
 
-        // return to the previous en passant state
+        // Revert the board state.
+        board.decrement_fullmove_clock();
+        board.pop_halfmove_clock();
         board.pop_en_passant_target();
-
-        // return to the previous castle rights state
         board.pop_castle_rights();
 
         Ok(None)
