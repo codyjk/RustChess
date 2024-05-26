@@ -1,7 +1,8 @@
+use chess::board::castle_rights::ALL_CASTLE_RIGHTS;
 use chess::board::color::Color;
 use chess::board::piece::Piece;
 use chess::board::square::*;
-use chess::board::{Board, ALL_CASTLE_RIGHTS};
+use chess::board::Board;
 use chess::evaluate::{self, GameEnding};
 use chess::move_generation::targets::Targets;
 use chess::searcher::Searcher;
