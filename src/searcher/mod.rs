@@ -1,7 +1,7 @@
 use crate::board::Board;
 use crate::chess_move::ChessMove;
-use crate::move_generator::generate_valid_moves;
 use crate::move_generator::targets::Targets;
+use crate::move_generator::MoveGenerator;
 use crate::{board::color::Color, evaluate};
 use log::{debug, log_enabled, trace, Level};
 use rustc_hash::FxHashMap;
@@ -39,6 +39,7 @@ impl Searcher {
         &mut self,
         board: &mut Board,
         targets: &mut Targets,
+        move_generator: &mut MoveGenerator,
     ) -> Result<ChessMove, SearchError> {
         self.last_searched_position_count = 0;
         self.last_cache_hit_count = 0;
@@ -47,7 +48,7 @@ impl Searcher {
         debug!("starting `search` depth={}", self.search_depth);
 
         let current_turn = board.turn();
-        let candidates = generate_valid_moves(board, current_turn, targets);
+        let candidates = move_generator.generate_moves(board, current_turn, targets);
 
         if candidates.is_empty() {
             return Err(SearchError::NoAvailableMoves);
@@ -62,6 +63,7 @@ impl Searcher {
                     self.search_depth,
                     board,
                     targets,
+                    move_generator,
                     f32::NEG_INFINITY,
                     f32::INFINITY,
                 );
@@ -95,6 +97,7 @@ impl Searcher {
         depth: u8,
         board: &mut Board,
         targets: &mut Targets,
+        move_generator: &mut MoveGenerator,
         mut alpha: f32,
         beta: f32,
     ) -> f32 {
@@ -109,7 +112,7 @@ impl Searcher {
         );
 
         if depth == 0 {
-            let score = evaluate::score(board, targets, board.turn());
+            let score = evaluate::score(board, targets, move_generator, board.turn());
             trace!(
                 "alpha_beta_max(depth={}, alpha={}, beta={}, position={}) returning score={}",
                 depth,
@@ -134,7 +137,7 @@ impl Searcher {
                 score
             });
 
-        let candidates = generate_valid_moves(board, board.turn(), targets);
+        let candidates = move_generator.generate_moves(board, board.turn(), targets);
 
         for chess_move in candidates.iter() {
             trace!(
@@ -147,7 +150,7 @@ impl Searcher {
             );
             chess_move.apply(board).unwrap();
             board.toggle_turn();
-            let score = self.alpha_beta_min(depth - 1, board, targets, alpha, beta);
+            let score = self.alpha_beta_min(depth - 1, board, targets, move_generator, alpha, beta);
             chess_move.undo(board).unwrap();
             board.toggle_turn();
             trace!("alpha_beta_max(depth={}, alpha={}, beta={}, position={}) evaluated chess_move={} score={}", depth, alpha, beta, board.current_position_hash(), chess_move, score);
@@ -190,6 +193,7 @@ impl Searcher {
         depth: u8,
         board: &mut Board,
         targets: &mut Targets,
+        move_generator: &mut MoveGenerator,
         alpha: f32,
         mut beta: f32,
     ) -> f32 {
@@ -204,7 +208,7 @@ impl Searcher {
         );
 
         if depth == 0 {
-            let score = -1.0 * evaluate::score(board, targets, board.turn());
+            let score = -1.0 * evaluate::score(board, targets, move_generator, board.turn());
             trace!(
                 "alpha_beta_min(depth={}, alpha={}, beta={}, position={}) returning score={}",
                 depth,
@@ -229,7 +233,7 @@ impl Searcher {
                 score
             });
 
-        let candidates = generate_valid_moves(board, board.turn(), targets);
+        let candidates = move_generator.generate_moves(board, board.turn(), targets);
 
         for chess_move in candidates.iter() {
             trace!(
@@ -242,7 +246,7 @@ impl Searcher {
             );
             chess_move.apply(board).unwrap();
             board.toggle_turn();
-            let score = self.alpha_beta_max(depth - 1, board, targets, alpha, beta);
+            let score = self.alpha_beta_max(depth - 1, board, targets, move_generator, alpha, beta);
             chess_move.undo(board).unwrap();
             board.toggle_turn();
             trace!("alpha_beta_min(depth={}, alpha={}, beta={}, position={}) evaluated chess_move={} score={}", depth, alpha, beta, board.current_position_hash(), chess_move, score);
@@ -313,6 +317,7 @@ mod tests {
         let mut board = Board::new();
         let mut targets = Targets::new();
         let mut searcher = Searcher::new(1);
+        let mut move_generator = MoveGenerator::new();
 
         board.put(C2, Piece::King, Color::White).unwrap();
         board.put(A2, Piece::King, Color::Black).unwrap();
@@ -321,7 +326,9 @@ mod tests {
         board.lose_castle_rights(ALL_CASTLE_RIGHTS);
         println!("Testing board:\n{}", board);
 
-        let chess_move = searcher.search(&mut board, &mut targets).unwrap();
+        let chess_move = searcher
+            .search(&mut board, &mut targets, &mut move_generator)
+            .unwrap();
         let valid_checkmates = vec![std_move!(B8, B2), std_move!(B8, A8), std_move!(B8, A7)];
         assert!(
             valid_checkmates.contains(&chess_move),
@@ -335,6 +342,7 @@ mod tests {
         let mut board = Board::new();
         let mut targets = Targets::new();
         let mut searcher = Searcher::new(1);
+        let mut move_generator = MoveGenerator::new();
 
         board.put(C2, Piece::King, Color::Black).unwrap();
         board.put(A2, Piece::King, Color::White).unwrap();
@@ -344,7 +352,9 @@ mod tests {
 
         println!("Testing board:\n{}", board);
 
-        let chess_move = searcher.search(&mut board, &mut targets).unwrap();
+        let chess_move = searcher
+            .search(&mut board, &mut targets, &mut move_generator)
+            .unwrap();
 
         let valid_checkmates = vec![std_move!(B8, B2), std_move!(B8, A8), std_move!(B8, A7)];
         assert!(valid_checkmates.contains(&chess_move));
@@ -355,6 +365,7 @@ mod tests {
         let mut board = Board::new();
         let mut targets = Targets::new();
         let mut searcher = Searcher::new(2);
+        let mut move_generator = MoveGenerator::new();
 
         board.put(A7, Piece::Pawn, Color::Black).unwrap();
         board.put(B7, Piece::Pawn, Color::Black).unwrap();
@@ -376,19 +387,25 @@ mod tests {
         ];
         let mut expected_move_iter = expected_moves.iter();
 
-        let move1 = searcher.search(&mut board, &mut targets).unwrap();
+        let move1 = searcher
+            .search(&mut board, &mut targets, &mut move_generator)
+            .unwrap();
         move1.apply(&mut board).unwrap();
         board.toggle_turn();
         assert_eq!(expected_move_iter.next().unwrap(), &move1);
         println!("Testing board:\n{}", board);
 
-        let move2 = searcher.search(&mut board, &mut targets).unwrap();
+        let move2 = searcher
+            .search(&mut board, &mut targets, &mut move_generator)
+            .unwrap();
         move2.apply(&mut board).unwrap();
         board.toggle_turn();
         assert_eq!(expected_move_iter.next().unwrap(), &move2);
         println!("Testing board:\n{}", board);
 
-        let move3 = searcher.search(&mut board, &mut targets).unwrap();
+        let move3 = searcher
+            .search(&mut board, &mut targets, &mut move_generator)
+            .unwrap();
         move3.apply(&mut board).unwrap();
         board.toggle_turn();
         assert_eq!(expected_move_iter.next().unwrap(), &move3);
@@ -400,6 +417,7 @@ mod tests {
         let mut board = Board::new();
         let mut targets = Targets::new();
         let mut searcher = Searcher::new(3);
+        let mut move_generator = MoveGenerator::new();
 
         board.put(F2, Piece::Pawn, Color::White).unwrap();
         board.put(G2, Piece::Pawn, Color::White).unwrap();
@@ -421,7 +439,9 @@ mod tests {
         ];
         let mut expected_move_iter = expected_moves.iter();
 
-        let move1 = searcher.search(&mut board, &mut targets).unwrap();
+        let move1 = searcher
+            .search(&mut board, &mut targets, &mut move_generator)
+            .unwrap();
         move1.apply(&mut board).unwrap();
         board.toggle_turn();
         assert_eq!(
@@ -431,7 +451,9 @@ mod tests {
         );
         println!("Testing board:\n{}", board);
 
-        let move2 = searcher.search(&mut board, &mut targets).unwrap();
+        let move2 = searcher
+            .search(&mut board, &mut targets, &mut move_generator)
+            .unwrap();
         move2.apply(&mut board).unwrap();
         board.toggle_turn();
         assert_eq!(
@@ -441,7 +463,9 @@ mod tests {
         );
         println!("Testing board:\n{}", board);
 
-        let move3 = searcher.search(&mut board, &mut targets).unwrap();
+        let move3 = searcher
+            .search(&mut board, &mut targets, &mut move_generator)
+            .unwrap();
         move3.apply(&mut board).unwrap();
         board.toggle_turn();
         assert_eq!(

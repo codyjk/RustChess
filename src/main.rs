@@ -2,8 +2,8 @@ use chess::board::color::Color;
 use chess::board::magic::run_find_magic;
 use chess::board::Board;
 use chess::game::modes::{computer_vs_computer, play_computer, player_vs_player};
-use chess::move_generator::count_positions;
 use chess::move_generator::targets::Targets;
+use chess::move_generator::MoveGenerator;
 use log::debug;
 use structopt::StructOpt;
 
@@ -45,10 +45,11 @@ fn main() {
 fn run_count_positions(depth: u8) {
     let depths = 0..=depth;
     let mut targets = Targets::new();
+    let mut move_generator = MoveGenerator::new();
 
     for depth in depths {
         let mut board = Board::starting_position();
-        let count = count_positions(depth, &mut board, &mut targets, Color::White);
+        let count = move_generator.count_positions(depth, &mut board, &mut targets, Color::White);
 
         debug!("depth: {}, positions: {}", depth, count);
     }

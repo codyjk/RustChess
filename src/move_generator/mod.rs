@@ -13,15 +13,67 @@ use crate::chess_move::en_passant::EnPassantChessMove;
 use crate::chess_move::pawn_promotion::PawnPromotionChessMove;
 use crate::chess_move::standard::StandardChessMove;
 use crate::chess_move::ChessMove;
+use rustc_hash::FxHashMap;
 use targets::{PieceTarget, Targets};
 
 pub const PAWN_PROMOTIONS: [Piece; 4] = [Piece::Queen, Piece::Rook, Piece::Bishop, Piece::Knight];
 
-pub fn generate_valid_moves(
-    board: &mut Board,
-    color: Color,
-    targets: &mut Targets,
-) -> Vec<ChessMove> {
+#[derive(Default)]
+pub struct MoveGenerator {
+    // (board, color) -> moves
+    cache: FxHashMap<(u64, u8), Vec<ChessMove>>,
+    hits: usize,
+}
+
+impl MoveGenerator {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn generate_moves(
+        &mut self,
+        board: &mut Board,
+        color: Color,
+        targets: &mut Targets,
+    ) -> Vec<ChessMove> {
+        let key = (board.current_position_hash(), color as u8);
+        if let Some(moves) = self.cache.get(&key) {
+            self.hits += 1;
+            return moves.clone();
+        }
+
+        let moves = generate_valid_moves(board, color, targets);
+        self.cache.insert(key, moves.clone());
+        moves
+    }
+
+    pub fn count_positions(
+        &mut self,
+        depth: u8,
+        board: &mut Board,
+        targets: &mut Targets,
+        color: Color,
+    ) -> usize {
+        let candidates = self.generate_moves(board, color, targets);
+        let mut count = candidates.len();
+
+        if depth == 0 {
+            return count;
+        }
+
+        let next_color = color.opposite();
+
+        for chess_move in candidates.iter() {
+            chess_move.apply(board).unwrap();
+            count += self.count_positions(depth - 1, board, targets, next_color);
+            chess_move.undo(board).unwrap();
+        }
+
+        count
+    }
+}
+
+fn generate_valid_moves(board: &mut Board, color: Color, targets: &mut Targets) -> Vec<ChessMove> {
     let mut moves = Vec::new();
 
     generate_knight_moves(&mut moves, board, color, targets);
@@ -270,25 +322,6 @@ fn remove_invalid_moves(
     }
 
     candidates.append(&mut valid_moves);
-}
-
-pub fn count_positions(depth: u8, board: &mut Board, targets: &mut Targets, color: Color) -> usize {
-    let candidates = generate_valid_moves(board, color, targets);
-    let mut count = candidates.len();
-
-    if depth == 0 {
-        return count;
-    }
-
-    let next_color = color.opposite();
-
-    for chess_move in candidates.iter() {
-        chess_move.apply(board).unwrap();
-        count += count_positions(depth - 1, board, targets, next_color);
-        chess_move.undo(board).unwrap();
-    }
-
-    count
 }
 
 #[cfg(test)]
