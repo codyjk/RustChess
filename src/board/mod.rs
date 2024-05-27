@@ -142,24 +142,30 @@ impl Board {
     }
 
     pub fn preserve_castle_rights(&mut self) -> CastleRightsBitmask {
+        // zobrist does not change
         self.move_info.preserve_castle_rights()
-    }
-
-    pub fn lose_castle_rights(&mut self, lost_rights: CastleRightsBitmask) -> CastleRightsBitmask {
-        self.position_info
-            .update_zobrist_hash_toggle_castling_rights(lost_rights);
-        self.move_info.lose_castle_rights(lost_rights)
     }
 
     pub fn peek_castle_rights(&self) -> u8 {
         self.move_info.peek_castle_rights()
     }
 
-    pub fn pop_castle_rights(&mut self) -> CastleRightsBitmask {
-        let popped_castle_rights = self.move_info.pop_castle_rights();
+    pub fn lose_castle_rights(&mut self, lost_rights: CastleRightsBitmask) -> CastleRightsBitmask {
+        let (old_rights, new_rights) = self.move_info.lose_castle_rights(lost_rights);
         self.position_info
-            .update_zobrist_hash_toggle_castling_rights(popped_castle_rights);
-        popped_castle_rights
+            .update_zobrist_hash_toggle_castling_rights(old_rights);
+        self.position_info
+            .update_zobrist_hash_toggle_castling_rights(new_rights);
+        new_rights
+    }
+
+    pub fn pop_castle_rights(&mut self) -> CastleRightsBitmask {
+        let (old_rights, new_rights) = self.move_info.pop_castle_rights();
+        self.position_info
+            .update_zobrist_hash_toggle_castling_rights(old_rights);
+        self.position_info
+            .update_zobrist_hash_toggle_castling_rights(new_rights);
+        new_rights
     }
 
     pub fn increment_fullmove_clock(&mut self) -> u8 {
@@ -224,15 +230,17 @@ mod tests {
     use crate::{castle_kingside, chess_moves, std_move};
 
     use super::*;
-    use crate::chess_move::standard::StandardChessMove;
     use crate::chess_move::castle::CastleChessMove;
     use crate::chess_move::chess_move_collection::ChessMoveCollection;
+    use crate::chess_move::standard::StandardChessMove;
 
     #[test]
     fn test_zobrist_hashing_is_equal_for_transpositions() {
         let mut board1 = Board::starting_position();
         let mut board2 = Board::starting_position();
-        assert_eq!(board1.current_position_hash(), board2.current_position_hash());
+        let initial_hash_1 = board1.current_position_hash();
+        let initial_hash_2 = board2.current_position_hash();
+        assert_eq!(initial_hash_1, initial_hash_2);
 
         let board1_moves = chess_moves![
             std_move!(E2, E4),
@@ -254,14 +262,58 @@ mod tests {
             castle_kingside!(Color::White),
         ];
 
+        let mut board1_hashes = vec![initial_hash_1];
+        let mut board2_hashes = vec![initial_hash_2];
+
         for (move1, move2) in board1_moves.iter().zip(board2_moves.iter()) {
             move1.apply(&mut board1).unwrap();
             move2.apply(&mut board2).unwrap();
+            board1_hashes.push(board1.current_position_hash());
+            board2_hashes.push(board2.current_position_hash());
         }
-        println!("board1:\n{}", board1);
-        println!("board2:\n{}", board2);
-        println!("hash1: {}", board1.current_position_hash());
-        println!("hash2: {}", board2.current_position_hash());
-        assert_eq!(board1.current_position_hash(), board2.current_position_hash());
+        assert_eq!(
+            board1.current_position_hash(),
+            board2.current_position_hash()
+        );
+
+        // undo the moves and see that we get back to the same position
+        board1_hashes.pop();
+        board2_hashes.pop();
+        for (move1, move2) in board1_moves.iter().rev().zip(board2_moves.iter().rev()) {
+            println!("undoing moves {} and {}", move1, move2);
+            move1.undo(&mut board1).unwrap();
+            move2.undo(&mut board2).unwrap();
+            println!(
+                "hashes: {} and {}",
+                board1.current_position_hash(),
+                board2.current_position_hash()
+            );
+            // compare to the last hash in the vec
+            assert_eq!(
+                board1.current_position_hash(),
+                board1_hashes.pop().unwrap(),
+                "hash 1 should be equal after undoing moves"
+            );
+            assert_eq!(
+                board2.current_position_hash(),
+                board2_hashes.pop().unwrap(),
+                "hash 2 should be equal after undoing moves"
+            );
+        }
+        assert_eq!(
+            board1.current_position_hash(),
+            board2.current_position_hash(),
+            "hashes should be equal after undoing moves"
+        );
+        assert_eq!(
+            initial_hash_1,
+            board1.current_position_hash(),
+            "hashes should be equal to the initial hash"
+        );
+        assert_eq!(
+            initial_hash_2,
+            board2.current_position_hash(),
+            "hashes should be equal to the initial hash"
+        );
     }
 }

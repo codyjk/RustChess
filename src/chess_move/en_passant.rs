@@ -165,4 +165,24 @@ mod tests {
         assert_eq!(Some((Piece::Pawn, Color::Black)), board.get(E4));
         assert_eq!(D3, board.peek_en_passant_target());
     }
+
+    #[test]
+    fn test_zobrist_hashing_reversible_for_en_passant() {
+        let mut board = Board::new();
+        board.put(D2, Piece::Pawn, Color::White).unwrap();
+        board.put(E4, Piece::Pawn, Color::Black).unwrap();
+        let initial_hash = board.current_position_hash();
+
+        let standard_move_revealing_ep = std_move!(D2, D4);
+        standard_move_revealing_ep.apply(&mut board).unwrap();
+        assert_ne!(initial_hash, board.current_position_hash());
+
+        let en_passant = en_passant!(E4, D3);
+        en_passant.apply(&mut board).unwrap();
+        assert_ne!(initial_hash, board.current_position_hash());
+
+        en_passant.undo(&mut board).unwrap();
+        standard_move_revealing_ep.undo(&mut board).unwrap();
+        assert_eq!(initial_hash, board.current_position_hash());
+    }
 }

@@ -307,4 +307,49 @@ mod tests {
         assert_eq!(Some((Piece::King, Color::Black)), board.get(E8));
         assert_eq!(Some((Piece::Rook, Color::Black)), board.get(A8));
     }
+
+    #[test]
+    fn test_zobrist_hashing_reversible_for_castle() {
+        let mut board = Board::new();
+        board.put(E8, Piece::King, Color::Black).unwrap();
+        board.put(A8, Piece::Rook, Color::Black).unwrap();
+        board.put(H8, Piece::Rook, Color::Black).unwrap();
+        let initial_hash = board.current_position_hash();
+
+        let castle = castle_queenside!(Color::Black);
+
+        println!("applying castle queenside");
+        castle.apply(&mut board).unwrap();
+        assert_ne!(
+            initial_hash,
+            board.current_position_hash(),
+            "hash should change after applying queenside castle"
+        );
+
+        println!("undoing castle queenside");
+        castle.undo(&mut board).unwrap();
+        assert_eq!(
+            initial_hash,
+            board.current_position_hash(),
+            "hash should be equal after undoing queenside castle"
+        );
+
+        let castle = castle_kingside!(Color::Black);
+
+        println!("applying castle kingside");
+        castle.apply(&mut board).unwrap();
+        assert_ne!(
+            initial_hash,
+            board.current_position_hash(),
+            "hash should change after applying kingside castle"
+        );
+
+        println!("undoing castle kingside");
+        castle.undo(&mut board).unwrap();
+        assert_eq!(
+            initial_hash,
+            board.current_position_hash(),
+            "hash should be equal after undoing kingside castle"
+        );
+    }
 }

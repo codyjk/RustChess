@@ -1,3 +1,4 @@
+use log::debug;
 use rustc_hash::FxHashMap;
 
 use super::{
@@ -61,8 +62,15 @@ impl PositionInfo {
 
     pub fn update_zobrist_hash_toggle_piece(&mut self, square: u64, piece: Piece, color: Color) {
         let square_num = square.trailing_zeros();
-        self.current_position_hash ^=
-            ZOBRIST_PIECES_TABLE[piece as usize][square_num as usize][color as usize];
+        let piece_hash = ZOBRIST_PIECES_TABLE[piece as usize][square_num as usize][color as usize];
+        let hash_before = self.current_position_hash;
+        self.current_position_hash ^= piece_hash;
+        let hash_after = self.current_position_hash;
+
+        debug!(
+            "toggled piece: {:?} at square: {} for color: {} from hash: {} to hash: {} ({})",
+            piece, square, color, hash_before, hash_after, piece_hash
+        );
     }
 
     pub fn update_zobrist_hash_toggle_en_passant_target(&mut self, square: u64) {
@@ -122,5 +130,23 @@ mod tests {
             hash ^= zobrist_num;
         }
         assert_eq!(position_info.current_position_hash(), hash);
+    }
+
+    #[test]
+    fn test_zobrist_piece_hashing_reversible() {
+        let mut position_info = PositionInfo::new();
+        let mut hash = 0;
+        for i in 0..64 {
+            let random_piece = Piece::from_usize(i % 6);
+            position_info.update_zobrist_hash_toggle_piece(1 << i, random_piece, Color::White);
+            hash ^= ZOBRIST_PIECES_TABLE[random_piece as usize][i][Color::White as usize];
+        }
+        assert_eq!(position_info.current_position_hash(), hash);
+        for i in 0..64 {
+            let random_piece = Piece::from_usize(i % 6);
+            position_info.update_zobrist_hash_toggle_piece(1 << i, random_piece, Color::White);
+            hash ^= ZOBRIST_PIECES_TABLE[random_piece as usize][i][Color::White as usize];
+        }
+        assert_eq!(position_info.current_position_hash(), 0);
     }
 }

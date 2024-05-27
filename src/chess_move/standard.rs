@@ -459,4 +459,18 @@ mod tests {
         assert_eq!(0, board.peek_castle_rights() & BLACK_KINGSIDE_RIGHTS);
         assert_eq!(0, board.peek_castle_rights() & BLACK_QUEENSIDE_RIGHTS);
     }
+
+    #[test]
+    fn test_zobrist_hashing_reversible_for_standard_move() {
+        let mut board = Board::new();
+        board.put(E2, Piece::Pawn, Color::White).unwrap();
+        let initial_hash = board.current_position_hash();
+
+        let chess_move = std_move!(E2, E4);
+        chess_move.apply(&mut board).unwrap();
+        assert_ne!(initial_hash, board.current_position_hash());
+
+        chess_move.undo(&mut board).unwrap();
+        assert_eq!(initial_hash, board.current_position_hash());
+    }
 }

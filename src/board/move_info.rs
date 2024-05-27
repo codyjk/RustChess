@@ -42,27 +42,40 @@ impl MoveInfo {
         self.en_passant_target_stack.pop().unwrap()
     }
 
-    pub fn preserve_castle_rights(&mut self) -> CastleRightsBitmask {
-        let rights = self.peek_castle_rights();
-        self.castle_rights_stack.push(rights);
-        rights
-    }
-
     // Castle rights state management
 
-    pub fn lose_castle_rights(&mut self, lost_rights: CastleRightsBitmask) -> CastleRightsBitmask {
-        let old_rights = self.peek_castle_rights();
-        let new_rights = old_rights ^ (old_rights & lost_rights);
-        self.castle_rights_stack.push(new_rights);
-        new_rights
-    }
-
+    /// Returns the current set of castle rights.
     pub fn peek_castle_rights(&self) -> u8 {
         *self.castle_rights_stack.last().unwrap()
     }
 
-    pub fn pop_castle_rights(&mut self) -> CastleRightsBitmask {
-        self.castle_rights_stack.pop().unwrap()
+    /// Returns the bitmasks of the previous set of castle rights, as well as the
+    /// new set of castle rights after losing the specified rights.
+    /// The new set of rights is pushed onto the stack.
+    pub fn lose_castle_rights(
+        &mut self,
+        lost_rights: CastleRightsBitmask,
+    ) -> (CastleRightsBitmask, CastleRightsBitmask) {
+        let old_rights = self.peek_castle_rights();
+        let new_rights = old_rights ^ (old_rights & lost_rights);
+        self.castle_rights_stack.push(new_rights);
+        (old_rights, new_rights)
+    }
+
+    /// The inverse of `lose_castle_rights`. Pops the last set of castle rights
+    /// off the stack and returns the previous set of rights, as well as the new
+    /// set of rights.
+    pub fn pop_castle_rights(&mut self) -> (CastleRightsBitmask, CastleRightsBitmask) {
+        let old_rights = self.castle_rights_stack.pop().unwrap();
+        let new_rights = self.peek_castle_rights();
+        (old_rights, new_rights)
+    }
+
+    /// Preserves the current castle rights by pushing the current rights onto the stack.
+    pub fn preserve_castle_rights(&mut self) -> CastleRightsBitmask {
+        let rights = self.peek_castle_rights();
+        self.castle_rights_stack.push(rights);
+        rights
     }
 
     // Position clock state management

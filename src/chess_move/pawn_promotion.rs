@@ -166,4 +166,18 @@ mod tests {
         assert_eq!(Some((Piece::Pawn, Color::White)), board.get(A7));
         assert_eq!(Some((Piece::Rook, Color::Black)), board.get(B8));
     }
+
+    #[test]
+    fn test_zobrist_hashing_reversible_for_pawn_promotion() {
+        let mut board = Board::new();
+        board.put(A7, Piece::Pawn, Color::White).unwrap();
+        let initial_hash = board.current_position_hash();
+
+        let promotion = PawnPromotionChessMove::new(A7, A8, None, Piece::Queen);
+        promotion.apply(&mut board).unwrap();
+        assert_ne!(initial_hash, board.current_position_hash());
+
+        promotion.undo(&mut board).unwrap();
+        assert_eq!(initial_hash, board.current_position_hash());
+    }
 }
