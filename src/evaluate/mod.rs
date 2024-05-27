@@ -57,17 +57,23 @@ pub fn game_ending(
 }
 
 pub fn score(board: &mut Board, targets: &mut Targets, current_turn: Color) -> f32 {
-    match (game_ending(board, targets, current_turn), current_turn) {
-        (Some(GameEnding::Checkmate), Color::White) => return f32::INFINITY,
-        (Some(GameEnding::Checkmate), Color::Black) => return f32::NEG_INFINITY,
-        (Some(GameEnding::Stalemate), Color::White) => return f32::NEG_INFINITY,
-        (Some(GameEnding::Stalemate), Color::Black) => return f32::INFINITY,
-        (Some(GameEnding::Draw), Color::White) => return f32::NEG_INFINITY,
-        (Some(GameEnding::Draw), Color::Black) => return f32::INFINITY,
-        _ => (),
-    };
+    // Check for position repetition
+    if board.max_seen_position_count() == 3 {
+        match current_turn {
+            Color::White => return f32::NEG_INFINITY,
+            Color::Black => return f32::INFINITY,
+        }
+    }
 
-    material_score(board, Color::White) - material_score(board, Color::Black)
+    match (game_ending(board, targets, current_turn), current_turn) {
+        (Some(GameEnding::Checkmate), Color::White) => f32::INFINITY,
+        (Some(GameEnding::Checkmate), Color::Black) => f32::NEG_INFINITY,
+        (Some(GameEnding::Stalemate), Color::White) => f32::NEG_INFINITY,
+        (Some(GameEnding::Stalemate), Color::Black) => f32::INFINITY,
+        (Some(GameEnding::Draw), Color::White) => f32::NEG_INFINITY,
+        (Some(GameEnding::Draw), Color::Black) => f32::INFINITY,
+        _ => material_score(board, Color::White) - material_score(board, Color::Black),
+    }
 }
 
 fn material_score(board: &Board, color: Color) -> f32 {
