@@ -4,8 +4,8 @@ use crate::board::color::Color;
 use crate::board::piece::{Piece, ALL_PIECES};
 use crate::board::square::to_algebraic;
 use crate::board::Board;
-use crate::move_generation::generate_valid_moves;
-use crate::move_generation::targets::{self, Targets};
+use crate::move_generator::generate_valid_moves;
+use crate::move_generator::targets::{self, Targets};
 
 use self::piece_values::material_value;
 

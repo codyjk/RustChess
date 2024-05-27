@@ -1,6 +1,6 @@
 use chess::board::Board;
-use chess::move_generation::targets::Targets;
-use chess::{board::color::Color, move_generation::count_positions};
+use chess::move_generator::targets::Targets;
+use chess::{board::color::Color, move_generator::count_positions};
 
 use criterion::{criterion_group, criterion_main, Criterion};
 

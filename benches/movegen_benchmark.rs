@@ -2,8 +2,8 @@ use chess::board::color::Color;
 use chess::board::piece::Piece;
 use chess::board::{square, Board};
 
-use chess::move_generation::generate_rook_moves;
-use chess::move_generation::targets::Targets;
+use chess::move_generator::generate_rook_moves;
+use chess::move_generator::targets::Targets;
 use criterion::{criterion_group, criterion_main, Criterion};
 
 fn criterion_benchmark(c: &mut Criterion) {

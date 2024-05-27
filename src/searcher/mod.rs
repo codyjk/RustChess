@@ -1,7 +1,7 @@
 use crate::board::Board;
 use crate::chess_move::ChessMove;
-use crate::move_generation::generate_valid_moves;
-use crate::move_generation::targets::Targets;
+use crate::move_generator::generate_valid_moves;
+use crate::move_generator::targets::Targets;
 use crate::{board::color::Color, evaluate};
 use log::{debug, log_enabled, trace, Level};
 use rustc_hash::FxHashMap;

@@ -4,7 +4,7 @@ use chess::board::piece::Piece;
 use chess::board::square::{A1, E7, E8, F2, G1, G2, H2, H8};
 use chess::board::Board;
 use chess::evaluate::{self, GameEnding};
-use chess::move_generation::targets::Targets;
+use chess::move_generator::targets::Targets;
 use chess::searcher::Searcher;
 
 use criterion::{criterion_group, criterion_main, Criterion};
