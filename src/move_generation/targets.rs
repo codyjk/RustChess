@@ -406,6 +406,7 @@ mod tests {
     use super::*;
     use crate::chess_move::chess_move_collection::ChessMoveCollection;
     use crate::chess_move::standard::StandardChessMove;
+    use crate::chess_move::ChessMove;
     use crate::{
         board::bitboard::{render_occupied, RANK_3},
         chess_moves, std_move,

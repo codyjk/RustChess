@@ -233,6 +233,7 @@ mod tests {
     use crate::chess_move::castle::CastleChessMove;
     use crate::chess_move::chess_move_collection::ChessMoveCollection;
     use crate::chess_move::standard::StandardChessMove;
+    use crate::chess_move::ChessMove;
 
     #[test]
     fn test_zobrist_hashing_is_equal_for_transpositions() {

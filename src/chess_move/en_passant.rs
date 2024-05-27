@@ -2,9 +2,9 @@ use core::fmt;
 
 use crate::board::{bitboard::EMPTY, color::Color, error::BoardError, piece::Piece, square, Board};
 
-use super::{Capture, ChessMove};
+use super::Capture;
 
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, Eq, PartialOrd, Ord)]
 pub struct EnPassantChessMove {
     from_square: u64,
     to_square: u64,
@@ -17,22 +17,20 @@ impl EnPassantChessMove {
             to_square,
         }
     }
-}
 
-impl ChessMove for EnPassantChessMove {
-    fn to_square(&self) -> u64 {
+    pub fn to_square(&self) -> u64 {
         self.to_square
     }
 
-    fn from_square(&self) -> u64 {
+    pub fn from_square(&self) -> u64 {
         self.from_square
     }
 
-    fn capture(&self) -> Option<Capture> {
+    pub fn capture(&self) -> Option<Capture> {
         None
     }
 
-    fn apply(&self, board: &mut Board) -> Result<Option<Capture>, BoardError> {
+    pub fn apply(&self, board: &mut Board) -> Result<Option<Capture>, BoardError> {
         let EnPassantChessMove {
             from_square,
             to_square,
@@ -67,7 +65,7 @@ impl ChessMove for EnPassantChessMove {
             .map(|_| Some(capture))
     }
 
-    fn undo(&self, board: &mut Board) -> Result<Option<Capture>, BoardError> {
+    pub fn undo(&self, board: &mut Board) -> Result<Option<Capture>, BoardError> {
         let EnPassantChessMove {
             from_square,
             to_square,
@@ -124,9 +122,9 @@ impl fmt::Debug for EnPassantChessMove {
 }
 
 #[macro_export]
-macro_rules! en_passant {
+macro_rules! en_passant_move {
     ($from:expr, $to:expr) => {
-        EnPassantChessMove::new($from, $to)
+        ChessMove::EnPassant(EnPassantChessMove::new($from, $to))
     };
 }
 
@@ -134,6 +132,7 @@ macro_rules! en_passant {
 mod tests {
     use super::*;
     use crate::chess_move::standard::StandardChessMove;
+    use crate::chess_move::ChessMove;
     use crate::{
         board::square::{D2, D3, D4, E4},
         std_move,
@@ -152,7 +151,7 @@ mod tests {
         assert_eq!(Some((Piece::Pawn, Color::White)), board.get(D4));
         assert_eq!(D3, board.peek_en_passant_target());
 
-        let en_passant = en_passant!(E4, D3);
+        let en_passant = en_passant_move!(E4, D3);
         en_passant.apply(&mut board).unwrap();
         println!("After en passant:\n{}", board);
         assert_eq!(Some((Piece::Pawn, Color::Black)), board.get(D3));
@@ -177,7 +176,7 @@ mod tests {
         standard_move_revealing_ep.apply(&mut board).unwrap();
         assert_ne!(initial_hash, board.current_position_hash());
 
-        let en_passant = en_passant!(E4, D3);
+        let en_passant = en_passant_move!(E4, D3);
         en_passant.apply(&mut board).unwrap();
         assert_ne!(initial_hash, board.current_position_hash());
 

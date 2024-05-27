@@ -4,17 +4,15 @@ use super::ChessMove;
 
 #[derive(Default, PartialEq, Debug)]
 pub struct ChessMoveCollection {
-    moves: Vec<Box<dyn ChessMove>>,
+    moves: Vec<ChessMove>,
 }
 
-// Implements a collection of objects that implement the ChessMove interface.dyn
-// This abstracts away the need for Box.
 impl ChessMoveCollection {
     pub fn new() -> Self {
         Default::default()
     }
 
-    pub fn push(&mut self, chess_move: Box<dyn ChessMove>) {
+    pub fn push(&mut self, chess_move: ChessMove) {
         self.moves.push(chess_move);
     }
 
@@ -26,17 +24,17 @@ impl ChessMoveCollection {
         self.moves.append(&mut other.moves);
     }
 
-    pub fn iter(&self) -> Iter<Box<dyn ChessMove>> {
+    pub fn iter(&self) -> Iter<ChessMove> {
         self.moves.iter()
     }
 
-    pub fn drain(&mut self) -> std::vec::Drain<Box<dyn ChessMove>> {
+    pub fn drain(&mut self) -> std::vec::Drain<ChessMove> {
         self.moves.drain(..)
     }
 
     pub fn partition<F>(&mut self, predicate: F) -> (ChessMoveCollection, ChessMoveCollection)
     where
-        F: Fn(&Box<dyn ChessMove>) -> bool,
+        F: Fn(&ChessMove) -> bool,
     {
         let mut true_collection = Self::new();
         let mut false_collection = Self::new();
@@ -58,28 +56,19 @@ impl ChessMoveCollection {
         }
     }
 
-    pub fn remove(&mut self, index: usize) -> Box<dyn ChessMove> {
+    pub fn remove(&mut self, index: usize) -> ChessMove {
         self.moves.remove(index)
     }
 
     pub fn sort(&mut self) {
-        self.moves.sort_by(|a, b| {
-            let from_square_a = a.from_square();
-            let from_square_b = b.from_square();
-
-            if from_square_a == from_square_b {
-                a.to_square().cmp(&b.to_square())
-            } else {
-                from_square_a.cmp(&from_square_b)
-            }
-        });
+        self.moves.sort();
     }
 
     pub fn is_empty(&self) -> bool {
         self.moves.is_empty()
     }
 
-    pub fn contains(&self, chess_move: &Box<dyn ChessMove>) -> bool {
+    pub fn contains(&self, chess_move: &ChessMove) -> bool {
         self.moves.contains(chess_move)
     }
 }
@@ -90,7 +79,7 @@ macro_rules! chess_moves {
         {
             let mut collection = ChessMoveCollection::new();
             $(
-                collection.push(Box::new($t));
+                collection.push($t);
             )*
             collection
         }
@@ -109,8 +98,8 @@ mod tests {
         let mut collection1 = ChessMoveCollection::new();
         let mut collection2 = ChessMoveCollection::new();
 
-        collection1.push(Box::new(std_move!(A2, A3)));
-        collection2.push(Box::new(std_move!(A2, A3)));
+        collection1.push(std_move!(A2, A3));
+        collection2.push(std_move!(A2, A3));
 
         assert_eq!(collection1, collection2);
     }
@@ -120,8 +109,8 @@ mod tests {
         let mut collection1 = ChessMoveCollection::new();
         let mut collection2 = ChessMoveCollection::new();
 
-        collection1.push(Box::new(std_move!(A2, A3)));
-        collection2.push(Box::new(std_move!(A2, A3)));
+        collection1.push(std_move!(A2, A3));
+        collection2.push(std_move!(A2, A3));
 
         collection1.concat(&mut collection2);
 
@@ -132,8 +121,8 @@ mod tests {
     fn test_chess_move_collection_partition() {
         let mut collection = ChessMoveCollection::new();
 
-        collection.push(Box::new(std_move!(A2, A3)));
-        collection.push(Box::new(std_move!(A2, A3)));
+        collection.push(std_move!(A2, A3));
+        collection.push(std_move!(A2, A3));
 
         let (true_collection, false_collection) =
             collection.partition(|chess_move| chess_move.from_square() == A2);
@@ -147,8 +136,8 @@ mod tests {
         let mut collection1 = ChessMoveCollection::new();
         let mut collection2 = ChessMoveCollection::new();
 
-        collection1.push(Box::new(std_move!(A2, A3)));
-        collection2.push(Box::new(std_move!(A2, A3)));
+        collection1.push(std_move!(A2, A3));
+        collection2.push(std_move!(A2, A3));
 
         collection1.append(&mut collection2);
 
@@ -160,8 +149,8 @@ mod tests {
     fn test_chess_move_collection_remove() {
         let mut collection = ChessMoveCollection::new();
 
-        collection.push(Box::new(std_move!(A2, A3)));
-        collection.push(Box::new(std_move!(A2, A3)));
+        collection.push(std_move!(A2, A3));
+        collection.push(std_move!(A2, A3));
 
         collection.remove(0);
 
@@ -172,8 +161,8 @@ mod tests {
     fn test_iter() {
         let mut collection = ChessMoveCollection::new();
 
-        collection.push(Box::new(std_move!(A2, A3)));
-        collection.push(Box::new(std_move!(A2, A3)));
+        collection.push(std_move!(A2, A3));
+        collection.push(std_move!(A2, A3));
 
         for chess_move in collection.iter() {
             println!("{:?}", chess_move);

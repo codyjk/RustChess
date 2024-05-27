@@ -2,9 +2,9 @@ use core::fmt;
 
 use crate::board::{error::BoardError, piece::Piece, square, Board};
 
-use super::{standard::StandardChessMove, Capture, ChessMove};
+use super::{standard::StandardChessMove, Capture};
 
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, Eq, PartialOrd, Ord)]
 pub struct PawnPromotionChessMove {
     from_square: u64,
     to_square: u64,
@@ -26,22 +26,24 @@ impl PawnPromotionChessMove {
             promote_to_piece,
         }
     }
-}
 
-impl ChessMove for PawnPromotionChessMove {
-    fn to_square(&self) -> u64 {
+    pub fn to_square(&self) -> u64 {
         self.to_square
     }
 
-    fn from_square(&self) -> u64 {
+    pub fn from_square(&self) -> u64 {
         self.from_square
     }
 
-    fn capture(&self) -> Option<Capture> {
+    pub fn capture(&self) -> Option<Capture> {
         self.capture
     }
 
-    fn apply(&self, board: &mut Board) -> Result<Option<Capture>, BoardError> {
+    pub fn promote_to_piece(&self) -> Piece {
+        self.promote_to_piece
+    }
+
+    pub fn apply(&self, board: &mut Board) -> Result<Option<Capture>, BoardError> {
         let PawnPromotionChessMove {
             from_square,
             to_square,
@@ -66,7 +68,7 @@ impl ChessMove for PawnPromotionChessMove {
         Ok(capture)
     }
 
-    fn undo(&self, board: &mut Board) -> Result<Option<Capture>, BoardError> {
+    pub fn undo(&self, board: &mut Board) -> Result<Option<Capture>, BoardError> {
         let PawnPromotionChessMove {
             from_square,
             to_square,
@@ -114,7 +116,7 @@ impl fmt::Debug for PawnPromotionChessMove {
 #[macro_export]
 macro_rules! promotion {
     ($from:expr, $to:expr, $capture:expr, $piece:expr) => {
-        PawnPromotionChessMove::new($from, $to, $capture, $piece)
+        ChessMove::PawnPromotion(PawnPromotionChessMove::new($from, $to, $capture, $piece))
     };
 }
 

@@ -13,9 +13,9 @@ use crate::board::{
     Board,
 };
 
-use super::{pawn_promotion::PawnPromotionChessMove, Capture, ChessMove};
+use super::{pawn_promotion::PawnPromotionChessMove, Capture};
 
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, Eq, PartialOrd, Ord)]
 pub struct StandardChessMove {
     from_square: u64,
     to_square: u64,
@@ -31,54 +31,19 @@ impl StandardChessMove {
         }
     }
 
-    // In move generation, we convert standard pawn moves on the final rank
-    // to pawn promotion moves. These are helpers used in the move generation.
-
-    pub fn is_promotable_pawn(&self, board: &Board) -> bool {
-        let pawn_color = match board.get(self.from_square) {
-            Some((Piece::Pawn, color)) => color,
-            _ => return false,
-        };
-        let (from_rank, to_rank) = match pawn_color {
-            Color::White => (self.from_square & RANK_7, self.to_square & RANK_8),
-            Color::Black => (self.from_square & RANK_2, self.to_square & RANK_1),
-        };
-
-        from_rank > 0 && to_rank > 0
-    }
-
-    pub fn to_pawn_promotion(
-        &self,
-        board: &Board,
-        promote_to_piece: Piece,
-    ) -> Result<PawnPromotionChessMove, BoardError> {
-        if !self.is_promotable_pawn(board) {
-            return Err(BoardError::PawnNotPromotable);
-        }
-
-        Ok(PawnPromotionChessMove::new(
-            self.from_square,
-            self.to_square,
-            self.capture,
-            promote_to_piece,
-        ))
-    }
-}
-
-impl ChessMove for StandardChessMove {
-    fn to_square(&self) -> u64 {
+    pub fn to_square(&self) -> u64 {
         self.to_square
     }
 
-    fn from_square(&self) -> u64 {
+    pub fn from_square(&self) -> u64 {
         self.from_square
     }
 
-    fn capture(&self) -> Option<Capture> {
+    pub fn capture(&self) -> Option<Capture> {
         self.capture
     }
 
-    fn apply(&self, board: &mut Board) -> Result<Option<Capture>, BoardError> {
+    pub fn apply(&self, board: &mut Board) -> Result<Option<Capture>, BoardError> {
         let StandardChessMove {
             from_square,
             to_square,
@@ -112,7 +77,7 @@ impl ChessMove for StandardChessMove {
         Ok(captured_piece)
     }
 
-    fn undo(&self, board: &mut Board) -> Result<Option<Capture>, BoardError> {
+    pub fn undo(&self, board: &mut Board) -> Result<Option<Capture>, BoardError> {
         let StandardChessMove {
             from_square,
             to_square,
@@ -139,6 +104,39 @@ impl ChessMove for StandardChessMove {
             .put(*from_square, piece_to_move_back, piece_color)
             .unwrap();
         Ok(None)
+    }
+
+    // In move generation, we convert standard pawn moves on the final rank
+    // to pawn promotion moves. These are helpers used in the move generation.
+
+    pub fn is_promotable_pawn(&self, board: &Board) -> bool {
+        let pawn_color = match board.get(self.from_square) {
+            Some((Piece::Pawn, color)) => color,
+            _ => return false,
+        };
+        let (from_rank, to_rank) = match pawn_color {
+            Color::White => (self.from_square & RANK_7, self.to_square & RANK_8),
+            Color::Black => (self.from_square & RANK_2, self.to_square & RANK_1),
+        };
+
+        from_rank > 0 && to_rank > 0
+    }
+
+    pub fn to_pawn_promotion(
+        &self,
+        board: &Board,
+        promote_to_piece: Piece,
+    ) -> Result<PawnPromotionChessMove, BoardError> {
+        if !self.is_promotable_pawn(board) {
+            return Err(BoardError::PawnNotPromotable);
+        }
+
+        Ok(PawnPromotionChessMove::new(
+            self.from_square,
+            self.to_square,
+            self.capture,
+            promote_to_piece,
+        ))
     }
 }
 
@@ -224,10 +222,10 @@ impl fmt::Debug for StandardChessMove {
 #[macro_export]
 macro_rules! std_move {
     ($from:expr, $to:expr, $capture:expr) => {
-        StandardChessMove::new($from, $to, Some($capture))
+        ChessMove::Standard(StandardChessMove::new($from, $to, Some($capture)))
     };
     ($from:expr, $to:expr) => {
-        StandardChessMove::new($from, $to, None)
+        ChessMove::Standard(StandardChessMove::new($from, $to, None))
     };
 }
 
@@ -236,6 +234,7 @@ mod tests {
     use crate::board::square::{A2, A4, B1, B4, C3, D2, D4, E2, E4, E5, E7, F3, G1, H2};
 
     use super::*;
+    use crate::chess_move::ChessMove;
 
     #[test]
     fn test_apply_chess_move() {

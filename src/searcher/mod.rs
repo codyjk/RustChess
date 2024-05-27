@@ -39,7 +39,7 @@ impl Searcher {
         &mut self,
         board: &mut Board,
         targets: &mut Targets,
-    ) -> Result<Box<dyn ChessMove>, SearchError> {
+    ) -> Result<ChessMove, SearchError> {
         self.last_searched_position_count = 0;
         self.last_cache_hit_count = 0;
         self.last_alpha_beta_termination_count = 0;

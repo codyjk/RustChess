@@ -13,6 +13,7 @@ use crate::chess_move::chess_move_collection::ChessMoveCollection;
 use crate::chess_move::en_passant::EnPassantChessMove;
 use crate::chess_move::pawn_promotion::PawnPromotionChessMove;
 use crate::chess_move::standard::StandardChessMove;
+use crate::chess_move::ChessMove;
 use targets::{PieceTarget, Targets};
 
 pub const PAWN_PROMOTIONS: [Piece; 4] = [Piece::Queen, Piece::Rook, Piece::Bishop, Piece::Knight];
@@ -59,12 +60,9 @@ fn generate_pawn_moves(moves: &mut ChessMoveCollection, board: &Board, color: Co
         let to_square = promotable_pawn_move.to_square();
         let capture = promotable_pawn_move.capture();
         for &promotion in &PAWN_PROMOTIONS {
-            moves.push(Box::new(PawnPromotionChessMove::new(
-                from_square,
-                to_square,
-                capture,
-                promotion,
-            )));
+            let pawn_promotion =
+                PawnPromotionChessMove::new(from_square, to_square, capture, promotion);
+            moves.push(ChessMove::PawnPromotion(pawn_promotion));
         }
     }
     moves.append(&mut standard_pawn_moves);
@@ -95,10 +93,8 @@ fn generate_en_passant_moves(moves: &mut ChessMoveCollection, board: &Board, col
             Color::White => en_passant_target >> 9,
             Color::Black => en_passant_target << 7,
         };
-        moves.push(Box::new(EnPassantChessMove::new(
-            from_square,
-            en_passant_target,
-        )));
+        let en_passant_move = EnPassantChessMove::new(from_square, en_passant_target);
+        moves.push(ChessMove::EnPassant(en_passant_move));
     }
 
     if attacks_east & en_passant_target > 0 {
@@ -106,10 +102,8 @@ fn generate_en_passant_moves(moves: &mut ChessMoveCollection, board: &Board, col
             Color::White => en_passant_target >> 7,
             Color::Black => en_passant_target << 9,
         };
-        moves.push(Box::new(EnPassantChessMove::new(
-            from_square,
-            en_passant_target,
-        )));
+        let en_passant_move = EnPassantChessMove::new(from_square, en_passant_target);
+        moves.push(ChessMove::EnPassant(en_passant_move));
     }
 }
 
@@ -176,7 +170,8 @@ fn expand_piece_targets(
                 .get(target)
                 .map(|piece| (piece, color.opposite()));
 
-            moves.push(Box::new(StandardChessMove::new(piece_sq, target, capture)));
+            let standard_move = StandardChessMove::new(piece_sq, target, capture);
+            moves.push(ChessMove::Standard(standard_move));
         }
     }
 }
@@ -242,7 +237,8 @@ fn generate_castle_moves(
         && kingside_transit_square & occupied == 0
         && kingside_target_square & occupied == 0
     {
-        moves.push(Box::new(CastleChessMove::castle_kingside(color)));
+        let castle_move = CastleChessMove::castle_kingside(color);
+        moves.push(ChessMove::Castle(castle_move));
     }
 
     if queenside_rights > 0
@@ -252,7 +248,8 @@ fn generate_castle_moves(
         && queenside_rook_transit_square & occupied == 0
         && queenside_target_square & occupied == 0
     {
-        moves.push(Box::new(CastleChessMove::castle_queenside(color)));
+        let castle_move = CastleChessMove::castle_queenside(color);
+        moves.push(ChessMove::Castle(castle_move));
     }
 }
 
@@ -303,7 +300,9 @@ pub fn count_positions(depth: u8, board: &mut Board, targets: &mut Targets, colo
 mod tests {
     use super::*;
     use crate::chess_move::ChessMove;
-    use crate::{castle_kingside, castle_queenside, chess_moves, promotion, std_move};
+    use crate::{
+        castle_kingside, castle_queenside, chess_moves, en_passant_move, promotion, std_move,
+    };
 
     #[test]
     fn test_generate_pawn_moves() {
@@ -630,8 +629,7 @@ mod tests {
             .unwrap();
         assert_eq!(C3, board.peek_en_passant_target());
 
-        let mut expected_black_moves =
-            chess_moves![std_move!(D4, D3), EnPassantChessMove::new(D4, C3)];
+        let mut expected_black_moves = chess_moves![std_move!(D4, D3), en_passant_move!(D4, C3)];
         expected_black_moves.sort();
 
         let mut moves = ChessMoveCollection::new();

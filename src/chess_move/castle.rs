@@ -13,9 +13,9 @@ use crate::board::{
     Board,
 };
 
-use super::{Capture, ChessMove};
+use super::Capture;
 
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, Eq, PartialOrd, Ord)]
 pub struct CastleChessMove {
     // The square the king is moving from
     from_square: u64,
@@ -45,22 +45,16 @@ impl CastleChessMove {
             Color::Black => Self::new(square::E8, square::C8),
         }
     }
-}
 
-impl ChessMove for CastleChessMove {
-    fn to_square(&self) -> u64 {
+    pub fn to_square(&self) -> u64 {
         self.to_square
     }
 
-    fn from_square(&self) -> u64 {
+    pub fn from_square(&self) -> u64 {
         self.from_square
     }
 
-    fn capture(&self) -> Option<Capture> {
-        None
-    }
-
-    fn apply(&self, board: &mut Board) -> Result<Option<Capture>, BoardError> {
+    pub fn apply(&self, board: &mut Board) -> Result<Option<Capture>, BoardError> {
         let CastleChessMove {
             from_square: king_from,
             to_square: king_to,
@@ -127,7 +121,7 @@ impl ChessMove for CastleChessMove {
         Ok(None)
     }
 
-    fn undo(&self, board: &mut Board) -> Result<Option<Capture>, BoardError> {
+    pub fn undo(&self, board: &mut Board) -> Result<Option<Capture>, BoardError> {
         let CastleChessMove {
             from_square: king_from,
             to_square: king_to,
@@ -211,14 +205,14 @@ impl fmt::Debug for CastleChessMove {
 #[macro_export]
 macro_rules! castle_kingside {
     ($color:expr) => {
-        CastleChessMove::castle_kingside($color)
+        ChessMove::Castle(CastleChessMove::castle_kingside($color))
     };
 }
 
 #[macro_export]
 macro_rules! castle_queenside {
     ($color:expr) => {
-        CastleChessMove::castle_queenside($color)
+        ChessMove::Castle(CastleChessMove::castle_queenside($color))
     };
 }
 
@@ -227,6 +221,7 @@ mod tests {
     use tests::square::{C1, C8, E1, E8, G1, G8};
 
     use super::*;
+    use crate::chess_move::ChessMove;
 
     #[test]
     fn test_apply_and_undo_castle_white_kingside() {
