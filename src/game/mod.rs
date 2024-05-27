@@ -106,7 +106,7 @@ impl Game {
 
     pub fn make_waterfall_book_then_alpha_beta_move(&mut self) -> Result<BoardMove, GameError> {
         let current_turn = self.board.turn();
-        let line = self.move_history.iter().map(|bm| *bm).collect();
+        let line = self.move_history.to_vec();
         let book_moves = self.book.get_next_moves(line);
 
         if book_moves.is_empty() {
@@ -165,6 +165,18 @@ impl Game {
     pub fn move_generator_cache_hit_count(&self) -> usize {
         self.move_generator.cache_hit_count()
     }
+
+    pub fn move_genereator_cache_entry_count(&self) -> usize {
+        self.move_generator.cache_entry_count()
+    }
+
+    pub fn move_generator_cache_size_in_bytes(&self) -> usize {
+        self.move_generator.cache_size_in_bytes()
+    }
+
+    pub fn reset_move_generator_cache_hit_count(&mut self) {
+        self.move_generator.reset_cache_hit_count();
+    }
 }
 
 #[cfg(test)]
@@ -219,7 +231,7 @@ mod tests {
         let mut game = Game::from_board(board, 0);
         println!("Testing board:\n{}", game.board);
 
-        let first_moves = vec![
+        let first_moves = [
             std_move!(square::A2, square::A3),
             std_move!(square::H8, square::G8),
             std_move!(square::A3, square::A2),
@@ -237,7 +249,7 @@ mod tests {
             Some(GameEnding::Draw)
         );
 
-        let second_moves = vec![
+        let second_moves = [
             std_move!(square::A2, square::A3),
             std_move!(square::H8, square::G8),
             std_move!(square::A3, square::A2),

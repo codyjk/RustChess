@@ -67,12 +67,18 @@ pub fn play_computer(depth: u8, player_color: Color) {
 
                 if game.board.turn() == player_color {
                     println!(
-                        "(positions_searched={}, cache_hits={}, alpha_beta_terminations={}, move_generator_cache_hits={})",
+                        "(positions_searched={}, alpha_beta_cache_hits={}, alpha_beta_terminations={}, move_generator_cache_hits={})",
                         game.searched_position_count(),
                         game.alpha_beta_cache_hit_count(),
                         game.alpha_beta_termination_count(),
                         game.move_generator_cache_hit_count(),
                     );
+                    println!(
+                        "move_generator_cache_entry_count={}, move_generator_cache_size_in_bytes={}",
+                        game.move_genereator_cache_entry_count(),
+                        game.move_generator_cache_size_in_bytes(),
+                    );
+                    game.reset_move_generator_cache_hit_count();
                 }
                 continue;
             }
@@ -134,12 +140,18 @@ pub fn computer_vs_computer(move_limit: u8, sleep_between_turns_in_ms: u64, dept
                 );
 
                 println!(
-                    "(positions_searched={}, cache_hits={}, alpha_beta_terminations={}, move_generator_cache_hits={})",
+                    "(positions_searched={}, alpha_beta_cache_hits={}, alpha_beta_terminations={}, move_generator_cache_hits={})",
                     game.searched_position_count(),
                     game.alpha_beta_cache_hit_count(),
                     game.alpha_beta_termination_count(),
                     game.move_generator_cache_hit_count(),
                 );
+                println!(
+                    "move_generator_cache_entry_count={}, move_generator_cache_size_in_bytes={}",
+                    game.move_genereator_cache_entry_count(),
+                    game.move_generator_cache_size_in_bytes(),
+                );
+                game.reset_move_generator_cache_hit_count();
                 continue;
             }
             Err(error) => {

@@ -34,6 +34,19 @@ impl MoveGenerator {
         self.hit_count
     }
 
+    pub fn cache_entry_count(&self) -> usize {
+        self.cache.len()
+    }
+
+    pub fn cache_size_in_bytes(&self) -> usize {
+        self.cache.len() * std::mem::size_of::<(u64, u8)>()
+            + self.cache.values().map(|v| v.len() * std::mem::size_of::<ChessMove>()).sum::<usize>()
+    }
+
+    pub fn reset_cache_hit_count(&mut self) {
+        self.hit_count = 0;
+    }
+
     pub fn generate_moves(
         &mut self,
         board: &mut Board,
