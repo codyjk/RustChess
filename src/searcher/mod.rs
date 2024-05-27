@@ -3,7 +3,6 @@ use crate::chess_move::ChessMove;
 use crate::move_generator::targets::Targets;
 use crate::move_generator::MoveGenerator;
 use crate::{board::color::Color, evaluate};
-use log::{debug, log_enabled, trace, Level};
 use rustc_hash::FxHashMap;
 use thiserror::Error;
 
@@ -13,9 +12,9 @@ type SearchResult = f32; // best_score
 pub struct Searcher {
     search_depth: u8,
     search_result_cache: FxHashMap<SearchNode, SearchResult>,
-    pub last_searched_position_count: u32,
-    pub last_cache_hit_count: u32,
-    pub last_alpha_beta_termination_count: u32,
+    searched_position_count: usize,
+    cache_hit_count: usize,
+    termination_count: usize,
 }
 
 #[derive(Error, Debug)]
@@ -29,10 +28,22 @@ impl Searcher {
         Self {
             search_depth: depth,
             search_result_cache: FxHashMap::default(),
-            last_searched_position_count: 0,
-            last_cache_hit_count: 0,
-            last_alpha_beta_termination_count: 0,
+            searched_position_count: 0,
+            cache_hit_count: 0,
+            termination_count: 0,
         }
+    }
+
+    pub fn searched_position_count(&self) -> usize {
+        self.searched_position_count
+    }
+
+    pub fn cache_hit_count(&self) -> usize {
+        self.cache_hit_count
+    }
+
+    pub fn termination_count(&self) -> usize {
+        self.termination_count
     }
 
     pub fn search(
@@ -41,11 +52,9 @@ impl Searcher {
         targets: &mut Targets,
         move_generator: &mut MoveGenerator,
     ) -> Result<ChessMove, SearchError> {
-        self.last_searched_position_count = 0;
-        self.last_cache_hit_count = 0;
-        self.last_alpha_beta_termination_count = 0;
-
-        debug!("starting `search` depth={}", self.search_depth);
+        self.searched_position_count = 0;
+        self.cache_hit_count = 0;
+        self.termination_count = 0;
 
         let current_turn = board.turn();
         let candidates = move_generator.generate_moves(board, current_turn, targets);
@@ -80,15 +89,6 @@ impl Searcher {
         results.sort_by(|(_, score_a), (_, score_b)| score_a.partial_cmp(score_b).unwrap());
         results.reverse();
         let (best_move, _) = results.pop().unwrap();
-
-        if log_enabled!(Level::Debug) {
-            debug!("ending `search`. results:");
-            for (score, chess_move) in results {
-                debug!("chess_move={} score={}", chess_move, score);
-            }
-            debug!("best_move={}", best_move);
-        }
-
         Ok(best_move)
     }
 
@@ -101,89 +101,35 @@ impl Searcher {
         mut alpha: f32,
         beta: f32,
     ) -> f32 {
-        self.last_searched_position_count += 1;
-
-        trace!(
-            "alpha_beta_max(depth={}, alpha={}, beta={}, position={}) begin",
-            depth,
-            alpha,
-            beta,
-            board.current_position_hash()
-        );
+        self.searched_position_count += 1;
 
         if depth == 0 {
             let score = evaluate::score(board, targets, move_generator, board.turn());
-            trace!(
-                "alpha_beta_max(depth={}, alpha={}, beta={}, position={}) returning score={}",
-                depth,
-                alpha,
-                beta,
-                board.current_position_hash(),
-                score
-            );
             return score;
         }
 
-        self.check_cache(board.current_position_hash(), depth, board.turn())
-            .map(|score| {
-                trace!(
-                    "alpha_beta_max(depth={}, alpha={}, beta={}, position={}) cached score={}",
-                    depth,
-                    alpha,
-                    beta,
-                    board.current_position_hash(),
-                    score
-                );
-                score
-            });
-
+        self.check_cache(board.current_position_hash(), depth, board.turn());
         let candidates = move_generator.generate_moves(board, board.turn(), targets);
 
         for chess_move in candidates.iter() {
-            trace!(
-                "alpha_beta_max(depth={}, alpha={}, beta={}, position={}) evaluating chess_move={}",
-                depth,
-                alpha,
-                beta,
-                board.current_position_hash(),
-                chess_move
-            );
             chess_move.apply(board).unwrap();
             board.toggle_turn();
             let score = self.alpha_beta_min(depth - 1, board, targets, move_generator, alpha, beta);
             chess_move.undo(board).unwrap();
             board.toggle_turn();
-            trace!("alpha_beta_max(depth={}, alpha={}, beta={}, position={}) evaluated chess_move={} score={}", depth, alpha, beta, board.current_position_hash(), chess_move, score);
 
             if score >= beta {
-                self.last_alpha_beta_termination_count += 1;
-                trace!("alpha_beta_max(depth={}, alpha={}, beta={}, position={}) hard beta cutoff returning score=beta={}", depth, alpha, beta, board.current_position_hash(), beta);
+                self.termination_count += 1;
                 self.set_cache(board.current_position_hash(), depth, board.turn(), beta);
                 return beta;
             }
 
             if score > alpha {
                 alpha = score;
-                trace!(
-                    "alpha_beta_max(depth={}, alpha={}, beta={}, position={}) new alpha={}",
-                    depth,
-                    alpha,
-                    beta,
-                    board.current_position_hash(),
-                    alpha
-                );
             }
         }
 
         self.set_cache(board.current_position_hash(), depth, board.turn(), alpha);
-
-        trace!(
-            "alpha_beta_max(depth={}, alpha={}, beta={}, position={}) end",
-            depth,
-            alpha,
-            beta,
-            board.current_position_hash()
-        );
 
         alpha
     }
@@ -197,90 +143,36 @@ impl Searcher {
         alpha: f32,
         mut beta: f32,
     ) -> f32 {
-        self.last_searched_position_count += 1;
-
-        trace!(
-            "alpha_beta_min(depth={}, alpha={}, beta={}, position={}) begin",
-            depth,
-            alpha,
-            beta,
-            board.current_position_hash()
-        );
+        self.searched_position_count += 1;
 
         if depth == 0 {
             let score = -1.0 * evaluate::score(board, targets, move_generator, board.turn());
-            trace!(
-                "alpha_beta_min(depth={}, alpha={}, beta={}, position={}) returning score={}",
-                depth,
-                alpha,
-                beta,
-                board.current_position_hash(),
-                score
-            );
             return score;
         }
 
-        self.check_cache(board.current_position_hash(), depth, board.turn())
-            .map(|score| {
-                trace!(
-                    "alpha_beta_min(depth={}, alpha={}, beta={}, position={}) cached score={}",
-                    depth,
-                    alpha,
-                    beta,
-                    board.current_position_hash(),
-                    score
-                );
-                score
-            });
-
+        self.check_cache(board.current_position_hash(), depth, board.turn());
         let candidates = move_generator.generate_moves(board, board.turn(), targets);
 
         for chess_move in candidates.iter() {
-            trace!(
-                "alpha_beta_min(depth={}, alpha={}, beta={}, position={}) evaluating chess_move={}",
-                depth,
-                alpha,
-                beta,
-                board.current_position_hash(),
-                chess_move
-            );
             chess_move.apply(board).unwrap();
             board.toggle_turn();
             let score = self.alpha_beta_max(depth - 1, board, targets, move_generator, alpha, beta);
             chess_move.undo(board).unwrap();
             board.toggle_turn();
-            trace!("alpha_beta_min(depth={}, alpha={}, beta={}, position={}) evaluated chess_move={} score={}", depth, alpha, beta, board.current_position_hash(), chess_move, score);
 
             if score <= alpha {
-                self.last_alpha_beta_termination_count += 1;
+                self.termination_count += 1;
                 self.set_cache(board.current_position_hash(), depth, board.turn(), alpha);
-                trace!("alpha_beta_min(depth={}, alpha={}, beta={}, position={}) hard alpha cutoff returning score=alpha={}", depth, alpha, beta, board.current_position_hash(), alpha);
 
                 return alpha;
             }
 
             if score < beta {
                 beta = score;
-                trace!(
-                    "alpha_beta_min(depth={}, alpha={}, beta={}, position={}) new beta={}",
-                    depth,
-                    alpha,
-                    beta,
-                    board.current_position_hash(),
-                    beta
-                );
             }
         }
 
         self.set_cache(board.current_position_hash(), depth, board.turn(), beta);
-
-        trace!(
-            "alpha_beta_min(depth={}, alpha={}, beta={}, position={}) end",
-            depth,
-            alpha,
-            beta,
-            board.current_position_hash()
-        );
 
         beta
     }
@@ -294,7 +186,7 @@ impl Searcher {
         let search_node = (position_hash, depth, current_turn as u8);
         match self.search_result_cache.get(&search_node) {
             Some(&prev_best_score) => {
-                self.last_cache_hit_count += 1;
+                self.cache_hit_count += 1;
                 Some(prev_best_score)
             }
             None => None,

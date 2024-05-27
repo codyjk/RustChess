@@ -150,16 +150,20 @@ impl Game {
         self.board.fullmove_clock()
     }
 
-    pub fn last_searched_position_count(&self) -> u32 {
-        self.searcher.last_searched_position_count
+    pub fn searched_position_count(&self) -> usize {
+        self.searcher.searched_position_count()
     }
 
-    pub fn last_cache_hit_count(&self) -> u32 {
-        self.searcher.last_cache_hit_count
+    pub fn alpha_beta_cache_hit_count(&self) -> usize {
+        self.searcher.cache_hit_count()
     }
 
-    pub fn last_alpha_beta_termination_count(&self) -> u32 {
-        self.searcher.last_alpha_beta_termination_count
+    pub fn alpha_beta_termination_count(&self) -> usize {
+        self.searcher.termination_count()
+    }
+
+    pub fn move_generator_cache_hit_count(&self) -> usize {
+        self.move_generator.cache_hit_count()
     }
 }
 

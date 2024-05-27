@@ -67,10 +67,11 @@ pub fn play_computer(depth: u8, player_color: Color) {
 
                 if game.board.turn() == player_color {
                     println!(
-                        "(positions_searched={}, cache_hits={}, alpha_beta_terminations={})",
-                        game.last_searched_position_count(),
-                        game.last_cache_hit_count(),
-                        game.last_alpha_beta_termination_count(),
+                        "(positions_searched={}, cache_hits={}, alpha_beta_terminations={}, move_generator_cache_hits={})",
+                        game.searched_position_count(),
+                        game.alpha_beta_cache_hit_count(),
+                        game.alpha_beta_termination_count(),
+                        game.move_generator_cache_hit_count(),
                     );
                 }
                 continue;
@@ -133,10 +134,11 @@ pub fn computer_vs_computer(move_limit: u8, sleep_between_turns_in_ms: u64, dept
                 );
 
                 println!(
-                    "(positions_searched={}, cache_hits={}, alpha_beta_terminations={})",
-                    game.last_searched_position_count(),
-                    game.last_cache_hit_count(),
-                    game.last_alpha_beta_termination_count(),
+                    "(positions_searched={}, cache_hits={}, alpha_beta_terminations={}, move_generator_cache_hits={})",
+                    game.searched_position_count(),
+                    game.alpha_beta_cache_hit_count(),
+                    game.alpha_beta_termination_count(),
+                    game.move_generator_cache_hit_count(),
                 );
                 continue;
             }

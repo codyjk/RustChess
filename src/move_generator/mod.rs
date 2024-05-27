@@ -22,12 +22,16 @@ pub const PAWN_PROMOTIONS: [Piece; 4] = [Piece::Queen, Piece::Rook, Piece::Bisho
 pub struct MoveGenerator {
     // (board, color) -> moves
     cache: FxHashMap<(u64, u8), Vec<ChessMove>>,
-    hits: usize,
+    hit_count: usize,
 }
 
 impl MoveGenerator {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn cache_hit_count(&self) -> usize {
+        self.hit_count
     }
 
     pub fn generate_moves(
@@ -38,7 +42,7 @@ impl MoveGenerator {
     ) -> Vec<ChessMove> {
         let key = (board.current_position_hash(), color as u8);
         if let Some(moves) = self.cache.get(&key) {
-            self.hits += 1;
+            self.hit_count += 1;
             return moves.clone();
         }
 
