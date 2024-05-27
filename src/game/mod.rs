@@ -57,14 +57,14 @@ impl Game {
     }
 
     pub fn most_recent_move(&self) -> Option<BoardMove> {
-        self.move_history.iter().last().map(|m| *m)
+        self.move_history.iter().last().copied()
     }
 
     pub fn make_move(&mut self, from_square: u64, to_square: u64) -> Result<BoardMove, GameError> {
         let turn = self.board.turn();
-        let mut candidates = generate_valid_moves(&mut self.board, turn, &mut self.targets);
+        let candidates = generate_valid_moves(&mut self.board, turn, &mut self.targets);
         let chess_move = candidates
-            .drain()
+            .iter()
             .find(|m| m.from_square() == from_square && m.to_square() == to_square)
             .ok_or(GameError::InvalidMove)?;
         match chess_move.apply(&mut self.board) {
@@ -102,10 +102,10 @@ impl Game {
 
         let rng = rand::thread_rng().gen_range(0..book_moves.len());
         let (from_square, to_square) = book_moves[rng];
-        let mut candidates = generate_valid_moves(&mut self.board, current_turn, &mut self.targets);
+        let candidates = generate_valid_moves(&mut self.board, current_turn, &mut self.targets);
 
         let maybe_chess_move = candidates
-            .drain()
+            .iter()
             .find(|m| m.from_square() == from_square && m.to_square() == to_square);
 
         let chess_move = match maybe_chess_move {
@@ -149,10 +149,9 @@ mod tests {
     use crate::board::castle_rights::ALL_CASTLE_RIGHTS;
     use crate::board::piece::Piece;
     use crate::board::square;
-    use crate::chess_move::chess_move_collection::ChessMoveCollection;
     use crate::chess_move::standard::StandardChessMove;
     use crate::chess_move::ChessMove;
-    use crate::{chess_moves, std_move};
+    use crate::std_move;
 
     #[test]
     fn test_score() {
@@ -196,14 +195,14 @@ mod tests {
         let mut game = Game::from_board(board, 0);
         println!("Testing board:\n{}", game.board);
 
-        let mut first_moves = chess_moves![
+        let first_moves = vec![
             std_move!(square::A2, square::A3),
             std_move!(square::H8, square::G8),
             std_move!(square::A3, square::A2),
             std_move!(square::G8, square::H8),
         ];
 
-        for m in first_moves.drain() {
+        for m in first_moves.iter() {
             m.apply(&mut game.board).unwrap();
             game.board.toggle_turn();
         }
@@ -214,14 +213,14 @@ mod tests {
             Some(GameEnding::Draw)
         );
 
-        let mut second_moves = chess_moves![
+        let second_moves = vec![
             std_move!(square::A2, square::A3),
             std_move!(square::H8, square::G8),
             std_move!(square::A3, square::A2),
             std_move!(square::G8, square::H8),
         ];
 
-        for m in second_moves.drain() {
+        for m in second_moves.iter() {
             m.apply(&mut game.board).unwrap();
             game.board.toggle_turn();
         }

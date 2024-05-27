@@ -47,7 +47,7 @@ impl Searcher {
         debug!("starting `search` depth={}", self.search_depth);
 
         let current_turn = board.turn();
-        let mut candidates = generate_valid_moves(board, current_turn, targets);
+        let candidates = generate_valid_moves(board, current_turn, targets);
 
         if candidates.is_empty() {
             return Err(SearchError::NoAvailableMoves);
@@ -71,11 +71,10 @@ impl Searcher {
             })
             .collect();
 
-        // Drain so all of the candidates are moved out of the vector.
-        let mut results = candidates.drain().zip(scores.iter()).collect::<Vec<_>>();
-
-        // Sort worst to best, then pop the best move so that we have the instance here.
-        // No copying during the entire move generation and search process.
+        let mut results = candidates
+            .into_iter()
+            .zip(scores.iter())
+            .collect::<Vec<_>>();
         results.sort_by(|(_, score_a), (_, score_b)| score_a.partial_cmp(score_b).unwrap());
         results.reverse();
         let (best_move, _) = results.pop().unwrap();
@@ -306,9 +305,7 @@ mod tests {
     use crate::board::color::Color;
     use crate::board::piece::Piece;
     use crate::board::square::*;
-    use crate::chess_move::chess_move_collection::ChessMoveCollection;
     use crate::chess_move::standard::StandardChessMove;
-    use crate::chess_moves;
     use crate::std_move;
 
     #[test]
@@ -325,8 +322,7 @@ mod tests {
         println!("Testing board:\n{}", board);
 
         let chess_move = searcher.search(&mut board, &mut targets).unwrap();
-        let valid_checkmates =
-            chess_moves![std_move!(B8, B2), std_move!(B8, A8), std_move!(B8, A7),];
+        let valid_checkmates = vec![std_move!(B8, B2), std_move!(B8, A8), std_move!(B8, A7)];
         assert!(
             valid_checkmates.contains(&chess_move),
             "{} does not leed to checkmate",
@@ -350,8 +346,7 @@ mod tests {
 
         let chess_move = searcher.search(&mut board, &mut targets).unwrap();
 
-        let valid_checkmates =
-            chess_moves![std_move!(B8, B2), std_move!(B8, A8), std_move!(B8, A7),];
+        let valid_checkmates = vec![std_move!(B8, B2), std_move!(B8, A8), std_move!(B8, A7)];
         assert!(valid_checkmates.contains(&chess_move));
     }
 
@@ -374,7 +369,7 @@ mod tests {
 
         println!("Testing board:\n{}", board);
 
-        let expected_moves = chess_moves![
+        let expected_moves = vec![
             std_move!(D2, D8),
             std_move!(H8, D8, (Piece::Queen, Color::White)),
             std_move!(D1, D8, (Piece::Rook, Color::Black)),
@@ -419,7 +414,7 @@ mod tests {
 
         println!("Testing board:\n{}", board);
 
-        let expected_moves = chess_moves![
+        let expected_moves = vec![
             std_move!(E7, E1),
             std_move!(A1, E1, (Piece::Queen, Color::Black)),
             std_move!(E8, E1, (Piece::Rook, Color::White)),

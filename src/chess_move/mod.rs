@@ -8,7 +8,6 @@ use self::{
 };
 
 pub mod castle;
-pub mod chess_move_collection;
 pub mod en_passant;
 pub mod pawn_promotion;
 pub mod standard;

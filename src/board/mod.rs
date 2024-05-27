@@ -227,11 +227,10 @@ impl Board {
 mod tests {
     use tests::square::{B8, C4, C6, E2, E4, E5, E7, F1, F3, F6, G1, G8};
 
-    use crate::{castle_kingside, chess_moves, std_move};
+    use crate::{castle_kingside, std_move};
 
     use super::*;
     use crate::chess_move::castle::CastleChessMove;
-    use crate::chess_move::chess_move_collection::ChessMoveCollection;
     use crate::chess_move::standard::StandardChessMove;
     use crate::chess_move::ChessMove;
 
@@ -243,7 +242,7 @@ mod tests {
         let initial_hash_2 = board2.current_position_hash();
         assert_eq!(initial_hash_1, initial_hash_2);
 
-        let board1_moves = chess_moves![
+        let board1_moves = vec![
             std_move!(E2, E4),
             std_move!(E7, E5),
             std_move!(G1, F3),
@@ -253,7 +252,7 @@ mod tests {
             castle_kingside!(Color::White),
         ];
 
-        let board2_moves = chess_moves![
+        let board2_moves = vec![
             std_move!(G1, F3),
             std_move!(B8, C6),
             std_move!(E2, E4),
