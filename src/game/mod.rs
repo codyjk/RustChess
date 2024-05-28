@@ -126,7 +126,7 @@ impl Game {
         }
     }
 
-    pub fn score(&mut self, current_turn: Color) -> f32 {
+    pub fn score(&mut self, current_turn: Color) -> i16 {
         evaluate::score(&mut self.board, &mut self.move_generator, current_turn)
     }
 

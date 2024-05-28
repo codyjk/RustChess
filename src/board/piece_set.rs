@@ -67,15 +67,4 @@ impl PieceSet {
 
         removed
     }
-
-    pub fn position_tuple(&self) -> (u64, u64, u64, u64, u64, u64) {
-        (
-            self.bitboards[Piece::Bishop as usize],
-            self.bitboards[Piece::King as usize],
-            self.bitboards[Piece::Knight as usize],
-            self.bitboards[Piece::Pawn as usize],
-            self.bitboards[Piece::Queen as usize],
-            self.bitboards[Piece::Rook as usize],
-        )
-    }
 }

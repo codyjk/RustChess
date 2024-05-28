@@ -6,7 +6,7 @@ use rustc_hash::FxHashMap;
 use thiserror::Error;
 
 type SearchNode = (u64, u8, u8); // (board_hash, depth, current_turn)
-type SearchResult = f32; // best_score
+type SearchResult = i16; // best_score
 
 pub struct Searcher {
     search_depth: u8,
@@ -61,7 +61,7 @@ impl Searcher {
             return Err(SearchError::NoAvailableMoves);
         }
 
-        let scores: Vec<f32> = candidates
+        let scores: Vec<i16> = candidates
             .iter()
             .map(|chess_move| {
                 chess_move.apply(board).unwrap();
@@ -70,8 +70,8 @@ impl Searcher {
                     self.search_depth,
                     board,
                     move_generator,
-                    f32::NEG_INFINITY,
-                    f32::INFINITY,
+                    i16::MIN,
+                    i16::MAX,
                 );
                 chess_move.undo(board).unwrap();
                 board.toggle_turn();
@@ -94,9 +94,9 @@ impl Searcher {
         depth: u8,
         board: &mut Board,
         move_generator: &mut MoveGenerator,
-        mut alpha: f32,
-        beta: f32,
-    ) -> f32 {
+        mut alpha: i16,
+        beta: i16,
+    ) -> i16 {
         self.searched_position_count += 1;
 
         if depth == 0 {
@@ -135,13 +135,13 @@ impl Searcher {
         depth: u8,
         board: &mut Board,
         move_generator: &mut MoveGenerator,
-        alpha: f32,
-        mut beta: f32,
-    ) -> f32 {
+        alpha: i16,
+        mut beta: i16,
+    ) -> i16 {
         self.searched_position_count += 1;
 
         if depth == 0 {
-            let score = -1.0 * evaluate::score(board, move_generator, board.turn());
+            let score = -evaluate::score(board, move_generator, board.turn());
             return score;
         }
 
@@ -172,12 +172,12 @@ impl Searcher {
         beta
     }
 
-    fn set_cache(&mut self, position_hash: u64, depth: u8, current_turn: Color, score: f32) {
+    fn set_cache(&mut self, position_hash: u64, depth: u8, current_turn: Color, score: i16) {
         let search_node = (position_hash, depth, current_turn as u8);
         self.search_result_cache.insert(search_node, score);
     }
 
-    fn check_cache(&mut self, position_hash: u64, depth: u8, current_turn: Color) -> Option<f32> {
+    fn check_cache(&mut self, position_hash: u64, depth: u8, current_turn: Color) -> Option<i16> {
         let search_node = (position_hash, depth, current_turn as u8);
         match self.search_result_cache.get(&search_node) {
             Some(&prev_best_score) => {

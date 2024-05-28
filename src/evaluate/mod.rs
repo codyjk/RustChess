@@ -4,12 +4,14 @@ use crate::board::color::Color;
 use crate::board::piece::{Piece, ALL_PIECES};
 use crate::board::square::to_algebraic;
 use crate::board::Board;
+use crate::evaluate::evaluation_tables::BONUS_TABLES;
 use crate::move_generator::MoveGenerator;
 
-use self::piece_values::material_value;
+use self::evaluation_tables::{
+    MATERIAL_VALUES, SQUARE_TO_BLACK_BONUS_INDEX, SQUARE_TO_WHITE_BONUS_INDEX,
+};
 
-mod bonus_tables;
-mod piece_values;
+mod evaluation_tables;
 
 #[derive(Debug)]
 pub enum GameEnding {
@@ -53,12 +55,12 @@ pub fn game_ending(
     None
 }
 
-pub fn score(board: &mut Board, move_generator: &mut MoveGenerator, current_turn: Color) -> f32 {
+pub fn score(board: &mut Board, move_generator: &mut MoveGenerator, current_turn: Color) -> i16 {
     // Check for position repetition
     if board.max_seen_position_count() == 3 {
         match current_turn {
-            Color::White => return f32::NEG_INFINITY,
-            Color::Black => return f32::INFINITY,
+            Color::White => return i16::MIN,
+            Color::Black => return i16::MAX,
         }
     }
 
@@ -66,48 +68,44 @@ pub fn score(board: &mut Board, move_generator: &mut MoveGenerator, current_turn
         game_ending(board, move_generator, current_turn),
         current_turn,
     ) {
-        (Some(GameEnding::Checkmate), Color::White) => f32::INFINITY,
-        (Some(GameEnding::Checkmate), Color::Black) => f32::NEG_INFINITY,
-        (Some(GameEnding::Stalemate), Color::White) => f32::NEG_INFINITY,
-        (Some(GameEnding::Stalemate), Color::Black) => f32::INFINITY,
-        (Some(GameEnding::Draw), Color::White) => f32::NEG_INFINITY,
-        (Some(GameEnding::Draw), Color::Black) => f32::INFINITY,
+        (Some(GameEnding::Checkmate), Color::White) => i16::MAX,
+        (Some(GameEnding::Checkmate), Color::Black) => i16::MIN,
+        (Some(GameEnding::Stalemate), Color::White) => i16::MIN,
+        (Some(GameEnding::Stalemate), Color::Black) => i16::MAX,
+        (Some(GameEnding::Draw), Color::White) => i16::MIN,
+        (Some(GameEnding::Draw), Color::Black) => i16::MAX,
         _ => material_score(board, Color::White) - material_score(board, Color::Black),
     }
 }
 
-fn material_score(board: &Board, color: Color) -> f32 {
-    let mut material = 0.;
+fn material_score(board: &Board, color: Color) -> i16 {
+    let mut material = 0;
     let pieces = board.pieces(color);
+    let index_lookup = match color {
+        Color::White => SQUARE_TO_WHITE_BONUS_INDEX,
+        Color::Black => SQUARE_TO_BLACK_BONUS_INDEX,
+    };
+    let is_endgame = is_endgame(board) as usize;
 
     for &piece in &ALL_PIECES {
-        let bonuses = bonus_tables::get(piece);
         let squares = pieces.locate(piece);
-        let piece_value = f32::from(material_value(piece));
+        let piece_value = MATERIAL_VALUES[piece as usize];
 
         for i in 0..64 {
             let sq = 1 << i;
-
             if sq & squares == 0 {
                 continue;
             }
 
-            // need to flip around the bonuses if calculating for black
-            let bonus_i = match color {
-                Color::White => i,
-                Color::Black => {
-                    let rank = i / 8;
-                    let file = i % 8;
-                    (7 - file) + ((7 - rank) * 8)
-                }
-            };
+            let bonus_table = BONUS_TABLES[piece as usize][is_endgame];
+            let bonus = bonus_table[index_lookup[i]];
 
-            material += piece_value + bonuses[bonus_i];
+            material += piece_value + bonus;
 
             let square_name = to_algebraic(sq);
             debug!(
                 "{} at {} has value {} + bonus {} (total {})",
-                piece, square_name, piece_value, bonuses[bonus_i], material
+                piece, square_name, piece_value, bonus, material
             );
         }
     }
@@ -115,12 +113,35 @@ fn material_score(board: &Board, color: Color) -> f32 {
     material
 }
 
+/// 1. Both sides have no queens or
+/// 2. Every side which has a queen has additionally no other pieces or one minorpiece maximum.
+fn is_endgame(board: &Board) -> bool {
+    let white_queen = board.pieces(Color::White).locate(Piece::Queen);
+    let black_queen = board.pieces(Color::Black).locate(Piece::Queen);
+    let white_king = board.pieces(Color::White).locate(Piece::King);
+    let black_king = board.pieces(Color::Black).locate(Piece::King);
+
+    let white_non_queen_pieces = board.pieces(Color::White).occupied() & !white_queen & !white_king;
+    let black_non_queen_pieces = board.pieces(Color::Black).occupied() & !black_queen & !black_king;
+    let white_minor_pieces = white_non_queen_pieces & !white_king;
+    let black_minor_pieces = black_non_queen_pieces & !black_king;
+
+    let both_sides_have_no_queens = white_queen == 0 && black_queen == 0;
+    let white_has_no_queen_or_one_minor_piece =
+        white_queen == 0 && white_minor_pieces.count_ones() <= 1;
+    let black_has_no_queen_or_one_minor_piece =
+        black_queen == 0 && black_minor_pieces.count_ones() <= 1;
+
+    both_sides_have_no_queens
+        || (white_has_no_queen_or_one_minor_piece && black_has_no_queen_or_one_minor_piece)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::board::{
         castle_rights::ALL_CASTLE_RIGHTS,
-        square::{A1, H7, H8},
+        square::{A1, B2, D5, H2, H7, H8},
         Board,
     };
 
@@ -130,10 +151,10 @@ mod tests {
         println!("Testing board:\n{}", board);
 
         let white_score = material_score(&board, Color::White);
-        assert_eq!(white_score, 100.0);
+        assert_eq!(white_score, 23905);
 
         let black_score = material_score(&board, Color::Black);
-        assert_eq!(black_score, 100.0);
+        assert_eq!(black_score, 23905);
     }
 
     #[test]
@@ -165,5 +186,59 @@ mod tests {
 
         let ending = game_ending(&mut board, &mut move_generator, Color::Black);
         matches!(ending, Some(GameEnding::Checkmate));
+    }
+
+    #[test]
+    fn test_is_endgame_one_minor_piece() {
+        let mut board = Board::new();
+        board.put(A1, Piece::King, Color::White).unwrap();
+        board.put(H8, Piece::King, Color::Black).unwrap();
+        board.put(D5, Piece::Queen, Color::Black).unwrap();
+        board.put(H7, Piece::Bishop, Color::Black).unwrap();
+        println!("Testing board:\n{}", board);
+
+        assert!(!is_endgame(&board));
+
+        board.remove(D5);
+        println!("Testing board:\n{}", board);
+        assert!(is_endgame(&board));
+    }
+
+    #[test]
+    fn test_is_endgame_both_sides_no_queens() {
+        let mut board = Board::new();
+        board.put(A1, Piece::King, Color::White).unwrap();
+        board.put(H8, Piece::King, Color::Black).unwrap();
+        board.put(H7, Piece::Queen, Color::Black).unwrap();
+        board.put(D5, Piece::Bishop, Color::Black).unwrap();
+        board.put(B2, Piece::Queen, Color::White).unwrap();
+        println!("Testing board:\n{}", board);
+
+        assert!(!is_endgame(&board));
+
+        board.remove(H7);
+        board.remove(B2);
+        println!("Testing board:\n{}", board);
+        assert!(is_endgame(&board));
+    }
+
+    #[test]
+    fn test_starting_position_is_not_endgame() {
+        let board = Board::starting_position();
+        assert!(!is_endgame(&board));
+    }
+
+    #[test]
+    fn test_pawn_material_bonus_on_final_rank() {
+        let mut board = Board::new();
+        board.put(H7, Piece::Pawn, Color::White).unwrap();
+        board.put(H2, Piece::Pawn, Color::Black).unwrap();
+        println!("Testing board:\n{}", board);
+
+        let white_score = material_score(&board, Color::White);
+        assert_eq!(white_score, 150);
+
+        let black_score = material_score(&board, Color::Black);
+        assert_eq!(black_score, 150);
     }
 }
