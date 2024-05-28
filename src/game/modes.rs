@@ -1,6 +1,5 @@
 use super::{Game, GameEnding};
 use crate::board::color::Color;
-use crate::board::square;
 use crate::game::command::{Command, MakeWaterfallMove};
 use crate::input_handler;
 use std::thread::sleep;

@@ -1,11 +1,11 @@
 use crate::board::Board;
 use crate::chess_move::ChessMove;
+use crate::evaluate;
 use crate::move_generator::MoveGenerator;
-use crate::{board::color::Color, evaluate};
 use rustc_hash::FxHashMap;
 use thiserror::Error;
 
-type SearchNode = (u64, u8, u8); // (board_hash, depth, current_turn)
+type SearchNode = (u64, i16, i16); // position_hash, alpha, beta
 type SearchResult = i16; // best_score
 
 pub struct Searcher {
@@ -104,19 +104,22 @@ impl Searcher {
             return score;
         }
 
-        self.check_cache(board.current_position_hash(), depth, board.turn());
+        if let Some(cached_score) = self.check_cache(board.current_position_hash(), alpha, beta) {
+            return cached_score;
+        }
         let candidates = move_generator.generate_moves(board, board.turn());
 
         for chess_move in candidates.iter() {
             chess_move.apply(board).unwrap();
             board.toggle_turn();
             let score = self.alpha_beta_min(depth - 1, board, move_generator, alpha, beta);
+            let board_hash = board.current_position_hash();
             chess_move.undo(board).unwrap();
             board.toggle_turn();
 
             if score >= beta {
                 self.termination_count += 1;
-                self.set_cache(board.current_position_hash(), depth, board.turn(), beta);
+                self.set_cache(board_hash, alpha, beta, score);
                 return beta;
             }
 
@@ -124,8 +127,6 @@ impl Searcher {
                 alpha = score;
             }
         }
-
-        self.set_cache(board.current_position_hash(), depth, board.turn(), alpha);
 
         alpha
     }
@@ -145,20 +146,22 @@ impl Searcher {
             return score;
         }
 
-        self.check_cache(board.current_position_hash(), depth, board.turn());
+        if let Some(cached_score) = self.check_cache(board.current_position_hash(), alpha, beta) {
+            return cached_score;
+        }
         let candidates = move_generator.generate_moves(board, board.turn());
 
         for chess_move in candidates.iter() {
             chess_move.apply(board).unwrap();
             board.toggle_turn();
             let score = self.alpha_beta_max(depth - 1, board, move_generator, alpha, beta);
+            let board_hash = board.current_position_hash();
             chess_move.undo(board).unwrap();
             board.toggle_turn();
 
             if score <= alpha {
                 self.termination_count += 1;
-                self.set_cache(board.current_position_hash(), depth, board.turn(), alpha);
-
+                self.set_cache(board_hash, alpha, beta, score);
                 return alpha;
             }
 
@@ -167,18 +170,16 @@ impl Searcher {
             }
         }
 
-        self.set_cache(board.current_position_hash(), depth, board.turn(), beta);
-
         beta
     }
 
-    fn set_cache(&mut self, position_hash: u64, depth: u8, current_turn: Color, score: i16) {
-        let search_node = (position_hash, depth, current_turn as u8);
+    fn set_cache(&mut self, position_hash: u64, alpha: i16, beta: i16, score: i16) {
+        let search_node = (position_hash, alpha, beta);
         self.search_result_cache.insert(search_node, score);
     }
 
-    fn check_cache(&mut self, position_hash: u64, depth: u8, current_turn: Color) -> Option<i16> {
-        let search_node = (position_hash, depth, current_turn as u8);
+    fn check_cache(&mut self, position_hash: u64, alpha: i16, beta: i16) -> Option<i16> {
+        let search_node = (position_hash, alpha, beta);
         match self.search_result_cache.get(&search_node) {
             Some(&prev_best_score) => {
                 self.cache_hit_count += 1;
@@ -213,7 +214,7 @@ mod tests {
         println!("Testing board:\n{}", board);
 
         let chess_move = searcher.search(&mut board, &mut move_generator).unwrap();
-        let valid_checkmates = vec![std_move!(B8, B2), std_move!(B8, A8), std_move!(B8, A7)];
+        let valid_checkmates = [std_move!(B8, B2), std_move!(B8, A8), std_move!(B8, A7)];
         assert!(
             valid_checkmates.contains(&chess_move),
             "{} does not leed to checkmate",
@@ -237,7 +238,7 @@ mod tests {
 
         let chess_move = searcher.search(&mut board, &mut move_generator).unwrap();
 
-        let valid_checkmates = vec![std_move!(B8, B2), std_move!(B8, A8), std_move!(B8, A7)];
+        let valid_checkmates = [std_move!(B8, B2), std_move!(B8, A8), std_move!(B8, A7)];
         assert!(valid_checkmates.contains(&chess_move));
     }
 
@@ -260,7 +261,7 @@ mod tests {
 
         println!("Testing board:\n{}", board);
 
-        let expected_moves = vec![
+        let expected_moves = [
             std_move!(D2, D8),
             std_move!(H8, D8, (Piece::Queen, Color::White)),
             std_move!(D1, D8, (Piece::Rook, Color::Black)),
@@ -305,7 +306,7 @@ mod tests {
 
         println!("Testing board:\n{}", board);
 
-        let expected_moves = vec![
+        let expected_moves = [
             std_move!(E7, E1),
             std_move!(A1, E1, (Piece::Queen, Color::Black)),
             std_move!(E8, E1, (Piece::Rook, Color::White)),
