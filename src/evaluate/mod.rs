@@ -4,7 +4,7 @@ use crate::board::color::Color;
 use crate::board::piece::{Piece, ALL_PIECES};
 use crate::board::square::to_algebraic;
 use crate::board::Board;
-use crate::move_generator::targets::{self, Targets};
+use crate::move_generator::targets::Targets;
 use crate::move_generator::MoveGenerator;
 
 use self::piece_values::material_value;
@@ -22,9 +22,7 @@ pub enum GameEnding {
 fn current_player_is_in_check(board: &Board, targets: &mut Targets) -> bool {
     let current_player = board.turn();
     let king = board.pieces(current_player).locate(Piece::King);
-
-    let attacked_squares =
-        targets::generate_attack_targets(board, current_player.opposite(), targets);
+    let attacked_squares = targets.generate_attack_targets(board, current_player.opposite());
 
     king & attacked_squares > 0
 }

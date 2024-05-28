@@ -16,6 +16,8 @@ use crate::chess_move::ChessMove;
 use rustc_hash::FxHashMap;
 use targets::{PieceTarget, Targets};
 
+use self::targets::generate_pawn_targets;
+
 pub const PAWN_PROMOTIONS: [Piece; 4] = [Piece::Queen, Piece::Rook, Piece::Bishop, Piece::Knight];
 
 #[derive(Default)]
@@ -114,7 +116,7 @@ fn generate_pawn_moves(moves: &mut Vec<ChessMove>, board: &Board, color: Color) 
     // that pawns can either move or capture. to get promotions, we will apply
     // some special logic to find the targets that are at the end of the board,
     // and then expand those targets into the candidate promotion pieces.
-    let piece_targets = targets::generate_pawn_targets(board, color);
+    let piece_targets = generate_pawn_targets(board, color);
     let mut all_pawn_moves = Vec::new();
     expand_piece_targets(&mut all_pawn_moves, board, color, piece_targets);
 
@@ -190,7 +192,7 @@ fn generate_knight_moves(
         moves,
         board,
         color,
-        targets::generate_piece_targets(board, color, Piece::Knight, targets),
+        targets.generate_targets_from_precomputed_tables(board, color, Piece::Knight),
     )
 }
 
@@ -200,7 +202,7 @@ pub fn generate_rook_moves(
     color: Color,
     targets: &Targets,
 ) {
-    let piece_targets = targets::generate_rook_targets(board, color, targets);
+    let piece_targets = targets.generate_rook_targets(board, color);
     expand_piece_targets(moves, board, color, piece_targets)
 }
 
@@ -210,7 +212,7 @@ fn generate_bishop_moves(
     color: Color,
     targets: &Targets,
 ) {
-    let piece_targets = targets::generate_bishop_targets(board, color, targets);
+    let piece_targets = targets.generate_bishop_targets(board, color);
     expand_piece_targets(moves, board, color, piece_targets)
 }
 
@@ -220,7 +222,7 @@ fn generate_queen_moves(
     color: Color,
     targets: &Targets,
 ) {
-    let piece_targets = targets::generate_queen_targets(board, color, targets);
+    let piece_targets = targets.generate_queen_targets(board, color);
     expand_piece_targets(moves, board, color, piece_targets)
 }
 
@@ -254,7 +256,7 @@ fn generate_king_moves(moves: &mut Vec<ChessMove>, board: &Board, color: Color, 
         moves,
         board,
         color,
-        targets::generate_piece_targets(board, color, Piece::King, targets),
+        targets.generate_targets_from_precomputed_tables(board, color, Piece::King),
     )
 }
 
@@ -264,7 +266,7 @@ fn generate_castle_moves(
     color: Color,
     targets: &mut Targets,
 ) {
-    let attacked_squares = targets::generate_attack_targets(board, color.opposite(), targets);
+    let attacked_squares = targets.generate_attack_targets(board, color.opposite());
 
     if board.pieces(color).locate(Piece::King) & attacked_squares > 0 {
         return;
@@ -334,7 +336,7 @@ fn remove_invalid_moves(
     for chess_move in candidates.drain(..) {
         chess_move.apply(board).unwrap();
         let king = board.pieces(color).locate(Piece::King);
-        let attacked_squares = targets::generate_attack_targets(board, color.opposite(), targets);
+        let attacked_squares = targets.generate_attack_targets(board, color.opposite());
         chess_move.undo(board).unwrap();
 
         if king & attacked_squares == 0 {
@@ -749,7 +751,7 @@ mod tests {
         expected_black_moves.sort();
 
         let mut targets = Targets::new();
-        targets::generate_attack_targets(&board, Color::Black, &mut targets);
+        targets.generate_attack_targets(&board, Color::Black);
 
         let mut white_moves = vec![];
         generate_castle_moves(&mut white_moves, &board, Color::White, &mut targets);

@@ -4,6 +4,7 @@ use super::{
 };
 
 /// Stores information about state changes related to individual chess moves.
+#[derive(Clone)]
 pub struct MoveInfo {
     en_passant_target_stack: Vec<u64>,
     castle_rights_stack: Vec<CastleRightsBitmask>,

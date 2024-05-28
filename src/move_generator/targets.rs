@@ -12,6 +12,9 @@ use super::ray_table::{Direction, RayTable};
 
 pub type PieceTarget = (u64, u64); // (piece_square, targets)
 
+/// The `Targets` struct is responsible for generating move and attack targets for each piece on the board.
+/// It uses precomputed tables for the knight and king pieces, and generates targets for sliding pieces
+/// (rooks, bishops, queens) using ray tables.
 pub struct Targets {
     kings: [u64; 64],
     knights: [u64; 64],
@@ -51,20 +54,93 @@ impl Targets {
         Default::default()
     }
 
-    pub fn get(&self, square: u64, piece: Piece) -> u64 {
-        let square_i = square.trailing_zeros() as usize;
-        match piece {
-            Piece::Knight => self.knights[square_i],
-            Piece::King => self.kings[square_i],
-            _ => 0,
+    pub fn generate_attack_targets(&mut self, board: &Board, color: Color) -> u64 {
+        let board_hash = board.current_position_hash();
+
+        if let Some(cached_targets) = self.get_cached_attack(color, board_hash) {
+            return cached_targets;
         }
+
+        let mut piece_targets: Vec<PieceTarget> = vec![];
+        let mut attack_targets = EMPTY;
+
+        piece_targets.append(&mut generate_pawn_attack_targets(board, color));
+        piece_targets.append(&mut self.generate_rook_targets(board, color));
+        piece_targets.append(&mut self.generate_bishop_targets(board, color));
+        piece_targets.append(&mut self.generate_queen_targets(board, color));
+        piece_targets.append(&mut self.generate_targets_from_precomputed_tables(
+            board,
+            color,
+            Piece::Knight,
+        ));
+        piece_targets.append(&mut self.generate_targets_from_precomputed_tables(
+            board,
+            color,
+            Piece::King,
+        ));
+
+        for (_piece, targets) in piece_targets {
+            attack_targets |= targets;
+        }
+
+        self.cache_attack(color, board_hash, attack_targets);
+
+        attack_targets
     }
 
-    pub fn get_cached_attack(&self, color: Color, board_hash: u64) -> Option<u64> {
+    pub fn generate_targets_from_precomputed_tables(
+        &self,
+        board: &Board,
+        color: Color,
+        piece: Piece,
+    ) -> Vec<PieceTarget> {
+        let mut piece_targets: Vec<(u64, u64)> = vec![];
+        let pieces = board.pieces(color).locate(piece);
+        let occupied = board.pieces(color).occupied();
+
+        for &sq in &ORDERED {
+            if pieces & sq == 0 {
+                continue;
+            }
+
+            let candidates = self.get_precomputed_targets(sq, piece) & !occupied;
+            if candidates == 0 {
+                continue;
+            }
+
+            piece_targets.push((sq, candidates));
+        }
+
+        piece_targets
+    }
+
+    pub fn generate_rook_targets(&self, board: &Board, color: Color) -> Vec<PieceTarget> {
+        self.generate_ray_targets(board, color, Piece::Rook, ROOK_DIRS)
+    }
+
+    pub fn generate_bishop_targets(&self, board: &Board, color: Color) -> Vec<PieceTarget> {
+        self.generate_ray_targets(board, color, Piece::Bishop, BISHOP_DIRS)
+    }
+
+    pub fn generate_queen_targets(&self, board: &Board, color: Color) -> Vec<PieceTarget> {
+        let mut piece_targets: Vec<PieceTarget> = vec![];
+
+        piece_targets.append(&mut self.generate_ray_targets(board, color, Piece::Queen, ROOK_DIRS));
+        piece_targets.append(&mut self.generate_ray_targets(
+            board,
+            color,
+            Piece::Queen,
+            BISHOP_DIRS,
+        ));
+
+        piece_targets
+    }
+
+    fn get_cached_attack(&self, color: Color, board_hash: u64) -> Option<u64> {
         self.attacks_cache.get(&(color as u8, board_hash)).copied()
     }
 
-    pub fn cache_attack(&mut self, color: Color, board_hash: u64, attack_targets: u64) -> u64 {
+    fn cache_attack(&mut self, color: Color, board_hash: u64, attack_targets: u64) -> u64 {
         match self
             .attacks_cache
             .insert((color as u8, board_hash), attack_targets)
@@ -73,33 +149,83 @@ impl Targets {
             None => attack_targets,
         }
     }
-}
 
-pub fn generate_piece_targets(
-    board: &Board,
-    color: Color,
-    piece: Piece,
-    targets: &Targets,
-) -> Vec<PieceTarget> {
-    let mut piece_targets: Vec<(u64, u64)> = vec![];
-    let pieces = board.pieces(color).locate(piece);
-    let occupied = board.pieces(color).occupied();
+    fn generate_ray_targets(
+        &self,
+        board: &Board,
+        color: Color,
+        ray_piece: Piece,
+        ray_dirs: [Direction; 4],
+    ) -> Vec<PieceTarget> {
+        let pieces = board.pieces(color).locate(ray_piece);
+        let occupied = board.occupied();
+        let mut piece_targets: Vec<(u64, u64)> = vec![];
 
-    for &sq in &ORDERED {
-        if pieces & sq == 0 {
-            continue;
+        for x in 0..64 {
+            let piece = 1 << x;
+            if pieces & piece == 0 {
+                continue;
+            }
+
+            let mut target_squares = EMPTY;
+
+            for dir in ray_dirs.iter() {
+                let ray = self.rays.get(piece, *dir);
+                if ray == 0 {
+                    continue;
+                }
+
+                let intercepts = ray & occupied;
+
+                if intercepts == 0 {
+                    piece_targets.push((piece, ray));
+                    continue;
+                }
+
+                // intercept = where the piece's ray is terminated.
+                // in each direction, the goal is to select the intercept
+                // that is closest to the piece. for each direction, this is either
+                // the leftmost or rightmost bit.
+                let intercept = match dir {
+                    // ROOKS
+                    Direction::North => rightmost_bit(intercepts),
+                    Direction::East => rightmost_bit(intercepts),
+                    Direction::South => leftmost_bit(intercepts),
+                    Direction::West => leftmost_bit(intercepts),
+
+                    // BISHOPS
+                    Direction::NorthWest => rightmost_bit(intercepts),
+                    Direction::NorthEast => rightmost_bit(intercepts),
+                    Direction::SouthWest => leftmost_bit(intercepts),
+                    Direction::SouthEast => leftmost_bit(intercepts),
+                };
+
+                let blocked_squares = self.rays.get(intercept, *dir);
+
+                target_squares |= ray ^ blocked_squares;
+
+                // if the intercept is the same color piece, remove it from the targets.
+                // otherwise, it is a target square because it belongs to the other
+                // color and can therefore be captured
+                if intercept & board.pieces(color).occupied() > 0 {
+                    target_squares ^= intercept;
+                }
+            }
+
+            piece_targets.push((piece, target_squares));
         }
 
-        let candidates = targets.get(sq, piece) & !occupied;
-
-        if candidates == 0 {
-            continue;
-        }
-
-        piece_targets.push((sq, candidates));
+        piece_targets
     }
 
-    piece_targets
+    fn get_precomputed_targets(&self, square: u64, piece: Piece) -> u64 {
+        let square_i = square.trailing_zeros() as usize;
+        match piece {
+            Piece::Knight => self.knights[square_i],
+            Piece::King => self.kings[square_i],
+            _ => panic!("invalid piece type for precomputed targets: {}", piece),
+        }
+    }
 }
 
 pub fn generate_pawn_targets(board: &Board, color: Color) -> Vec<PieceTarget> {
@@ -245,143 +371,6 @@ pub fn generate_king_targets_table() -> [u64; 64] {
     table
 }
 
-fn generate_ray_targets(
-    board: &Board,
-    color: Color,
-    targets: &Targets,
-    ray_piece: Piece,
-    ray_dirs: [Direction; 4],
-) -> Vec<PieceTarget> {
-    let pieces = board.pieces(color).locate(ray_piece);
-    let occupied = board.occupied();
-    let mut piece_targets: Vec<(u64, u64)> = vec![];
-
-    for x in 0..64 {
-        let piece = 1 << x;
-        if pieces & piece == 0 {
-            continue;
-        }
-
-        let mut target_squares = EMPTY;
-
-        for dir in ray_dirs.iter() {
-            let ray = targets.rays.get(piece, *dir);
-            if ray == 0 {
-                continue;
-            }
-
-            let intercepts = ray & occupied;
-
-            if intercepts == 0 {
-                piece_targets.push((piece, ray));
-                continue;
-            }
-
-            // intercept = where the piece's ray is terminated.
-            // in each direction, the goal is to select the intercept
-            // that is closest to the piece. for each direction, this is either
-            // the leftmost or rightmost bit.
-            let intercept = match dir {
-                // ROOKS
-                Direction::North => rightmost_bit(intercepts),
-                Direction::East => rightmost_bit(intercepts),
-                Direction::South => leftmost_bit(intercepts),
-                Direction::West => leftmost_bit(intercepts),
-
-                // BISHOPS
-                Direction::NorthWest => rightmost_bit(intercepts),
-                Direction::NorthEast => rightmost_bit(intercepts),
-                Direction::SouthWest => leftmost_bit(intercepts),
-                Direction::SouthEast => leftmost_bit(intercepts),
-            };
-
-            let blocked_squares = targets.rays.get(intercept, *dir);
-
-            target_squares |= ray ^ blocked_squares;
-
-            // if the intercept is the same color piece, remove it from the targets.
-            // otherwise, it is a target square because it belongs to the other
-            // color and can therefore be captured
-            if intercept & board.pieces(color).occupied() > 0 {
-                target_squares ^= intercept;
-            }
-        }
-
-        piece_targets.push((piece, target_squares));
-    }
-
-    piece_targets
-}
-
-pub fn generate_rook_targets(board: &Board, color: Color, targets: &Targets) -> Vec<PieceTarget> {
-    generate_ray_targets(board, color, targets, Piece::Rook, ROOK_DIRS)
-}
-
-pub fn generate_bishop_targets(board: &Board, color: Color, targets: &Targets) -> Vec<PieceTarget> {
-    generate_ray_targets(board, color, targets, Piece::Bishop, BISHOP_DIRS)
-}
-
-pub fn generate_queen_targets(board: &Board, color: Color, targets: &Targets) -> Vec<PieceTarget> {
-    let mut piece_targets: Vec<PieceTarget> = vec![];
-
-    piece_targets.append(&mut generate_ray_targets(
-        board,
-        color,
-        targets,
-        Piece::Queen,
-        ROOK_DIRS,
-    ));
-    piece_targets.append(&mut generate_ray_targets(
-        board,
-        color,
-        targets,
-        Piece::Queen,
-        BISHOP_DIRS,
-    ));
-
-    piece_targets
-}
-
-pub fn generate_attack_targets(board: &Board, color: Color, targets: &mut Targets) -> u64 {
-    let board_hash = board.current_position_hash();
-
-    if let Some(cached_targets) = targets.get_cached_attack(color, board_hash) {
-        debug!(
-            "cached attack targets for color {:?}:\n{}",
-            color, cached_targets
-        );
-        return cached_targets;
-    }
-
-    let mut piece_targets: Vec<PieceTarget> = vec![];
-    let mut attack_targets = EMPTY;
-
-    piece_targets.append(&mut generate_pawn_attack_targets(board, color));
-    piece_targets.append(&mut generate_piece_targets(
-        board,
-        color,
-        Piece::Knight,
-        targets,
-    ));
-    piece_targets.append(&mut generate_rook_targets(board, color, targets));
-    piece_targets.append(&mut generate_bishop_targets(board, color, targets));
-    piece_targets.append(&mut generate_queen_targets(board, color, targets));
-    piece_targets.append(&mut generate_piece_targets(
-        board,
-        color,
-        Piece::King,
-        targets,
-    ));
-
-    for (_piece, targets) in piece_targets {
-        attack_targets |= targets;
-    }
-
-    targets.cache_attack(color, board_hash, attack_targets);
-
-    attack_targets
-}
-
 fn rightmost_bit(x: u64) -> u64 {
     x & (!x + 1)
 }
@@ -447,7 +436,7 @@ mod tests {
             | C3
             | D2
             | A1;
-        let white_targets = generate_attack_targets(&board, Color::White, &mut targets);
+        let white_targets = targets.generate_attack_targets(&board, Color::White);
         assert_eq!(expected_white_targets, white_targets);
 
         let expected_black_targets = EMPTY
@@ -458,7 +447,7 @@ mod tests {
             | G1
             | G2
             | H2;
-        let black_targets = generate_attack_targets(&board, Color::Black, &mut targets);
+        let black_targets = targets.generate_attack_targets(&board, Color::Black);
         assert_eq!(expected_black_targets, black_targets);
     }
 
@@ -466,7 +455,7 @@ mod tests {
     pub fn test_generate_attack_targets_2() {
         let mut targets = Targets::new();
         let mut board = Board::starting_position();
-        let moves = vec![
+        let moves = [
             std_move!(E2, E4),
             std_move!(F7, F5),
             std_move!(D1, H5),
@@ -530,7 +519,7 @@ mod tests {
             | D1
             | E2;
 
-        let white_targets = generate_attack_targets(&board, Color::White, &mut targets);
+        let white_targets = targets.generate_attack_targets(&board, Color::White);
         println!(
             "expected white targets:\n{}",
             render_occupied(expected_white_targets)

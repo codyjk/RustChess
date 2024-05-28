@@ -20,6 +20,7 @@ use piece_set::PieceSet;
 
 use self::{castle_rights::CastleRightsBitmask, move_info::MoveInfo, position_info::PositionInfo};
 
+#[derive(Clone)]
 pub struct Board {
     white: PieceSet,
     black: PieceSet,
