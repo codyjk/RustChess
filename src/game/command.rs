@@ -1,6 +1,8 @@
-use super::{BoardMove, Game, GameError};
+use crate::chess_move::ChessMove;
 
-type CommandResult = Result<BoardMove, GameError>;
+use super::{Game, GameError};
+
+type CommandResult = Result<ChessMove, GameError>;
 
 pub trait Command {
     fn execute(&self, game: &mut Game) -> CommandResult;

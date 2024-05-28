@@ -41,7 +41,7 @@ pub fn play_computer(depth: u8, player_color: Color) {
 
         let start_time = SystemTime::now();
         match command.execute(game) {
-            Ok(board_move) => {
+            Ok(chess_move) => {
                 let duration = SystemTime::now().duration_since(start_time).unwrap();
                 println!("{}", clear::All);
                 let player = match player_color {
@@ -50,14 +50,11 @@ pub fn play_computer(depth: u8, player_color: Color) {
                 };
                 game.board.toggle_turn();
                 let score = game.score(game.board.turn());
-                let from_square = square::to_algebraic(board_move.0);
-                let to_square = square::to_algebraic(board_move.1);
 
                 println!(
-                    "{} chose {}{} (depth={}, took={}ms, halfmove_clock={}, fullmove_clock={}, score={})",
+                    "{} chose {} (depth={}, took={}ms, halfmove_clock={}, fullmove_clock={}, score={})",
                     player,
-                    from_square,
-                    to_square,
+                    chess_move,
                     depth,
                     duration.as_millis(),
                     game.board.halfmove_clock(),
@@ -120,18 +117,16 @@ pub fn computer_vs_computer(move_limit: u8, sleep_between_turns_in_ms: u64, dept
         let result = game.make_waterfall_book_then_alpha_beta_move();
 
         match result {
-            Ok(board_move) => {
+            Ok(chess_move) => {
                 let duration = SystemTime::now().duration_since(start_time).unwrap();
                 println!("{}", clear::All);
                 game.board.toggle_turn();
                 let score = game.score(game.board.turn());
-                let from_square = square::to_algebraic(board_move.0);
-                let to_square = square::to_algebraic(board_move.1);
+
                 println!(
-                    "{} chose {}{} (depth={}, took={}ms, halfmove_clock={}, fullmove_clock={}, score={})",
+                    "{} chose {} (depth={}, took={}ms, halfmove_clock={}, fullmove_clock={}, score={})",
                     game.board.turn(),
-                    from_square,
-                    to_square,
+                    chess_move,
                     depth,
                     duration.as_millis(),
                     game.board.halfmove_clock(),
@@ -147,7 +142,7 @@ pub fn computer_vs_computer(move_limit: u8, sleep_between_turns_in_ms: u64, dept
                     game.move_generator_cache_hit_count(),
                 );
                 println!(
-                    "move_generator_cache_entry_count={}, move_generator_cache_size_in_bytes={}",
+                    "(move_generator_cache_entry_count={}, move_generator_cache_size_in_bytes={})",
                     game.move_genereator_cache_entry_count(),
                     game.move_generator_cache_size_in_bytes(),
                 );
