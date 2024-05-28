@@ -200,12 +200,7 @@ fn generate_knight_moves(
     )
 }
 
-pub fn generate_rook_moves(
-    moves: &mut Vec<ChessMove>,
-    board: &Board,
-    color: Color,
-    targets: &Targets,
-) {
+fn generate_rook_moves(moves: &mut Vec<ChessMove>, board: &Board, color: Color, targets: &Targets) {
     let piece_targets = targets.generate_rook_targets(board, color);
     expand_piece_targets(moves, board, color, piece_targets)
 }

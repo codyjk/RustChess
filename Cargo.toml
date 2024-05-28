@@ -37,7 +37,3 @@ harness = false
 [[bench]]
 name = "pvp_benchmark"
 harness = false
-
-[[bench]]
-name = "movegen_benchmark"
-harness = false
