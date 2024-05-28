@@ -1,6 +1,4 @@
-use crate::board::bitboard::{
-    A_FILE, B_FILE, EMPTY, G_FILE, H_FILE, RANK_1, RANK_4, RANK_5, RANK_8,
-};
+use crate::bitboard::bitboard::Bitboard;
 use crate::board::color::Color;
 use crate::board::piece::Piece;
 use crate::board::square::*;
@@ -9,16 +7,17 @@ use rustc_hash::FxHashMap;
 
 use super::ray_table::{Direction, RayTable};
 
-pub type PieceTarget = (u64, u64); // (piece_square, targets)
+pub type PieceTarget = (Bitboard, Bitboard); // (piece_square, targets)
 
 /// The `Targets` struct is responsible for generating move and attack targets for each piece on the board.
 /// It uses precomputed tables for the knight and king pieces, and generates targets for sliding pieces
 /// (rooks, bishops, queens) using ray tables.
 pub struct Targets {
-    kings: [u64; 64],
-    knights: [u64; 64],
+    kings: [Bitboard; 64],
+    knights: [Bitboard; 64],
     rays: RayTable,
-    attacks_cache: FxHashMap<(u8, u64), u64>,
+    // (color, board_hash) -> attack_targets
+    attacks_cache: FxHashMap<(u8, u64), Bitboard>,
 }
 
 const ROOK_DIRS: [Direction; 4] = [
@@ -53,9 +52,9 @@ impl Targets {
         Default::default()
     }
 
-    pub fn generate_attack_targets(&mut self, board: &Board, color: Color) -> u64 {
+    pub fn generate_attack_targets(&mut self, board: &Board, color: Color) -> Bitboard {
         let mut piece_targets: Vec<PieceTarget> = vec![];
-        let mut attack_targets = EMPTY;
+        let mut attack_targets = Bitboard::EMPTY;
 
         piece_targets.append(&mut generate_pawn_attack_targets(board, color));
         piece_targets.append(&mut self.generate_rook_targets(board, color));
@@ -85,17 +84,17 @@ impl Targets {
         color: Color,
         piece: Piece,
     ) -> Vec<PieceTarget> {
-        let mut piece_targets: Vec<(u64, u64)> = vec![];
+        let mut piece_targets: Vec<_> = vec![];
         let pieces = board.pieces(color).locate(piece);
         let occupied = board.pieces(color).occupied();
 
-        for &sq in &ORDERED {
-            if pieces & sq == 0 {
+        for sq in ORDERED {
+            if !pieces.overlaps(sq) {
                 continue;
             }
 
             let candidates = self.get_precomputed_targets(sq, piece) & !occupied;
-            if candidates == 0 {
+            if candidates.is_empty() {
                 continue;
             }
 
@@ -127,11 +126,16 @@ impl Targets {
         piece_targets
     }
 
-    pub fn get_cached_attack(&self, color: Color, board_hash: u64) -> Option<u64> {
+    pub fn get_cached_attack(&self, color: Color, board_hash: u64) -> Option<Bitboard> {
         self.attacks_cache.get(&(color as u8, board_hash)).copied()
     }
 
-    pub fn cache_attack(&mut self, color: Color, board_hash: u64, attack_targets: u64) -> u64 {
+    pub fn cache_attack(
+        &mut self,
+        color: Color,
+        board_hash: u64,
+        attack_targets: Bitboard,
+    ) -> Bitboard {
         match self
             .attacks_cache
             .insert((color as u8, board_hash), attack_targets)
@@ -150,25 +154,25 @@ impl Targets {
     ) -> Vec<PieceTarget> {
         let pieces = board.pieces(color).locate(ray_piece);
         let occupied = board.occupied();
-        let mut piece_targets: Vec<(u64, u64)> = vec![];
+        let mut piece_targets: Vec<_> = vec![];
 
         for x in 0..64 {
-            let piece = 1 << x;
-            if pieces & piece == 0 {
+            let piece = Bitboard(1 << x);
+            if !pieces.overlaps(piece) {
                 continue;
             }
 
-            let mut target_squares = EMPTY;
+            let mut target_squares = Bitboard::EMPTY;
 
             for dir in ray_dirs.iter() {
                 let ray = self.rays.get(piece, *dir);
-                if ray == 0 {
+                if ray.is_empty() {
                     continue;
                 }
 
                 let intercepts = ray & occupied;
 
-                if intercepts == 0 {
+                if intercepts.is_empty() {
                     piece_targets.push((piece, ray));
                     continue;
                 }
@@ -198,7 +202,7 @@ impl Targets {
                 // if the intercept is the same color piece, remove it from the targets.
                 // otherwise, it is a target square because it belongs to the other
                 // color and can therefore be captured
-                if intercept & board.pieces(color).occupied() > 0 {
+                if board.pieces(color).occupied().overlaps(intercept) {
                     target_squares ^= intercept;
                 }
             }
@@ -209,7 +213,7 @@ impl Targets {
         piece_targets
     }
 
-    fn get_precomputed_targets(&self, square: u64, piece: Piece) -> u64 {
+    fn get_precomputed_targets(&self, square: Bitboard, piece: Piece) -> Bitboard {
         let square_i = square.trailing_zeros() as usize;
         match piece {
             Piece::Knight => self.knights[square_i],
@@ -230,24 +234,24 @@ pub fn generate_pawn_targets(board: &Board, color: Color) -> Vec<PieceTarget> {
         Color::Black => pawns >> 8, // move 1 rank down the board
     };
     let double_move_targets = match color {
-        Color::White => RANK_4,
-        Color::Black => RANK_5,
+        Color::White => Bitboard::RANK_4,
+        Color::Black => Bitboard::RANK_5,
     };
     let move_targets = (single_move_targets | double_move_targets) & !occupied;
 
     for x in 0..64 {
-        let pawn = 1 << x;
-        if pawns & pawn == 0 {
+        let pawn = Bitboard(1 << x);
+        if !pawns.overlaps(pawn) {
             continue;
         }
-        let mut targets = EMPTY;
+        let mut targets = Bitboard::EMPTY;
 
         let single_move = match color {
             Color::White => pawn << 8,
             Color::Black => pawn >> 8,
         };
 
-        if single_move & occupied > 0 {
+        if single_move.overlaps(occupied) {
             // pawn is blocked and can make no moves
             continue;
         }
@@ -260,7 +264,7 @@ pub fn generate_pawn_targets(board: &Board, color: Color) -> Vec<PieceTarget> {
         targets |= single_move & move_targets;
         targets |= double_move & move_targets;
 
-        if targets == EMPTY {
+        if targets == Bitboard::EMPTY {
             continue;
         }
 
@@ -270,7 +274,7 @@ pub fn generate_pawn_targets(board: &Board, color: Color) -> Vec<PieceTarget> {
     let attack_targets = board.pieces(color.opposite()).occupied();
 
     for (pawn, targets) in generate_pawn_attack_targets(board, color) {
-        if attack_targets & targets > 0 {
+        if attack_targets.overlaps(targets) {
             piece_targets.push((pawn, attack_targets & targets));
         }
     }
@@ -287,19 +291,19 @@ pub fn generate_pawn_attack_targets(board: &Board, color: Color) -> Vec<PieceTar
     let pawns = board.pieces(color).locate(Piece::Pawn);
 
     for x in 0..64 {
-        let pawn = 1 << x;
-        if pawns & pawn == 0 {
+        let pawn = Bitboard(1 << x);
+        if !pawns.overlaps(pawn) {
             continue;
         }
 
         let attack_west = match color {
-            Color::White => (pawn << 9) & !A_FILE,
-            Color::Black => (pawn >> 7) & !A_FILE,
+            Color::White => (pawn << 9) & !Bitboard::A_FILE,
+            Color::Black => (pawn >> 7) & !Bitboard::A_FILE,
         };
 
         let attack_east = match color {
-            Color::White => (pawn << 7) & !H_FILE,
-            Color::Black => (pawn >> 9) & !H_FILE,
+            Color::White => (pawn << 7) & !Bitboard::H_FILE,
+            Color::Black => (pawn >> 9) & !Bitboard::H_FILE,
         };
 
         let targets = attack_east | attack_west;
@@ -310,21 +314,21 @@ pub fn generate_pawn_attack_targets(board: &Board, color: Color) -> Vec<PieceTar
     piece_targets
 }
 
-pub fn generate_knight_targets_table() -> [u64; 64] {
-    let mut table = [0; 64];
+pub fn generate_knight_targets_table() -> [Bitboard; 64] {
+    let mut table = [Bitboard::EMPTY; 64];
 
     for square_i in 0..64 {
-        let knight = 1 << square_i;
+        let knight = Bitboard(1 << square_i);
 
         // nne = north-north-east, nee = north-east-east, etc..
-        let move_nne = knight << 17 & !A_FILE;
-        let move_nee = knight << 10 & !A_FILE & !B_FILE;
-        let move_see = knight >> 6 & !A_FILE & !B_FILE;
-        let move_sse = knight >> 15 & !A_FILE;
-        let move_nnw = knight << 15 & !H_FILE;
-        let move_nww = knight << 6 & !G_FILE & !H_FILE;
-        let move_sww = knight >> 10 & !G_FILE & !H_FILE;
-        let move_ssw = knight >> 17 & !H_FILE;
+        let move_nne = knight << 17 & !Bitboard::A_FILE;
+        let move_nee = knight << 10 & !Bitboard::A_FILE & !Bitboard::B_FILE;
+        let move_see = knight >> 6 & !Bitboard::A_FILE & !Bitboard::B_FILE;
+        let move_sse = knight >> 15 & !Bitboard::A_FILE;
+        let move_nnw = knight << 15 & !Bitboard::H_FILE;
+        let move_nww = knight << 6 & !Bitboard::G_FILE & !Bitboard::H_FILE;
+        let move_sww = knight >> 10 & !Bitboard::G_FILE & !Bitboard::H_FILE;
+        let move_ssw = knight >> 17 & !Bitboard::H_FILE;
 
         let targets =
             move_nne | move_nee | move_see | move_sse | move_nnw | move_nww | move_sww | move_ssw;
@@ -335,26 +339,26 @@ pub fn generate_knight_targets_table() -> [u64; 64] {
     table
 }
 
-pub fn generate_king_targets_table() -> [u64; 64] {
-    let mut table = [0; 64];
+pub fn generate_king_targets_table() -> [Bitboard; 64] {
+    let mut table = [Bitboard::EMPTY; 64];
 
     for square_i in 0..64 {
-        let king = 1 << square_i;
+        let king = Bitboard(1 << square_i);
 
-        let mut targets = EMPTY;
+        let mut targets = Bitboard::EMPTY;
 
         // shift the king's position. in the event that it falls off of the boundary,
         // we want to negate the rank/file where the king would fall.
-        targets |= (king << 9) & !RANK_1 & !A_FILE; // northeast
-        targets |= (king << 8) & !RANK_1; // north
-        targets |= (king << 7) & !RANK_1 & !H_FILE; // northwest
+        targets |= (king << 9) & !Bitboard::RANK_1 & !Bitboard::A_FILE; // northeast
+        targets |= (king << 8) & !Bitboard::RANK_1; // north
+        targets |= (king << 7) & !Bitboard::RANK_1 & !Bitboard::H_FILE; // northwest
 
-        targets |= (king >> 7) & !RANK_8 & !A_FILE; // southeast
-        targets |= (king >> 8) & !RANK_8; // south
-        targets |= (king >> 9) & !RANK_8 & !H_FILE; // southwest
+        targets |= (king >> 7) & !Bitboard::RANK_8 & !Bitboard::A_FILE; // southeast
+        targets |= (king >> 8) & !Bitboard::RANK_8; // south
+        targets |= (king >> 9) & !Bitboard::RANK_8 & !Bitboard::H_FILE; // southwest
 
-        targets |= (king << 1) & !A_FILE; // east
-        targets |= (king >> 1) & !H_FILE; // west
+        targets |= (king << 1) & !Bitboard::A_FILE; // east
+        targets |= (king >> 1) & !Bitboard::H_FILE; // west
 
         table[square_i] = targets;
     }
@@ -362,11 +366,11 @@ pub fn generate_king_targets_table() -> [u64; 64] {
     table
 }
 
-fn rightmost_bit(x: u64) -> u64 {
-    x & (!x + 1)
+fn rightmost_bit(x: Bitboard) -> Bitboard {
+    x & (!x + Bitboard(1))
 }
 
-fn leftmost_bit(x: u64) -> u64 {
+fn leftmost_bit(x: Bitboard) -> Bitboard {
     let mut b = x;
 
     // fill in rightmost bits
@@ -386,10 +390,7 @@ mod tests {
     use super::*;
     use crate::chess_move::standard::StandardChessMove;
     use crate::chess_move::ChessMove;
-    use crate::{
-        board::bitboard::{render_occupied, RANK_3},
-        std_move,
-    };
+    use crate::std_move;
 
     #[test]
     fn test_generate_attack_targets() {
@@ -403,7 +404,7 @@ mod tests {
         board.put(A5, Piece::Queen, Color::White).unwrap();
         println!("Testing board:\n{}", board);
 
-        let expected_white_targets = EMPTY
+        let expected_white_targets = Bitboard::EMPTY
             // pawn
             | B5
             // rook
@@ -411,7 +412,7 @@ mod tests {
             | B3
             | B4
             | B5
-            | (RANK_1 ^ B1)
+            | (Bitboard::RANK_1 ^ B1)
             // queen - north
             | A6
             | A7
@@ -430,7 +431,7 @@ mod tests {
         let white_targets = targets.generate_attack_targets(&board, Color::White);
         assert_eq!(expected_white_targets, white_targets);
 
-        let expected_black_targets = EMPTY
+        let expected_black_targets = Bitboard::EMPTY
             // pawn
             | A4
             | C4
@@ -478,9 +479,9 @@ mod tests {
         //   +---+---+---+---+---+---+---+---+
         //     A   B   C   D   E   F   G   H
 
-        let expected_white_targets = EMPTY
+        let expected_white_targets = Bitboard::EMPTY
             // knights
-            | RANK_3
+            | Bitboard::RANK_3
             // forward pawn
             | D5
             | F5
@@ -511,11 +512,8 @@ mod tests {
             | E2;
 
         let white_targets = targets.generate_attack_targets(&board, Color::White);
-        println!(
-            "expected white targets:\n{}",
-            render_occupied(expected_white_targets)
-        );
-        println!("actual white targets:\n{}", render_occupied(white_targets));
+        println!("expected white targets:\n{}", expected_white_targets,);
+        println!("actual white targets:\n{}", white_targets);
         assert_eq!(expected_white_targets, white_targets);
     }
 }

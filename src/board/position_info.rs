@@ -1,8 +1,9 @@
 use log::debug;
 use rustc_hash::FxHashMap;
 
+use crate::bitboard::bitboard::Bitboard;
+
 use super::{
-    bitboard::EMPTY,
     color::Color,
     piece::Piece,
     zobrist_tables::{
@@ -61,7 +62,12 @@ impl PositionInfo {
         *self.max_seen_position_count_stack.last().unwrap()
     }
 
-    pub fn update_zobrist_hash_toggle_piece(&mut self, square: u64, piece: Piece, color: Color) {
+    pub fn update_zobrist_hash_toggle_piece(
+        &mut self,
+        square: Bitboard,
+        piece: Piece,
+        color: Color,
+    ) {
         let square_num = square.trailing_zeros();
         let piece_hash = ZOBRIST_PIECES_TABLE[piece as usize][square_num as usize][color as usize];
         let hash_before = self.current_position_hash;
@@ -74,8 +80,8 @@ impl PositionInfo {
         );
     }
 
-    pub fn update_zobrist_hash_toggle_en_passant_target(&mut self, square: u64) {
-        if square == EMPTY {
+    pub fn update_zobrist_hash_toggle_en_passant_target(&mut self, square: Bitboard) {
+        if square.is_empty() {
             return;
         }
         let square_num = square.trailing_zeros();
@@ -103,7 +109,11 @@ mod tests {
         let mut hash = 0;
         for i in 0..64 {
             let random_piece = Piece::from_usize(i % 6);
-            position_info.update_zobrist_hash_toggle_piece(1 << i, random_piece, Color::White);
+            position_info.update_zobrist_hash_toggle_piece(
+                Bitboard(1 << i),
+                random_piece,
+                Color::White,
+            );
             hash ^= ZOBRIST_PIECES_TABLE[random_piece as usize][i][Color::White as usize];
         }
         assert_eq!(position_info.current_position_hash(), hash);
@@ -139,13 +149,21 @@ mod tests {
         let mut hash = 0;
         for i in 0..64 {
             let random_piece = Piece::from_usize(i % 6);
-            position_info.update_zobrist_hash_toggle_piece(1 << i, random_piece, Color::White);
+            position_info.update_zobrist_hash_toggle_piece(
+                Bitboard(1 << i),
+                random_piece,
+                Color::White,
+            );
             hash ^= ZOBRIST_PIECES_TABLE[random_piece as usize][i][Color::White as usize];
         }
         assert_eq!(position_info.current_position_hash(), hash);
         for i in 0..64 {
             let random_piece = Piece::from_usize(i % 6);
-            position_info.update_zobrist_hash_toggle_piece(1 << i, random_piece, Color::White);
+            position_info.update_zobrist_hash_toggle_piece(
+                Bitboard(1 << i),
+                random_piece,
+                Color::White,
+            );
             hash ^= ZOBRIST_PIECES_TABLE[random_piece as usize][i][Color::White as usize];
         }
         assert_eq!(position_info.current_position_hash(), 0);

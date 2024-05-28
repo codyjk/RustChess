@@ -1,6 +1,7 @@
 pub mod command;
 pub mod modes;
 
+use crate::bitboard::bitboard::Bitboard;
 use crate::board::color::Color;
 use crate::board::error::BoardError;
 use crate::board::Board;
@@ -58,7 +59,11 @@ impl Game {
         self.move_history.iter().last().cloned()
     }
 
-    pub fn make_move(&mut self, from_square: u64, to_square: u64) -> Result<ChessMove, GameError> {
+    pub fn make_move(
+        &mut self,
+        from_square: Bitboard,
+        to_square: Bitboard,
+    ) -> Result<ChessMove, GameError> {
         let turn = self.board.turn();
         let candidates = self.move_generator.generate_moves(&mut self.board, turn);
         let chess_move = candidates

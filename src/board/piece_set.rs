@@ -1,19 +1,20 @@
-use super::bitboard::EMPTY;
+use crate::bitboard::bitboard::Bitboard;
+
 use super::piece::Piece;
 use super::BoardError;
 
 #[derive(Clone, PartialEq)]
 pub struct PieceSet {
     // [pawns, rooks, knights, bishops, kings, queens]
-    bitboards: [u64; 6],
-    occupied: u64,
+    bitboards: [Bitboard; 6],
+    occupied: Bitboard,
 }
 
 impl Default for PieceSet {
     fn default() -> Self {
         PieceSet {
-            bitboards: [EMPTY; 6],
-            occupied: EMPTY,
+            bitboards: [Bitboard::EMPTY; 6],
+            occupied: Bitboard::EMPTY,
         }
     }
 }
@@ -23,28 +24,28 @@ impl PieceSet {
         Default::default()
     }
 
-    pub fn locate(&self, piece: Piece) -> u64 {
+    pub fn locate(&self, piece: Piece) -> Bitboard {
         self.bitboards[piece as usize]
     }
 
-    pub fn get(&self, square: u64) -> Option<Piece> {
+    pub fn get(&self, square: Bitboard) -> Option<Piece> {
         for (i, &bitboard) in self.bitboards.iter().enumerate() {
-            if square & bitboard > 0 {
+            if bitboard.overlaps(square) {
                 return Some(Piece::from_usize(i));
             }
         }
         None
     }
 
-    pub fn occupied(&self) -> u64 {
+    pub fn occupied(&self) -> Bitboard {
         self.occupied
     }
 
-    pub fn is_occupied(&self, square: u64) -> bool {
-        square & self.occupied > 0
+    pub fn is_occupied(&self, square: Bitboard) -> bool {
+        self.occupied.overlaps(square)
     }
 
-    pub fn put(&mut self, square: u64, piece: Piece) -> Result<(), BoardError> {
+    pub fn put(&mut self, square: Bitboard, piece: Piece) -> Result<(), BoardError> {
         if self.is_occupied(square) {
             return Err(BoardError::SquareOccupied);
         }
@@ -55,7 +56,7 @@ impl PieceSet {
         Ok(())
     }
 
-    pub fn remove(&mut self, square: u64) -> Option<Piece> {
+    pub fn remove(&mut self, square: Bitboard) -> Option<Piece> {
         let removed = self.get(square);
         let removed_piece = match removed {
             Some(piece) => piece,

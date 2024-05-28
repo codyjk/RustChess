@@ -1,7 +1,7 @@
-use crate::board::square;
+use crate::{bitboard::bitboard::Bitboard, board::square};
 use rustc_hash::FxHashMap;
 
-type BookMove = (u64, u64);
+type BookMove = (Bitboard, Bitboard);
 
 struct BookNode {
     lines: FxHashMap<BookMove, Box<BookNode>>,
@@ -67,7 +67,7 @@ impl Book {
     }
 }
 
-pub fn book_move(from_square: u64, to_square: u64) -> BookMove {
+pub fn book_move(from_square: Bitboard, to_square: Bitboard) -> BookMove {
     (from_square, to_square)
 }
 

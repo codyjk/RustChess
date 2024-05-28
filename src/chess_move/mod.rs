@@ -1,6 +1,9 @@
 use core::fmt;
 
-use crate::board::{color::Color, error::BoardError, piece::Piece, square::to_algebraic, Board};
+use crate::{
+    bitboard::bitboard::Bitboard,
+    board::{color::Color, error::BoardError, piece::Piece, square::to_algebraic, Board},
+};
 
 use self::{
     castle::CastleChessMove, en_passant::EnPassantChessMove,
@@ -23,7 +26,7 @@ pub enum ChessMove {
 }
 
 impl ChessMove {
-    pub fn to_square(&self) -> u64 {
+    pub fn to_square(&self) -> Bitboard {
         match self {
             ChessMove::Standard(m) => m.to_square(),
             ChessMove::PawnPromotion(m) => m.to_square(),
@@ -32,7 +35,7 @@ impl ChessMove {
         }
     }
 
-    pub fn from_square(&self) -> u64 {
+    pub fn from_square(&self) -> Bitboard {
         match self {
             ChessMove::Standard(m) => m.from_square(),
             ChessMove::PawnPromotion(m) => m.from_square(),

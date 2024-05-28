@@ -1,5 +1,6 @@
 use log::debug;
 
+use crate::bitboard::bitboard::Bitboard;
 use crate::board::color::Color;
 use crate::board::piece::{Piece, ALL_PIECES};
 use crate::board::square::to_algebraic;
@@ -25,7 +26,7 @@ fn current_player_is_in_check(board: &Board, move_generator: &mut MoveGenerator)
     let king = board.pieces(current_player).locate(Piece::King);
     let attacked_squares = move_generator.get_attack_targets(board, current_player.opposite());
 
-    king & attacked_squares > 0
+    king.overlaps(attacked_squares)
 }
 
 pub fn game_ending(
@@ -92,8 +93,8 @@ fn material_score(board: &Board, color: Color) -> i16 {
         let piece_value = MATERIAL_VALUES[piece as usize];
 
         for i in 0..64 {
-            let sq = 1 << i;
-            if sq & squares == 0 {
+            let sq = Bitboard(1 << i);
+            if !sq.overlaps(squares) {
                 continue;
             }
 
@@ -126,11 +127,11 @@ fn is_endgame(board: &Board) -> bool {
     let white_minor_pieces = white_non_queen_pieces & !white_king;
     let black_minor_pieces = black_non_queen_pieces & !black_king;
 
-    let both_sides_have_no_queens = white_queen == 0 && black_queen == 0;
+    let both_sides_have_no_queens = white_queen.is_empty() && black_queen.is_empty();
     let white_has_no_queen_or_one_minor_piece =
-        white_queen == 0 && white_minor_pieces.count_ones() <= 1;
+        white_queen.is_empty() && white_minor_pieces.count_ones() <= 1;
     let black_has_no_queen_or_one_minor_piece =
-        black_queen == 0 && black_minor_pieces.count_ones() <= 1;
+        black_queen.is_empty() && black_minor_pieces.count_ones() <= 1;
 
     both_sides_have_no_queens
         || (white_has_no_queen_or_one_minor_piece && black_has_no_queen_or_one_minor_piece)

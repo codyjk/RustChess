@@ -1,3 +1,4 @@
+pub mod bitboard;
 pub mod board;
 pub mod book;
 pub mod chess_move;

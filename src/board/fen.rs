@@ -1,3 +1,5 @@
+use crate::bitboard::bitboard::Bitboard;
+
 use super::castle_rights::{
     BLACK_KINGSIDE_RIGHTS, BLACK_QUEENSIDE_RIGHTS, WHITE_KINGSIDE_RIGHTS, WHITE_QUEENSIDE_RIGHTS,
 };
@@ -179,7 +181,7 @@ impl Board {
         }
 
         let fen_en_passant = match self.peek_en_passant_target() {
-            0 => "-".to_string(),
+            Bitboard::EMPTY => "-".to_string(),
             sq => square::to_algebraic(sq).to_lowercase(),
         };
 
@@ -252,7 +254,7 @@ mod tests {
         for (square, piece, color) in &tests {
             assert_eq!(board.get(*square).unwrap(), (*piece, *color));
         }
-        let occupied_squares: Vec<u64> = tests
+        let occupied_squares: Vec<Bitboard> = tests
             .into_iter()
             .map(|(square, _expected_piece, _expected_color)| square)
             .collect();
@@ -266,7 +268,7 @@ mod tests {
 
         assert_eq!(Color::Black, board.turn());
         assert_eq!(0b0000, board.peek_castle_rights());
-        assert_eq!(0, board.peek_en_passant_target());
+        assert_eq!(Bitboard(0), board.peek_en_passant_target());
         assert_eq!(4, board.halfmove_clock());
         assert_eq!(11, board.fullmove_clock());
     }

@@ -1,3 +1,4 @@
+use crate::bitboard::bitboard::Bitboard;
 use crate::board::castle_rights::{
     BLACK_KINGSIDE_RIGHTS, BLACK_QUEENSIDE_RIGHTS, WHITE_KINGSIDE_RIGHTS, WHITE_QUEENSIDE_RIGHTS,
 };
@@ -5,7 +6,6 @@ use crate::board::{square::*, Board};
 pub mod ray_table;
 mod targets;
 
-use crate::board::bitboard::{A_FILE, H_FILE, RANK_1, RANK_8};
 use crate::board::color::Color;
 use crate::board::piece::Piece;
 use crate::chess_move::castle::CastleChessMove;
@@ -85,7 +85,7 @@ impl MoveGenerator {
         count
     }
 
-    pub fn get_attack_targets(&mut self, board: &Board, color: Color) -> u64 {
+    pub fn get_attack_targets(&mut self, board: &Board, color: Color) -> Bitboard {
         let board_hash = board.current_position_hash();
 
         if let Some(cached_targets) = self.targets.get_cached_attack(color, board_hash) {
@@ -128,10 +128,10 @@ fn generate_pawn_moves(moves: &mut Vec<ChessMove>, board: &Board, color: Color) 
         all_pawn_moves.into_iter().partition(|chess_move| {
             let to_square = chess_move.to_square();
             let promotion_rank = match color {
-                Color::White => RANK_8,
-                Color::Black => RANK_1,
+                Color::White => Bitboard::RANK_8,
+                Color::Black => Bitboard::RANK_1,
             };
-            to_square & promotion_rank == 0
+            !to_square.overlaps(promotion_rank)
         });
 
     for promotable_pawn_move in promotable_pawn_moves.iter() {
@@ -151,23 +151,23 @@ fn generate_pawn_moves(moves: &mut Vec<ChessMove>, board: &Board, color: Color) 
 fn generate_en_passant_moves(moves: &mut Vec<ChessMove>, board: &Board, color: Color) {
     let en_passant_target = board.peek_en_passant_target();
 
-    if en_passant_target == 0 {
+    if en_passant_target.is_empty() {
         return;
     }
 
     let pawns = board.pieces(color).locate(Piece::Pawn);
 
     let attacks_west = match color {
-        Color::White => (pawns << 9) & !A_FILE,
-        Color::Black => (pawns >> 7) & !A_FILE,
+        Color::White => (pawns << 9) & !Bitboard::A_FILE,
+        Color::Black => (pawns >> 7) & !Bitboard::A_FILE,
     };
 
     let attacks_east = match color {
-        Color::White => (pawns << 7) & !H_FILE,
-        Color::Black => (pawns >> 9) & !H_FILE,
+        Color::White => (pawns << 7) & !Bitboard::H_FILE,
+        Color::Black => (pawns >> 9) & !Bitboard::H_FILE,
     };
 
-    if attacks_west & en_passant_target > 0 {
+    if attacks_west.overlaps(en_passant_target) {
         let from_square = match color {
             Color::White => en_passant_target >> 9,
             Color::Black => en_passant_target << 7,
@@ -176,7 +176,7 @@ fn generate_en_passant_moves(moves: &mut Vec<ChessMove>, board: &Board, color: C
         moves.push(ChessMove::EnPassant(en_passant_move));
     }
 
-    if attacks_east & en_passant_target > 0 {
+    if attacks_east.overlaps(en_passant_target) {
         let from_square = match color {
             Color::White => en_passant_target >> 7,
             Color::Black => en_passant_target << 9,
@@ -235,7 +235,7 @@ fn expand_piece_targets(
     for (piece, target_squares) in piece_targets {
         let piece_sq = assert(piece);
         for &target in &ORDERED {
-            if target_squares & target == 0 {
+            if !target_squares.overlaps(target) {
                 continue;
             }
 
@@ -267,7 +267,11 @@ fn generate_castle_moves(
 ) {
     let attacked_squares = targets.generate_attack_targets(board, color.opposite());
 
-    if board.pieces(color).locate(Piece::King) & attacked_squares > 0 {
+    if board
+        .pieces(color)
+        .locate(Piece::King)
+        .overlaps(attacked_squares)
+    {
         return;
     }
 
@@ -302,9 +306,9 @@ fn generate_castle_moves(
 
     if kingside_rights > 0
         && board.get(kingside_transit_square).is_none()
-        && kingside_transit_square & attacked_squares == 0
-        && kingside_transit_square & occupied == 0
-        && kingside_target_square & occupied == 0
+        && !kingside_transit_square.overlaps(attacked_squares)
+        && !kingside_transit_square.overlaps(occupied)
+        && !kingside_target_square.overlaps(occupied)
     {
         let castle_move = CastleChessMove::castle_kingside(color);
         moves.push(ChessMove::Castle(castle_move));
@@ -312,10 +316,10 @@ fn generate_castle_moves(
 
     if queenside_rights > 0
         && board.get(queenside_transit_square).is_none()
-        && queenside_transit_square & attacked_squares == 0
-        && queenside_transit_square & occupied == 0
-        && queenside_rook_transit_square & occupied == 0
-        && queenside_target_square & occupied == 0
+        && !queenside_transit_square.overlaps(attacked_squares)
+        && !queenside_transit_square.overlaps(occupied)
+        && !queenside_rook_transit_square.overlaps(occupied)
+        && !queenside_target_square.overlaps(occupied)
     {
         let castle_move = CastleChessMove::castle_queenside(color);
         moves.push(ChessMove::Castle(castle_move));
@@ -338,7 +342,7 @@ fn remove_invalid_moves(
         let attacked_squares = targets.generate_attack_targets(board, color.opposite());
         chess_move.undo(board).unwrap();
 
-        if king & attacked_squares == 0 {
+        if !king.overlaps(attacked_squares) {
             valid_moves.push(chess_move);
         }
     }

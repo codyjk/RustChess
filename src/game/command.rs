@@ -1,4 +1,4 @@
-use crate::chess_move::ChessMove;
+use crate::{bitboard::bitboard::Bitboard, chess_move::ChessMove};
 
 use super::{Game, GameError};
 
@@ -9,12 +9,12 @@ pub trait Command {
 }
 
 pub struct MakeMove {
-    from_square: u64,
-    to_square: u64,
+    from_square: Bitboard,
+    to_square: Bitboard,
 }
 
 impl MakeMove {
-    pub fn new(from_square: u64, to_square: u64) -> Self {
+    pub fn new(from_square: Bitboard, to_square: Bitboard) -> Self {
         Self {
             from_square,
             to_square,

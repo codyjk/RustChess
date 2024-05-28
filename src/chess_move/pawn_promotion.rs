@@ -1,21 +1,24 @@
 use core::fmt;
 
-use crate::board::{error::BoardError, piece::Piece, square, Board};
+use crate::{
+    bitboard::bitboard::Bitboard,
+    board::{error::BoardError, piece::Piece, square, Board},
+};
 
 use super::{standard::StandardChessMove, Capture};
 
 #[derive(PartialEq, Clone, Eq, PartialOrd, Ord)]
 pub struct PawnPromotionChessMove {
-    from_square: u64,
-    to_square: u64,
+    from_square: Bitboard,
+    to_square: Bitboard,
     capture: Option<Capture>,
     promote_to_piece: Piece,
 }
 
 impl PawnPromotionChessMove {
     pub fn new(
-        from_square: u64,
-        to_square: u64,
+        from_square: Bitboard,
+        to_square: Bitboard,
         capture: Option<Capture>,
         promote_to_piece: Piece,
     ) -> Self {
@@ -27,11 +30,11 @@ impl PawnPromotionChessMove {
         }
     }
 
-    pub fn to_square(&self) -> u64 {
+    pub fn to_square(&self) -> Bitboard {
         self.to_square
     }
 
-    pub fn from_square(&self) -> u64 {
+    pub fn from_square(&self) -> Bitboard {
         self.from_square
     }
 

@@ -1,29 +1,31 @@
 use core::fmt;
 
-use crate::board::{
-    bitboard::{EMPTY, RANK_1, RANK_2, RANK_4, RANK_5, RANK_7, RANK_8},
-    castle_rights::{
-        BLACK_KINGSIDE_RIGHTS, BLACK_QUEENSIDE_RIGHTS, WHITE_KINGSIDE_RIGHTS,
-        WHITE_QUEENSIDE_RIGHTS,
+use crate::{
+    bitboard::bitboard::Bitboard,
+    board::{
+        castle_rights::{
+            BLACK_KINGSIDE_RIGHTS, BLACK_QUEENSIDE_RIGHTS, WHITE_KINGSIDE_RIGHTS,
+            WHITE_QUEENSIDE_RIGHTS,
+        },
+        color::Color,
+        error::BoardError,
+        piece::Piece,
+        square::{self, A1, A8, E1, E8, H1, H8},
+        Board,
     },
-    color::Color,
-    error::BoardError,
-    piece::Piece,
-    square::{self, A1, A8, E1, E8, H1, H8},
-    Board,
 };
 
 use super::{pawn_promotion::PawnPromotionChessMove, Capture};
 
 #[derive(PartialEq, Clone, Eq, PartialOrd, Ord)]
 pub struct StandardChessMove {
-    from_square: u64,
-    to_square: u64,
+    from_square: Bitboard,
+    to_square: Bitboard,
     capture: Option<Capture>,
 }
 
 impl StandardChessMove {
-    pub fn new(from_square: u64, to_square: u64, capture: Option<Capture>) -> Self {
+    pub fn new(from_square: Bitboard, to_square: Bitboard, capture: Option<Capture>) -> Self {
         Self {
             from_square,
             to_square,
@@ -31,11 +33,11 @@ impl StandardChessMove {
         }
     }
 
-    pub fn to_square(&self) -> u64 {
+    pub fn to_square(&self) -> Bitboard {
         self.to_square
     }
 
-    pub fn from_square(&self) -> u64 {
+    pub fn from_square(&self) -> Bitboard {
         self.from_square
     }
 
@@ -114,12 +116,18 @@ impl StandardChessMove {
             Some((Piece::Pawn, color)) => color,
             _ => return false,
         };
-        let (from_rank, to_rank) = match pawn_color {
-            Color::White => (self.from_square & RANK_7, self.to_square & RANK_8),
-            Color::Black => (self.from_square & RANK_2, self.to_square & RANK_1),
+        let (overlaps_back_rank, overlaps_promotion_rank) = match pawn_color {
+            Color::White => (
+                self.from_square.overlaps(Bitboard::RANK_7),
+                self.to_square.overlaps(Bitboard::RANK_8),
+            ),
+            Color::Black => (
+                self.from_square.overlaps(Bitboard::RANK_2),
+                self.to_square.overlaps(Bitboard::RANK_1),
+            ),
         };
 
-        from_rank > 0 && to_rank > 0
+        overlaps_back_rank && overlaps_promotion_rank
     }
 
     pub fn to_pawn_promotion(
@@ -145,20 +153,24 @@ impl StandardChessMove {
 fn get_en_passant_target_square(
     piece_to_move: Piece,
     color: Color,
-    from_square: u64,
-    to_square: u64,
-) -> u64 {
+    from_square: Bitboard,
+    to_square: Bitboard,
+) -> Bitboard {
     if piece_to_move != Piece::Pawn {
-        return EMPTY;
+        return Bitboard::EMPTY;
     }
 
     let is_en_passant = match color {
-        Color::White => (from_square & RANK_2 > 0) && (to_square & RANK_4 > 0),
-        Color::Black => (from_square & RANK_7 > 0) && (to_square & RANK_5 > 0),
+        Color::White => {
+            from_square.overlaps(Bitboard::RANK_2) && to_square.overlaps(Bitboard::RANK_4)
+        }
+        Color::Black => {
+            from_square.overlaps(Bitboard::RANK_7) && to_square.overlaps(Bitboard::RANK_5)
+        }
     };
 
     if !is_en_passant {
-        return EMPTY;
+        return Bitboard::EMPTY;
     }
 
     match color {
@@ -170,7 +182,7 @@ fn get_en_passant_target_square(
 fn get_lost_castle_rights_if_rook_or_king_moved(
     piece_to_move: Piece,
     color: Color,
-    from_square: u64,
+    from_square: Bitboard,
 ) -> u8 {
     match (piece_to_move, color, from_square) {
         (Piece::Rook, Color::White, A1) => WHITE_QUEENSIDE_RIGHTS,
@@ -185,7 +197,7 @@ fn get_lost_castle_rights_if_rook_or_king_moved(
 
 fn get_lost_castle_rights_if_rook_taken(
     captured_piece: Option<(Piece, Color)>,
-    to_square: u64,
+    to_square: Bitboard,
 ) -> u8 {
     match (captured_piece, to_square) {
         (Some((Piece::Rook, Color::White)), A1) => WHITE_QUEENSIDE_RIGHTS,

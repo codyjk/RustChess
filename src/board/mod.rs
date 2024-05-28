@@ -1,4 +1,3 @@
-pub mod bitboard;
 pub mod castle_rights;
 pub mod color;
 pub mod error;
@@ -17,6 +16,8 @@ use color::Color;
 use error::BoardError;
 use piece::Piece;
 use piece_set::PieceSet;
+
+use crate::bitboard::bitboard::Bitboard;
 
 use self::{castle_rights::CastleRightsBitmask, move_info::MoveInfo, position_info::PositionInfo};
 
@@ -57,15 +58,15 @@ impl Board {
         Self::from_fen(fen::STARTING_POSITION_FEN).unwrap()
     }
 
-    pub fn occupied(&self) -> u64 {
+    pub fn occupied(&self) -> Bitboard {
         self.white.occupied() | self.black.occupied()
     }
 
-    pub fn is_occupied(&self, square: u64) -> bool {
-        self.occupied() & square != 0
+    pub fn is_occupied(&self, square: Bitboard) -> bool {
+        !(self.occupied() & square).is_empty()
     }
 
-    pub fn get(&self, square: u64) -> Option<(Piece, Color)> {
+    pub fn get(&self, square: Bitboard) -> Option<(Piece, Color)> {
         let color = if self.white.is_occupied(square) {
             Color::White
         } else if self.black.is_occupied(square) {
@@ -82,7 +83,7 @@ impl Board {
         maybe_piece.map(|piece| (piece, color))
     }
 
-    pub fn put(&mut self, square: u64, piece: Piece, color: Color) -> Result<(), BoardError> {
+    pub fn put(&mut self, square: Bitboard, piece: Piece, color: Color) -> Result<(), BoardError> {
         if self.is_occupied(square) {
             return Err(BoardError::SquareOccupied);
         }
@@ -100,7 +101,7 @@ impl Board {
         result
     }
 
-    pub fn remove(&mut self, square: u64) -> Option<(Piece, Color)> {
+    pub fn remove(&mut self, square: Bitboard) -> Option<(Piece, Color)> {
         let (piece, color) = self.get(square)?;
         match color {
             Color::White => self.white.remove(square),
@@ -125,17 +126,17 @@ impl Board {
         turn
     }
 
-    pub fn push_en_passant_target(&mut self, target_square: u64) -> u64 {
+    pub fn push_en_passant_target(&mut self, target_square: Bitboard) -> Bitboard {
         self.position_info
             .update_zobrist_hash_toggle_en_passant_target(target_square);
         self.move_info.push_en_passant_target(target_square)
     }
 
-    pub fn peek_en_passant_target(&self) -> u64 {
+    pub fn peek_en_passant_target(&self) -> Bitboard {
         self.move_info.peek_en_passant_target()
     }
 
-    pub fn pop_en_passant_target(&mut self) -> u64 {
+    pub fn pop_en_passant_target(&mut self) -> Bitboard {
         let target_square = self.move_info.pop_en_passant_target();
         self.position_info
             .update_zobrist_hash_toggle_en_passant_target(target_square);

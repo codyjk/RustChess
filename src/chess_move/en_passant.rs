@@ -1,28 +1,31 @@
 use core::fmt;
 
-use crate::board::{bitboard::EMPTY, color::Color, error::BoardError, piece::Piece, square, Board};
+use crate::{
+    bitboard::bitboard::Bitboard,
+    board::{color::Color, error::BoardError, piece::Piece, square, Board},
+};
 
 use super::Capture;
 
 #[derive(PartialEq, Clone, Eq, PartialOrd, Ord)]
 pub struct EnPassantChessMove {
-    from_square: u64,
-    to_square: u64,
+    from_square: Bitboard,
+    to_square: Bitboard,
 }
 
 impl EnPassantChessMove {
-    pub fn new(from_square: u64, to_square: u64) -> Self {
+    pub fn new(from_square: Bitboard, to_square: Bitboard) -> Self {
         Self {
             from_square,
             to_square,
         }
     }
 
-    pub fn to_square(&self) -> u64 {
+    pub fn to_square(&self) -> Bitboard {
         self.to_square
     }
 
-    pub fn from_square(&self) -> u64 {
+    pub fn from_square(&self) -> Bitboard {
         self.from_square
     }
 
@@ -47,8 +50,8 @@ impl EnPassantChessMove {
 
         // the captured pawn is "behind" the target square
         let capture_square = match color {
-            Color::White => to_square >> 8,
-            Color::Black => to_square << 8,
+            Color::White => *to_square >> 8,
+            Color::Black => *to_square << 8,
         };
 
         let capture = match board.remove(capture_square) {
@@ -58,7 +61,7 @@ impl EnPassantChessMove {
 
         board.reset_halfmove_clock();
         board.increment_fullmove_clock();
-        board.push_en_passant_target(EMPTY);
+        board.push_en_passant_target(Bitboard::EMPTY);
         board.preserve_castle_rights();
         board
             .put(*to_square, piece_to_move, color)
@@ -89,8 +92,8 @@ impl EnPassantChessMove {
 
         // the captured pawn is "behind" the target square
         let capture_square = match piece_color {
-            Color::White => to_square >> 8,
-            Color::Black => to_square << 8,
+            Color::White => *to_square >> 8,
+            Color::Black => *to_square << 8,
         };
 
         // Revert the board state.
@@ -156,7 +159,7 @@ mod tests {
         println!("After en passant:\n{}", board);
         assert_eq!(Some((Piece::Pawn, Color::Black)), board.get(D3));
         assert_eq!(None, board.get(D4));
-        assert_eq!(EMPTY, board.peek_en_passant_target());
+        assert_eq!(Bitboard::EMPTY, board.peek_en_passant_target());
 
         en_passant.undo(&mut board).unwrap();
         println!("Undo en passant:\n{}", board);

@@ -1,12 +1,11 @@
-use super::{
-    bitboard::EMPTY,
-    castle_rights::{CastleRightsBitmask, ALL_CASTLE_RIGHTS},
-};
+use crate::bitboard::bitboard::Bitboard;
+
+use super::castle_rights::{CastleRightsBitmask, ALL_CASTLE_RIGHTS};
 
 /// Stores information about state changes related to individual chess moves.
 #[derive(Clone)]
 pub struct MoveInfo {
-    en_passant_target_stack: Vec<u64>,
+    en_passant_target_stack: Vec<Bitboard>,
     castle_rights_stack: Vec<CastleRightsBitmask>,
     halfmove_clock_stack: Vec<u8>,
     fullmove_clock: u8,
@@ -15,7 +14,7 @@ pub struct MoveInfo {
 impl Default for MoveInfo {
     fn default() -> Self {
         Self {
-            en_passant_target_stack: vec![EMPTY],
+            en_passant_target_stack: vec![Bitboard::EMPTY],
             castle_rights_stack: vec![ALL_CASTLE_RIGHTS],
             halfmove_clock_stack: vec![0],
             fullmove_clock: 1,
@@ -30,16 +29,16 @@ impl MoveInfo {
 
     // En passant state management
 
-    pub fn push_en_passant_target(&mut self, target_square: u64) -> u64 {
+    pub fn push_en_passant_target(&mut self, target_square: Bitboard) -> Bitboard {
         self.en_passant_target_stack.push(target_square);
         target_square
     }
 
-    pub fn peek_en_passant_target(&self) -> u64 {
+    pub fn peek_en_passant_target(&self) -> Bitboard {
         *self.en_passant_target_stack.last().unwrap()
     }
 
-    pub fn pop_en_passant_target(&mut self) -> u64 {
+    pub fn pop_en_passant_target(&mut self) -> Bitboard {
         self.en_passant_target_stack.pop().unwrap()
     }
 

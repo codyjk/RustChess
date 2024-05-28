@@ -1,16 +1,18 @@
 use core::fmt;
 
-use crate::board::{
-    bitboard::{EMPTY, RANK_1, RANK_8},
-    castle_rights::{
-        BLACK_KINGSIDE_RIGHTS, BLACK_QUEENSIDE_RIGHTS, WHITE_KINGSIDE_RIGHTS,
-        WHITE_QUEENSIDE_RIGHTS,
+use crate::{
+    bitboard::bitboard::Bitboard,
+    board::{
+        castle_rights::{
+            BLACK_KINGSIDE_RIGHTS, BLACK_QUEENSIDE_RIGHTS, WHITE_KINGSIDE_RIGHTS,
+            WHITE_QUEENSIDE_RIGHTS,
+        },
+        color::Color,
+        error::BoardError,
+        piece::Piece,
+        square::{self, A1, A8, D1, D8, F1, F8, H1, H8},
+        Board,
     },
-    color::Color,
-    error::BoardError,
-    piece::Piece,
-    square::{self, A1, A8, D1, D8, F1, F8, H1, H8},
-    Board,
 };
 
 use super::Capture;
@@ -18,14 +20,14 @@ use super::Capture;
 #[derive(PartialEq, Clone, Eq, PartialOrd, Ord)]
 pub struct CastleChessMove {
     // The square the king is moving from
-    from_square: u64,
+    from_square: Bitboard,
 
     // The square the king is moving to
-    to_square: u64,
+    to_square: Bitboard,
 }
 
 impl CastleChessMove {
-    fn new(from_square: u64, to_square: u64) -> Self {
+    fn new(from_square: Bitboard, to_square: Bitboard) -> Self {
         Self {
             from_square,
             to_square,
@@ -46,11 +48,11 @@ impl CastleChessMove {
         }
     }
 
-    pub fn to_square(&self) -> u64 {
+    pub fn to_square(&self) -> Bitboard {
         self.to_square
     }
 
-    pub fn from_square(&self) -> u64 {
+    pub fn from_square(&self) -> Bitboard {
         self.from_square
     }
 
@@ -66,7 +68,9 @@ impl CastleChessMove {
             _ => return Err(BoardError::InvalidCastleMoveError),
         };
 
-        let color = match ((king_from & RANK_1 > 0), (king_from & RANK_8 > 0)) {
+        let overlaps_first_rank = king_from.overlaps(Bitboard::RANK_1);
+        let overlaps_eighth_rank = king_from.overlaps(Bitboard::RANK_8);
+        let color = match (overlaps_first_rank, overlaps_eighth_rank) {
             (true, false) => Color::White,
             (false, true) => Color::Black,
             _ => return Err(BoardError::InvalidCastleMoveError),
@@ -115,7 +119,7 @@ impl CastleChessMove {
 
         board.increment_halfmove_clock();
         board.increment_fullmove_clock();
-        board.push_en_passant_target(EMPTY);
+        board.push_en_passant_target(Bitboard::EMPTY);
         board.lose_castle_rights(lost_castle_rights);
 
         Ok(None)
@@ -133,7 +137,9 @@ impl CastleChessMove {
             _ => return Err(BoardError::InvalidCastleMoveError),
         };
 
-        let color = match ((*king_from & RANK_1 > 0), (*king_from & RANK_8 > 0)) {
+        let overlaps_first_rank = king_from.overlaps(Bitboard::RANK_1);
+        let overlaps_eighth_rank = king_from.overlaps(Bitboard::RANK_8);
+        let color = match (overlaps_first_rank, overlaps_eighth_rank) {
             (true, false) => Color::White,
             (false, true) => Color::Black,
             _ => return Err(BoardError::InvalidCastleMoveError),
