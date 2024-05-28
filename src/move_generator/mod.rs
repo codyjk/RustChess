@@ -3,7 +3,7 @@ use crate::board::castle_rights::{
 };
 use crate::board::{square::*, Board};
 pub mod ray_table;
-pub mod targets;
+mod targets;
 
 use crate::board::bitboard::{A_FILE, H_FILE, RANK_1, RANK_8};
 use crate::board::color::Color;
@@ -22,6 +22,7 @@ pub const PAWN_PROMOTIONS: [Piece; 4] = [Piece::Queen, Piece::Rook, Piece::Bisho
 
 #[derive(Default)]
 pub struct MoveGenerator {
+    targets: Targets,
     // (board, color) -> moves
     cache: FxHashMap<(u64, u8), Vec<ChessMove>>,
     hit_count: usize,
@@ -53,31 +54,20 @@ impl MoveGenerator {
         self.hit_count = 0;
     }
 
-    pub fn generate_moves(
-        &mut self,
-        board: &mut Board,
-        color: Color,
-        targets: &mut Targets,
-    ) -> Vec<ChessMove> {
+    pub fn generate_moves(&mut self, board: &mut Board, color: Color) -> Vec<ChessMove> {
         let key = (board.current_position_hash(), color as u8);
         if let Some(moves) = self.cache.get(&key) {
             self.hit_count += 1;
             return moves.clone();
         }
 
-        let moves = generate_valid_moves(board, color, targets);
+        let moves = generate_valid_moves(board, color, &mut self.targets);
         self.cache.insert(key, moves.clone());
         moves
     }
 
-    pub fn count_positions(
-        &mut self,
-        depth: u8,
-        board: &mut Board,
-        targets: &mut Targets,
-        color: Color,
-    ) -> usize {
-        let candidates = self.generate_moves(board, color, targets);
+    pub fn count_positions(&mut self, depth: u8, board: &mut Board, color: Color) -> usize {
+        let candidates = self.generate_moves(board, color);
         let mut count = candidates.len();
 
         if depth == 0 {
@@ -88,11 +78,25 @@ impl MoveGenerator {
 
         for chess_move in candidates.iter() {
             chess_move.apply(board).unwrap();
-            count += self.count_positions(depth - 1, board, targets, next_color);
+            count += self.count_positions(depth - 1, board, next_color);
             chess_move.undo(board).unwrap();
         }
 
         count
+    }
+
+    pub fn get_attack_targets(&mut self, board: &Board, color: Color) -> u64 {
+        let board_hash = board.current_position_hash();
+
+        if let Some(cached_targets) = self.targets.get_cached_attack(color, board_hash) {
+            return cached_targets;
+        }
+
+        let attack_targets = self.targets.generate_attack_targets(board, color);
+
+        self.targets.cache_attack(color, board_hash, attack_targets);
+
+        attack_targets
     }
 }
 

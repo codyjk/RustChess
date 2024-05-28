@@ -6,7 +6,6 @@ use crate::board::error::BoardError;
 use crate::board::Board;
 use crate::book::{generate_opening_book, Book};
 use crate::evaluate::{self, GameEnding};
-use crate::move_generator::targets::Targets;
 use crate::move_generator::MoveGenerator;
 use crate::searcher::{SearchError, Searcher};
 use rand::{self, Rng};
@@ -18,7 +17,6 @@ pub struct Game {
     board: Board,
     move_history: Vec<BoardMove>,
     book: Book,
-    targets: Targets,
     move_generator: MoveGenerator,
     searcher: Searcher,
 }
@@ -43,7 +41,6 @@ impl Game {
             board,
             move_history: Vec::new(),
             book: generate_opening_book(),
-            targets: Targets::new(),
             move_generator: MoveGenerator::new(),
             searcher: Searcher::new(search_depth),
         }
@@ -51,12 +48,7 @@ impl Game {
 
     pub fn check_game_over_for_current_turn(&mut self) -> Option<GameEnding> {
         let turn = self.board.turn();
-        evaluate::game_ending(
-            &mut self.board,
-            &mut self.targets,
-            &mut self.move_generator,
-            turn,
-        )
+        evaluate::game_ending(&mut self.board, &mut self.move_generator, turn)
     }
 
     pub fn save_move(&mut self, board_move: BoardMove) {
@@ -69,9 +61,7 @@ impl Game {
 
     pub fn make_move(&mut self, from_square: u64, to_square: u64) -> Result<BoardMove, GameError> {
         let turn = self.board.turn();
-        let candidates =
-            self.move_generator
-                .generate_moves(&mut self.board, turn, &mut self.targets);
+        let candidates = self.move_generator.generate_moves(&mut self.board, turn);
         let chess_move = candidates
             .iter()
             .find(|m| m.from_square() == from_square && m.to_square() == to_square)
@@ -86,14 +76,13 @@ impl Game {
     }
 
     pub fn make_alpha_beta_best_move(&mut self) -> Result<BoardMove, GameError> {
-        let best_move =
-            match self
-                .searcher
-                .search(&mut self.board, &mut self.targets, &mut self.move_generator)
-            {
-                Ok(mv) => mv,
-                Err(err) => return Err(GameError::SearchError { error: err }),
-            };
+        let best_move = match self
+            .searcher
+            .search(&mut self.board, &mut self.move_generator)
+        {
+            Ok(mv) => mv,
+            Err(err) => return Err(GameError::SearchError { error: err }),
+        };
 
         match best_move.apply(&mut self.board) {
             Ok(_capture) => {
@@ -115,9 +104,9 @@ impl Game {
 
         let rng = rand::thread_rng().gen_range(0..book_moves.len());
         let (from_square, to_square) = book_moves[rng];
-        let candidates =
-            self.move_generator
-                .generate_moves(&mut self.board, current_turn, &mut self.targets);
+        let candidates = self
+            .move_generator
+            .generate_moves(&mut self.board, current_turn);
 
         let maybe_chess_move = candidates
             .iter()
@@ -138,12 +127,7 @@ impl Game {
     }
 
     pub fn score(&mut self, current_turn: Color) -> f32 {
-        evaluate::score(
-            &mut self.board,
-            &mut self.targets,
-            &mut self.move_generator,
-            current_turn,
-        )
+        evaluate::score(&mut self.board, &mut self.move_generator, current_turn)
     }
 
     pub fn fullmove_clock(&self) -> u8 {

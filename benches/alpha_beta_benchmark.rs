@@ -4,7 +4,6 @@ use chess::board::piece::Piece;
 use chess::board::square::{A1, E7, E8, F2, G1, G2, H2, H8};
 use chess::board::Board;
 use chess::evaluate::{self, GameEnding};
-use chess::move_generator::targets::Targets;
 use chess::move_generator::MoveGenerator;
 use chess::searcher::Searcher;
 
@@ -21,7 +20,6 @@ criterion_main!(benches);
 
 fn find_alpha_beta_mate_in_2() {
     let mut board = Board::new();
-    let mut targets = Targets::new();
     let mut searcher = Searcher::new(2);
     let mut move_generator = MoveGenerator::new();
 
@@ -36,24 +34,18 @@ fn find_alpha_beta_mate_in_2() {
     board.set_turn(Color::Black);
     board.lose_castle_rights(ALL_CASTLE_RIGHTS);
 
-    let move1 = searcher
-        .search(&mut board, &mut targets, &mut move_generator)
-        .unwrap();
+    let move1 = searcher.search(&mut board, &mut move_generator).unwrap();
     move1.apply(&mut board).unwrap();
     board.toggle_turn();
-    let move2 = searcher
-        .search(&mut board, &mut targets, &mut move_generator)
-        .unwrap();
+    let move2 = searcher.search(&mut board, &mut move_generator).unwrap();
     move2.apply(&mut board).unwrap();
     board.toggle_turn();
-    let move3 = searcher
-        .search(&mut board, &mut targets, &mut move_generator)
-        .unwrap();
+    let move3 = searcher.search(&mut board, &mut move_generator).unwrap();
     move3.apply(&mut board).unwrap();
     let current_turn = board.toggle_turn();
 
     matches!(
-        evaluate::game_ending(&mut board, &mut targets, &mut move_generator, current_turn),
+        evaluate::game_ending(&mut board, &mut move_generator, current_turn),
         Some(GameEnding::Checkmate)
     );
 }

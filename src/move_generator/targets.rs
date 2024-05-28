@@ -5,7 +5,6 @@ use crate::board::color::Color;
 use crate::board::piece::Piece;
 use crate::board::square::*;
 use crate::board::Board;
-use log::debug;
 use rustc_hash::FxHashMap;
 
 use super::ray_table::{Direction, RayTable};
@@ -55,12 +54,6 @@ impl Targets {
     }
 
     pub fn generate_attack_targets(&mut self, board: &Board, color: Color) -> u64 {
-        let board_hash = board.current_position_hash();
-
-        if let Some(cached_targets) = self.get_cached_attack(color, board_hash) {
-            return cached_targets;
-        }
-
         let mut piece_targets: Vec<PieceTarget> = vec![];
         let mut attack_targets = EMPTY;
 
@@ -82,8 +75,6 @@ impl Targets {
         for (_piece, targets) in piece_targets {
             attack_targets |= targets;
         }
-
-        self.cache_attack(color, board_hash, attack_targets);
 
         attack_targets
     }
@@ -136,11 +127,11 @@ impl Targets {
         piece_targets
     }
 
-    fn get_cached_attack(&self, color: Color, board_hash: u64) -> Option<u64> {
+    pub fn get_cached_attack(&self, color: Color, board_hash: u64) -> Option<u64> {
         self.attacks_cache.get(&(color as u8, board_hash)).copied()
     }
 
-    fn cache_attack(&mut self, color: Color, board_hash: u64, attack_targets: u64) -> u64 {
+    pub fn cache_attack(&mut self, color: Color, board_hash: u64, attack_targets: u64) -> u64 {
         match self
             .attacks_cache
             .insert((color as u8, board_hash), attack_targets)

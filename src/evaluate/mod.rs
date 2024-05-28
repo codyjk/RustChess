@@ -4,7 +4,6 @@ use crate::board::color::Color;
 use crate::board::piece::{Piece, ALL_PIECES};
 use crate::board::square::to_algebraic;
 use crate::board::Board;
-use crate::move_generator::targets::Targets;
 use crate::move_generator::MoveGenerator;
 
 use self::piece_values::material_value;
@@ -19,17 +18,16 @@ pub enum GameEnding {
     Draw,
 }
 
-fn current_player_is_in_check(board: &Board, targets: &mut Targets) -> bool {
+fn current_player_is_in_check(board: &Board, move_generator: &mut MoveGenerator) -> bool {
     let current_player = board.turn();
     let king = board.pieces(current_player).locate(Piece::King);
-    let attacked_squares = targets.generate_attack_targets(board, current_player.opposite());
+    let attacked_squares = move_generator.get_attack_targets(board, current_player.opposite());
 
     king & attacked_squares > 0
 }
 
 pub fn game_ending(
     board: &mut Board,
-    targets: &mut Targets,
     move_generator: &mut MoveGenerator,
     current_turn: Color,
 ) -> Option<GameEnding> {
@@ -41,8 +39,8 @@ pub fn game_ending(
         return Some(GameEnding::Draw);
     }
 
-    let candidates = move_generator.generate_moves(board, current_turn, targets);
-    let check = current_player_is_in_check(board, targets);
+    let candidates = move_generator.generate_moves(board, current_turn);
+    let check = current_player_is_in_check(board, move_generator);
 
     if candidates.is_empty() {
         if check {
@@ -55,12 +53,7 @@ pub fn game_ending(
     None
 }
 
-pub fn score(
-    board: &mut Board,
-    targets: &mut Targets,
-    move_generator: &mut MoveGenerator,
-    current_turn: Color,
-) -> f32 {
+pub fn score(board: &mut Board, move_generator: &mut MoveGenerator, current_turn: Color) -> f32 {
     // Check for position repetition
     if board.max_seen_position_count() == 3 {
         match current_turn {
@@ -70,7 +63,7 @@ pub fn score(
     }
 
     match (
-        game_ending(board, targets, move_generator, current_turn),
+        game_ending(board, move_generator, current_turn),
         current_turn,
     ) {
         (Some(GameEnding::Checkmate), Color::White) => f32::INFINITY,
@@ -146,7 +139,6 @@ mod tests {
     #[test]
     fn test_game_ending_stalemate() {
         let mut board = Board::new();
-        let mut targets = Targets::new();
         let mut move_generator = MoveGenerator::new();
 
         board.put(A1, Piece::King, Color::White).unwrap();
@@ -155,14 +147,13 @@ mod tests {
         board.lose_castle_rights(ALL_CASTLE_RIGHTS);
         println!("Testing board:\n{}", board);
 
-        let ending = game_ending(&mut board, &mut targets, &mut move_generator, Color::Black);
+        let ending = game_ending(&mut board, &mut move_generator, Color::Black);
         matches!(ending, Some(GameEnding::Stalemate));
     }
 
     #[test]
     fn test_game_ending_checkmate() {
         let mut board = Board::new();
-        let mut targets = Targets::new();
         let mut move_generator = MoveGenerator::new();
 
         board.put(A1, Piece::King, Color::White).unwrap();
@@ -172,7 +163,7 @@ mod tests {
         board.lose_castle_rights(ALL_CASTLE_RIGHTS);
         println!("Testing board:\n{}", board);
 
-        let ending = game_ending(&mut board, &mut targets, &mut move_generator, Color::Black);
+        let ending = game_ending(&mut board, &mut move_generator, Color::Black);
         matches!(ending, Some(GameEnding::Checkmate));
     }
 }
