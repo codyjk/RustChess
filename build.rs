@@ -10,6 +10,7 @@ fn build_zobrist_tables() {
 }
 
 fn main() {
-    println!("Building zobrist tables...");
+    println!("cargo:warning=Building zobrist tables...");
     build_zobrist_tables();
+    println!("cargo:warning=Finished building zobrist tables.");
 }
