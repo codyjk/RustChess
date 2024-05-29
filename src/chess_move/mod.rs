@@ -1,9 +1,8 @@
 use core::fmt;
 
-use crate::{
-    bitboard::bitboard::Bitboard,
-    board::{color::Color, error::BoardError, piece::Piece, square::to_algebraic, Board},
-};
+use common::bitboard::{bitboard::Bitboard, square::to_algebraic};
+
+use crate::board::{color::Color, error::BoardError, piece::Piece, Board};
 
 use self::{
     castle::CastleChessMove, en_passant::EnPassantChessMove,

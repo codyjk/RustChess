@@ -1,7 +1,6 @@
 pub mod command;
 pub mod modes;
 
-use crate::bitboard::bitboard::Bitboard;
 use crate::board::color::Color;
 use crate::board::error::BoardError;
 use crate::board::Board;
@@ -10,6 +9,7 @@ use crate::chess_move::ChessMove;
 use crate::evaluate::{self, GameEnding};
 use crate::move_generator::MoveGenerator;
 use crate::searcher::{SearchError, Searcher};
+use common::bitboard::bitboard::Bitboard;
 use rand::{self, Rng};
 use thiserror::Error;
 
@@ -176,10 +176,10 @@ mod tests {
     use super::*;
     use crate::board::castle_rights::ALL_CASTLE_RIGHTS;
     use crate::board::piece::Piece;
-    use crate::board::square;
     use crate::chess_move::standard::StandardChessMove;
     use crate::chess_move::ChessMove;
     use crate::std_move;
+    use common::bitboard::square;
 
     #[test]
     fn test_score() {

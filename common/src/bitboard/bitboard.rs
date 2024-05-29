@@ -7,7 +7,7 @@ use std::{
     },
 };
 
-use crate::board::square::from_rank_file;
+use crate::bitboard::square::from_rank_file;
 
 #[derive(Clone, Copy, PartialEq, Debug, PartialOrd, Eq, Ord, Hash)]
 pub struct Bitboard(pub u64);

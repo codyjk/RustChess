@@ -1,18 +1,18 @@
 use core::fmt;
 
-use crate::{
-    bitboard::bitboard::Bitboard,
-    board::{
-        castle_rights::{
-            BLACK_KINGSIDE_RIGHTS, BLACK_QUEENSIDE_RIGHTS, WHITE_KINGSIDE_RIGHTS,
-            WHITE_QUEENSIDE_RIGHTS,
-        },
-        color::Color,
-        error::BoardError,
-        piece::Piece,
-        square::{self, A1, A8, E1, E8, H1, H8},
-        Board,
+use crate::board::{
+    castle_rights::{
+        BLACK_KINGSIDE_RIGHTS, BLACK_QUEENSIDE_RIGHTS, WHITE_KINGSIDE_RIGHTS,
+        WHITE_QUEENSIDE_RIGHTS,
     },
+    color::Color,
+    error::BoardError,
+    piece::Piece,
+    Board,
+};
+use common::bitboard::{
+    bitboard::Bitboard,
+    square::{self, *},
 };
 
 use super::{pawn_promotion::PawnPromotionChessMove, Capture};
@@ -243,7 +243,6 @@ macro_rules! std_move {
 
 #[cfg(test)]
 mod tests {
-    use crate::board::square::{A2, A4, B1, B4, C3, D2, D4, E2, E4, E5, E7, F3, G1, H2};
 
     use super::*;
     use crate::chess_move::ChessMove;

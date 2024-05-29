@@ -1,6 +1,6 @@
 use core::fmt;
 
-use crate::bitboard::bitboard::Bitboard;
+use common::bitboard::bitboard::Bitboard;
 
 #[derive(Clone, Copy, PartialEq, Debug, Eq, Hash)]
 pub enum Direction {
@@ -111,9 +111,7 @@ fn generate_ray(square_bit: Bitboard, dir: Direction) -> Bitboard {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::board::square::{
-        A1, A4, B2, B4, C1, C2, C3, C4, D4, D5, E5, E6, F6, F7, G7, G8, H8,
-    };
+    use common::bitboard::square::*;
 
     #[test]
     fn test_generate_ray() {

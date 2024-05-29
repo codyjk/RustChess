@@ -1,4 +1,4 @@
-use crate::bitboard::bitboard::Bitboard;
+use common::bitboard::bitboard::Bitboard;
 
 use super::castle_rights::{CastleRightsBitmask, ALL_CASTLE_RIGHTS};
 

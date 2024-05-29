@@ -1,8 +1,7 @@
-use crate::bitboard::bitboard::Bitboard;
 use crate::board::castle_rights::{
     BLACK_KINGSIDE_RIGHTS, BLACK_QUEENSIDE_RIGHTS, WHITE_KINGSIDE_RIGHTS, WHITE_QUEENSIDE_RIGHTS,
 };
-use crate::board::{square::*, Board};
+use crate::board::Board;
 pub mod ray_table;
 mod targets;
 
@@ -13,6 +12,8 @@ use crate::chess_move::en_passant::EnPassantChessMove;
 use crate::chess_move::pawn_promotion::PawnPromotionChessMove;
 use crate::chess_move::standard::StandardChessMove;
 use crate::chess_move::ChessMove;
+use common::bitboard::bitboard::Bitboard;
+use common::bitboard::square::*;
 use rustc_hash::FxHashMap;
 use targets::{PieceTarget, Targets};
 
@@ -233,7 +234,7 @@ fn expand_piece_targets(
 ) {
     // TODO(codyjk): Do we need to loop over every square?
     for (piece, target_squares) in piece_targets {
-        let piece_sq = assert(piece);
+        let piece_sq = assert_square(piece);
         for &target in &ORDERED {
             if !target_squares.overlaps(target) {
                 continue;

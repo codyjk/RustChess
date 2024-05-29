@@ -1,4 +1,6 @@
-use crate::{bitboard::bitboard::Bitboard, chess_move::ChessMove};
+use common::bitboard::bitboard::Bitboard;
+
+use crate::chess_move::ChessMove;
 
 use super::{Game, GameError};
 

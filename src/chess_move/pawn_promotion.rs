@@ -1,9 +1,8 @@
 use core::fmt;
 
-use crate::{
-    bitboard::bitboard::Bitboard,
-    board::{error::BoardError, piece::Piece, square, Board},
-};
+use common::bitboard::{bitboard::Bitboard, square};
+
+use crate::board::{error::BoardError, piece::Piece, Board};
 
 use super::{standard::StandardChessMove, Capture};
 
@@ -125,10 +124,8 @@ macro_rules! promotion {
 
 #[cfg(test)]
 mod tests {
-    use crate::board::{
-        color::Color,
-        square::{A7, A8, B8},
-    };
+    use crate::board::color::Color;
+    use common::bitboard::square::*;
 
     use super::*;
 

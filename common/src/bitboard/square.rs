@@ -72,7 +72,7 @@ pub fn is_square(maybe_square: Bitboard) -> bool {
     (maybe_square & (maybe_square - Bitboard(1))).is_empty()
 }
 
-pub fn assert(maybe_square: Bitboard) -> Bitboard {
+pub fn assert_square(maybe_square: Bitboard) -> Bitboard {
     assert!(is_square(maybe_square));
     maybe_square
 }
@@ -112,7 +112,7 @@ pub fn from_algebraic(algebraic_coord: &str) -> Bitboard {
 }
 
 pub fn to_algebraic(square: Bitboard) -> &'static str {
-    let mut b = assert(square);
+    let mut b = assert_square(square);
     let mut i = 0;
     while !b.is_empty() {
         b >>= 1;

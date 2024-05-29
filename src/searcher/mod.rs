@@ -196,9 +196,9 @@ mod tests {
     use crate::board::castle_rights::ALL_CASTLE_RIGHTS;
     use crate::board::color::Color;
     use crate::board::piece::Piece;
-    use crate::board::square::*;
     use crate::chess_move::standard::StandardChessMove;
     use crate::std_move;
+    use common::bitboard::square::*;
 
     #[test]
     fn test_find_mate_in_1_white() {

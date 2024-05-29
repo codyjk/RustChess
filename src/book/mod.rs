@@ -1,4 +1,4 @@
-use crate::{bitboard::bitboard::Bitboard, board::square};
+use common::bitboard::{bitboard::Bitboard, square};
 use rustc_hash::FxHashMap;
 
 type BookMove = (Bitboard, Bitboard);

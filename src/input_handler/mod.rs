@@ -1,7 +1,7 @@
 use std::io;
 
-use crate::board::square;
 use crate::game::command::{Command, MakeMove};
+use common::bitboard::square;
 use regex::Regex;
 use thiserror::Error;
 

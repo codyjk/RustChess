@@ -1,8 +1,8 @@
-use crate::bitboard::bitboard::Bitboard;
 use crate::board::color::Color;
 use crate::board::piece::Piece;
-use crate::board::square::*;
 use crate::board::Board;
+use common::bitboard::bitboard::Bitboard;
+use common::bitboard::square::ORDERED;
 use rustc_hash::FxHashMap;
 
 use super::ray_table::{Direction, RayTable};
@@ -383,6 +383,8 @@ fn leftmost_bit(x: Bitboard) -> Bitboard {
 
 #[cfg(test)]
 mod tests {
+    use common::bitboard::square::*;
+
     use super::*;
     use crate::chess_move::standard::StandardChessMove;
     use crate::chess_move::ChessMove;

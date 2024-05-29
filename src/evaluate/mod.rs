@@ -1,9 +1,9 @@
+use common::bitboard::bitboard::Bitboard;
+use common::bitboard::square::to_algebraic;
 use log::debug;
 
-use crate::bitboard::bitboard::Bitboard;
 use crate::board::color::Color;
 use crate::board::piece::{Piece, ALL_PIECES};
-use crate::board::square::to_algebraic;
 use crate::board::Board;
 use crate::evaluate::evaluation_tables::BONUS_TABLES;
 use crate::move_generator::MoveGenerator;
@@ -140,11 +140,8 @@ fn is_endgame(board: &Board) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::board::{
-        castle_rights::ALL_CASTLE_RIGHTS,
-        square::{A1, B2, D5, H2, H7, H8},
-        Board,
-    };
+    use crate::board::{castle_rights::ALL_CASTLE_RIGHTS, Board};
+    use common::bitboard::square::*;
 
     #[test]
     fn test_starting_material_score() {

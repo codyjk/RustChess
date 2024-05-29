@@ -4,7 +4,6 @@ pub mod error;
 pub mod magic;
 pub mod piece;
 pub mod piece_set;
-pub mod square;
 
 mod display;
 mod fen;
@@ -12,11 +11,10 @@ mod move_info;
 mod position_info;
 
 use color::Color;
+use common::bitboard::bitboard::Bitboard;
 use error::BoardError;
 use piece::Piece;
 use piece_set::PieceSet;
-
-use crate::bitboard::bitboard::Bitboard;
 
 use self::{castle_rights::CastleRightsBitmask, move_info::MoveInfo, position_info::PositionInfo};
 
@@ -226,14 +224,13 @@ impl Board {
 
 #[cfg(test)]
 mod tests {
-    use tests::square::{B8, C4, C6, E2, E4, E5, E7, F1, F3, F6, G1, G8};
-
     use crate::{castle_kingside, std_move};
 
     use super::*;
     use crate::chess_move::castle::CastleChessMove;
     use crate::chess_move::standard::StandardChessMove;
     use crate::chess_move::ChessMove;
+    use common::bitboard::square::*;
 
     #[test]
     fn test_zobrist_hashing_is_equal_for_transpositions() {

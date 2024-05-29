@@ -1,2 +1,3 @@
 /target
-/build_helpers/target
+/build/target
+/common/target

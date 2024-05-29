@@ -1,4 +1,4 @@
-use crate::bitboard::bitboard::Bitboard;
+use common::bitboard::bitboard::Bitboard;
 
 use super::piece::Piece;
 use super::BoardError;

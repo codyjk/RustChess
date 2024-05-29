@@ -1,9 +1,8 @@
 use core::fmt;
 
-use crate::{
-    bitboard::bitboard::Bitboard,
-    board::{color::Color, error::BoardError, piece::Piece, square, Board},
-};
+use common::bitboard::{bitboard::Bitboard, square};
+
+use crate::board::{color::Color, error::BoardError, piece::Piece, Board};
 
 use super::Capture;
 
@@ -136,10 +135,8 @@ mod tests {
     use super::*;
     use crate::chess_move::standard::StandardChessMove;
     use crate::chess_move::ChessMove;
-    use crate::{
-        board::square::{D2, D3, D4, E4},
-        std_move,
-    };
+    use crate::std_move;
+    use common::bitboard::square::*;
 
     #[test]
     fn test_apply_and_undo_en_passant() {

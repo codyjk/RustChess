@@ -1,21 +1,18 @@
 use core::fmt;
 
-use crate::{
-    bitboard::bitboard::Bitboard,
-    board::{
-        castle_rights::{
-            BLACK_KINGSIDE_RIGHTS, BLACK_QUEENSIDE_RIGHTS, WHITE_KINGSIDE_RIGHTS,
-            WHITE_QUEENSIDE_RIGHTS,
-        },
-        color::Color,
-        error::BoardError,
-        piece::Piece,
-        square::{self, A1, A8, D1, D8, F1, F8, H1, H8},
-        Board,
-    },
-};
-
 use super::Capture;
+use crate::board::{
+    castle_rights::{
+        BLACK_KINGSIDE_RIGHTS, BLACK_QUEENSIDE_RIGHTS, WHITE_KINGSIDE_RIGHTS,
+        WHITE_QUEENSIDE_RIGHTS,
+    },
+    color::Color,
+    error::BoardError,
+    piece::Piece,
+    Board,
+};
+use common::bitboard::bitboard::Bitboard;
+use common::bitboard::square::*;
 
 #[derive(PartialEq, Clone, Eq, PartialOrd, Ord)]
 pub struct CastleChessMove {
@@ -36,15 +33,15 @@ impl CastleChessMove {
 
     pub fn castle_kingside(color: Color) -> Self {
         match color {
-            Color::White => Self::new(square::E1, square::G1),
-            Color::Black => Self::new(square::E8, square::G8),
+            Color::White => Self::new(E1, G1),
+            Color::Black => Self::new(E8, G8),
         }
     }
 
     pub fn castle_queenside(color: Color) -> Self {
         match color {
-            Color::White => Self::new(square::E1, square::C1),
-            Color::Black => Self::new(square::E8, square::C8),
+            Color::White => Self::new(E1, C1),
+            Color::Black => Self::new(E8, C8),
         }
     }
 
@@ -196,8 +193,8 @@ impl fmt::Display for CastleChessMove {
         write!(
             f,
             "castle {} {}",
-            square::to_algebraic(self.from_square).to_lowercase(),
-            square::to_algebraic(self.to_square).to_lowercase(),
+            to_algebraic(self.from_square).to_lowercase(),
+            to_algebraic(self.to_square).to_lowercase(),
         )
     }
 }
@@ -224,8 +221,6 @@ macro_rules! castle_queenside {
 
 #[cfg(test)]
 mod tests {
-    use tests::square::{C1, C8, E1, E8, G1, G8};
-
     use super::*;
     use crate::chess_move::ChessMove;
 

@@ -1,6 +1,7 @@
+use common::bitboard::square::from_rank_file;
+
 use super::color::Color;
 use super::piece::Piece;
-use super::square;
 use super::Board;
 use std::fmt;
 
@@ -15,7 +16,7 @@ impl fmt::Display for Board {
         for rank in (0..8).rev() {
             let mut cells: Vec<String> = vec![];
             for file in 0..8 {
-                let sq = square::from_rank_file(rank, file);
+                let sq = from_rank_file(rank, file);
                 let cell = match self.get(sq) {
                     Some((piece, color)) => get_piece_char(piece, color),
                     None => ' ',

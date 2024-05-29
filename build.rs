@@ -1,6 +1,6 @@
 use std::{fs::File, io::BufWriter, path::PathBuf};
 
-use build_helpers::zobrist::write_zobrist_tables;
+use build::zobrist::write_zobrist_tables;
 
 fn build_zobrist_tables() {
     let mut out: PathBuf = std::env::var("OUT_DIR").unwrap().into();

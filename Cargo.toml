@@ -16,9 +16,10 @@ fastrand = "1.6.0"
 rustc-hash = "1.1.0"
 log = "0.4.14"
 env_logger = "0.9.0"
+common = { path = "common" }
 
 [build-dependencies]
-build_helpers = { path = "build_helpers" }
+build = { path = "build" }
 
 [profile.release]
 debug = true

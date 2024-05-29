@@ -1,7 +1,6 @@
+use common::bitboard::bitboard::Bitboard;
 use log::debug;
 use rustc_hash::FxHashMap;
-
-use crate::bitboard::bitboard::Bitboard;
 
 use super::{color::Color, piece::Piece};
 
@@ -95,7 +94,7 @@ impl PositionInfo {
 
 #[cfg(test)]
 mod tests {
-    use crate::board::square::ORDERED;
+    use common::bitboard::square::ORDERED;
 
     use super::*;
 
