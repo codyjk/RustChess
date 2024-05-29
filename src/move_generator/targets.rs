@@ -48,10 +48,6 @@ impl Default for Targets {
 }
 
 impl Targets {
-    pub fn new() -> Self {
-        Default::default()
-    }
-
     pub fn generate_attack_targets(&mut self, board: &Board, color: Color) -> Bitboard {
         let mut piece_targets: Vec<PieceTarget> = vec![];
         let mut attack_targets = Bitboard::EMPTY;
@@ -391,6 +387,12 @@ mod tests {
     use crate::chess_move::standard::StandardChessMove;
     use crate::chess_move::ChessMove;
     use crate::std_move;
+
+    impl Targets {
+        pub fn new() -> Self {
+            Default::default()
+        }
+    }
 
     #[test]
     fn test_generate_attack_targets() {
