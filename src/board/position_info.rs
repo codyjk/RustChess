@@ -6,10 +6,9 @@ use crate::bitboard::bitboard::Bitboard;
 use super::{
     color::Color,
     piece::Piece,
-    zobrist_tables::{
-        ZOBRIST_CASTLING_RIGHTS_TABLE, ZOBRIST_EN_PASSANT_TABLE, ZOBRIST_PIECES_TABLE,
-    },
 };
+
+include!(concat!(env!("OUT_DIR"), "/zobrist_tables.rs"));
 
 /// Stores information about state changes related to the current (and previous) positions.
 #[derive(Clone)]

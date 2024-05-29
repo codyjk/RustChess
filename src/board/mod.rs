@@ -10,7 +10,6 @@ mod display;
 mod fen;
 mod move_info;
 mod position_info;
-mod zobrist_tables;
 
 use color::Color;
 use error::BoardError;
