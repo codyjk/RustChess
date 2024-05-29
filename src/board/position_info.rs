@@ -3,10 +3,7 @@ use rustc_hash::FxHashMap;
 
 use crate::bitboard::bitboard::Bitboard;
 
-use super::{
-    color::Color,
-    piece::Piece,
-};
+use super::{color::Color, piece::Piece};
 
 include!(concat!(env!("OUT_DIR"), "/zobrist_tables.rs"));
 

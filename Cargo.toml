@@ -18,7 +18,7 @@ log = "0.4.14"
 env_logger = "0.9.0"
 
 [build-dependencies]
-rand = "0.8.4"
+build_helpers = { path = "build_helpers" }
 
 [profile.release]
 debug = true
