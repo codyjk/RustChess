@@ -44,13 +44,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
 
 [[package]]
-name = "build"
-version = "0.1.0"
-dependencies = [
- "rand",
-]
-
-[[package]]
 name = "bumpalo"
 version = "3.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -72,12 +65,12 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 name = "chess"
 version = "0.1.0"
 dependencies = [
- "build",
  "common",
  "criterion",
  "env_logger",
  "fastrand",
  "log",
+ "precompile",
  "rand",
  "regex",
  "rustc-hash",
@@ -376,6 +369,15 @@ name = "ppv-lite86"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5b40af805b3121feab8a3c29f04d8ad262fa8e0561883e7653e024ae4479e6de"
+
+[[package]]
+name = "precompile"
+version = "0.1.0"
+dependencies = [
+ "common",
+ "log",
+ "rand",
+]
 
 [[package]]
 name = "proc-macro-error"

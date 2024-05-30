@@ -4,7 +4,7 @@ use rustc_hash::FxHashMap;
 
 use super::{color::Color, piece::Piece};
 
-include!(concat!(env!("OUT_DIR"), "/zobrist_tables.rs"));
+include!(concat!(env!("OUT_DIR"), "/zobrist_table.rs"));
 
 /// Stores information about state changes related to the current (and previous) positions.
 #[derive(Clone)]

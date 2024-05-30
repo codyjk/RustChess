@@ -57,6 +57,10 @@ impl Bitboard {
     pub fn count_ones(&self) -> u32 {
         self.0.count_ones()
     }
+
+    pub fn popcnt(&self) -> u32 {
+        self.0.count_ones()
+    }
 }
 
 // TODO(codyjk): Maybe generate these with a macro?

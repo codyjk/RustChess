@@ -1,5 +1,4 @@
 use chess::board::color::Color;
-use chess::board::magic::run_find_magic;
 use chess::board::Board;
 use chess::game::modes::{computer_vs_computer, play_computer, player_vs_player};
 use chess::move_generator::MoveGenerator;
@@ -24,7 +23,6 @@ enum Chess {
         #[structopt(short, long, default_value = "3")]
         depth: u8,
     },
-    FindMagic,
 }
 
 fn main() {
@@ -37,7 +35,6 @@ fn main() {
         Chess::Play { depth, color } => play_computer(depth, color),
         Chess::Watch { depth } => computer_vs_computer(0, 1000, depth),
         Chess::Pvp => player_vs_player(),
-        Chess::FindMagic => run_find_magic(),
     }
 }
 

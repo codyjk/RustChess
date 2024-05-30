@@ -81,6 +81,12 @@ pub fn from_rank_file(rank: u8, file: u8) -> Bitboard {
     Bitboard(1) << (file + rank * 8).into()
 }
 
+pub fn to_rank_file(square: Bitboard) -> (u8, u8) {
+    let square = assert_square(square);
+    let i = square.0.trailing_zeros();
+    (i as u8 / 8, i as u8 % 8)
+}
+
 pub fn from_algebraic(algebraic_coord: &str) -> Bitboard {
     let re = Regex::new("^([a-hA-H]{1})([1-8]{1})$").unwrap();
     let caps = re.captures(algebraic_coord).unwrap();

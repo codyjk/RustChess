@@ -1,8 +1,10 @@
 [package]
-name = "build"
+name = "precompile"
 version = "0.1.0"
 authors = ["Cody Joseph Krainock <codykrainock@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+common = { path = "../common" }
+log = "0.4.14"
 rand = "0.8.4"
