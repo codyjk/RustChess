@@ -158,8 +158,8 @@ impl Display for Bitboard {
             for file in 0..8 {
                 let sq = from_rank_file(rank, file);
                 let cell = match self.overlaps(sq) {
-                    true => ' ',
-                    false => 'X',
+                    true => 'X',
+                    false => '.',
                 };
                 result.push(cell);
             }

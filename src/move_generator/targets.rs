@@ -5,7 +5,10 @@ use common::bitboard::bitboard::Bitboard;
 use common::bitboard::square::ORDERED;
 use rustc_hash::FxHashMap;
 
-use super::ray_table::{Direction, RayTable};
+use super::{
+    magic_table::MagicTable,
+    ray_table::{Direction, RayTable},
+};
 
 pub type PieceTarget = (Bitboard, Bitboard); // (piece_square, targets)
 
@@ -15,7 +18,8 @@ pub type PieceTarget = (Bitboard, Bitboard); // (piece_square, targets)
 pub struct Targets {
     kings: [Bitboard; 64],
     knights: [Bitboard; 64],
-    rays: RayTable,
+    ray_table: RayTable,
+    magic_table: MagicTable,
     // (color, board_hash) -> attack_targets
     attacks_cache: FxHashMap<(u8, u64), Bitboard>,
 }
@@ -37,11 +41,13 @@ const BISHOP_DIRS: [Direction; 4] = [
 impl Default for Targets {
     fn default() -> Self {
         let ray_table = RayTable::new();
+        let magic_table = MagicTable::new();
 
         Self {
             kings: generate_king_targets_table(),
             knights: generate_knight_targets_table(),
-            rays: ray_table,
+            ray_table,
+            magic_table,
             attacks_cache: FxHashMap::default(),
         }
     }
@@ -53,9 +59,7 @@ impl Targets {
         let mut attack_targets = Bitboard::EMPTY;
 
         piece_targets.append(&mut generate_pawn_attack_targets(board, color));
-        piece_targets.append(&mut self.generate_rook_targets(board, color));
-        piece_targets.append(&mut self.generate_bishop_targets(board, color));
-        piece_targets.append(&mut self.generate_queen_targets(board, color));
+        piece_targets.append(&mut self.generate_sliding_targets(board, color));
         piece_targets.append(&mut self.generate_targets_from_precomputed_tables(
             board,
             color,
@@ -122,6 +126,34 @@ impl Targets {
         piece_targets
     }
 
+    pub fn generate_sliding_targets(&self, board: &Board, color: Color) -> Vec<PieceTarget> {
+        let occupied = board.occupied();
+        let mut piece_targets: Vec<_> = vec![];
+
+        for x in 0..64 {
+            let square = Bitboard(1 << x);
+            let piece = match board.pieces(color).get(square) {
+                Some(p) => p,
+                None => continue,
+            };
+
+            let targets_including_own_pieces = match piece {
+                Piece::Rook => self.magic_table.get_rook_targets(square, occupied),
+                Piece::Bishop => self.magic_table.get_bishop_targets(square, occupied),
+                Piece::Queen => {
+                    self.magic_table.get_rook_targets(square, occupied)
+                        | self.magic_table.get_bishop_targets(square, occupied)
+                }
+                _ => continue,
+            };
+            let target_squares = targets_including_own_pieces
+                ^ (board.pieces(color).occupied() & targets_including_own_pieces);
+            piece_targets.push((square, target_squares));
+        }
+
+        piece_targets
+    }
+
     pub fn get_cached_attack(&self, color: Color, board_hash: u64) -> Option<Bitboard> {
         self.attacks_cache.get(&(color as u8, board_hash)).copied()
     }
@@ -161,7 +193,7 @@ impl Targets {
             let mut target_squares = Bitboard::EMPTY;
 
             for dir in ray_dirs.iter() {
-                let ray = self.rays.get(piece, *dir);
+                let ray = self.ray_table.get(piece, *dir);
                 if ray.is_empty() {
                     continue;
                 }
@@ -191,7 +223,7 @@ impl Targets {
                     Direction::SouthEast => leftmost_bit(intercepts),
                 };
 
-                let blocked_squares = self.rays.get(intercept, *dir);
+                let blocked_squares = self.ray_table.get(intercept, *dir);
 
                 target_squares |= ray ^ blocked_squares;
 
@@ -397,7 +429,7 @@ mod tests {
     }
 
     #[test]
-    fn test_generate_attack_targets() {
+    fn test_generate_attack_targets_1() {
         let mut targets = Targets::new();
         let mut board = Board::new();
 
@@ -433,6 +465,8 @@ mod tests {
             | D2
             | A1;
         let white_targets = targets.generate_attack_targets(&board, Color::White);
+        println!("expected white targets:\n{}", expected_white_targets,);
+        println!("actual white targets:\n{}", white_targets);
         assert_eq!(expected_white_targets, white_targets);
 
         let expected_black_targets = Bitboard::EMPTY
@@ -444,6 +478,8 @@ mod tests {
             | G2
             | H2;
         let black_targets = targets.generate_attack_targets(&board, Color::Black);
+        println!("expected black targets:\n{}", expected_black_targets);
+        println!("actual black targets:\n{}", black_targets);
         assert_eq!(expected_black_targets, black_targets);
     }
 

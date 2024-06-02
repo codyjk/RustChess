@@ -2,6 +2,7 @@ use crate::board::castle_rights::{
     BLACK_KINGSIDE_RIGHTS, BLACK_QUEENSIDE_RIGHTS, WHITE_KINGSIDE_RIGHTS, WHITE_QUEENSIDE_RIGHTS,
 };
 use crate::board::Board;
+mod magic_table;
 pub mod ray_table;
 mod targets;
 

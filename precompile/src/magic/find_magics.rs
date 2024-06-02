@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::io::{BufWriter, Write};
 
-use common::bitboard::square::{from_rank_file, to_rank_file, ORDERED};
+use common::bitboard::square::{from_rank_file, to_rank_file};
 use common::bitboard::bitboard::Bitboard;
 
 use log::debug;
@@ -144,7 +144,8 @@ fn find_and_write_magics(
         slider_name
     )?;
     let mut total_table_size = 0;
-    for &square in &ORDERED {
+    for square_i in 0..64 {
+        let square = Bitboard(1) << square_i;
         debug!("Finding magic for square: {:?}", square);
         let index_bits = slider.relevant_blockers(square).popcnt() as u8;
         debug!("Index bits: {}", index_bits);

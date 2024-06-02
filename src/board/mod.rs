@@ -1,7 +1,6 @@
 pub mod castle_rights;
 pub mod color;
 pub mod error;
-pub mod magic;
 pub mod piece;
 pub mod piece_set;
 
