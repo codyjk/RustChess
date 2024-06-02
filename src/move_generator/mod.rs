@@ -1,13 +1,13 @@
+mod magic_table;
+mod ray_table;
+mod targets;
+
 use crate::board::castle_rights::{
     BLACK_KINGSIDE_RIGHTS, BLACK_QUEENSIDE_RIGHTS, WHITE_KINGSIDE_RIGHTS, WHITE_QUEENSIDE_RIGHTS,
 };
-use crate::board::Board;
-mod magic_table;
-pub mod ray_table;
-mod targets;
-
 use crate::board::color::Color;
 use crate::board::piece::Piece;
+use crate::board::Board;
 use crate::chess_move::castle::CastleChessMove;
 use crate::chess_move::en_passant::EnPassantChessMove;
 use crate::chess_move::pawn_promotion::PawnPromotionChessMove;
