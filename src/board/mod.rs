@@ -2,11 +2,10 @@ pub mod castle_rights;
 pub mod color;
 pub mod error;
 pub mod piece;
-pub mod piece_set;
 
 mod display;
-mod fen;
 mod move_info;
+mod piece_set;
 mod position_info;
 
 use color::Color;
@@ -14,6 +13,8 @@ use common::bitboard::bitboard::Bitboard;
 use error::BoardError;
 use piece::Piece;
 use piece_set::PieceSet;
+
+use crate::chess_position;
 
 use self::{castle_rights::CastleRightsBitmask, move_info::MoveInfo, position_info::PositionInfo};
 
@@ -51,7 +52,16 @@ impl Board {
     }
 
     pub fn starting_position() -> Self {
-        Self::from_fen(fen::STARTING_POSITION_FEN).unwrap()
+        chess_position! {
+            rnbqkbnr
+            pppppppp
+            ........
+            ........
+            ........
+            ........
+            PPPPPPPP
+            RNBQKBNR
+        }
     }
 
     pub fn occupied(&self) -> Bitboard {

@@ -143,7 +143,10 @@ fn is_endgame(board: &Board) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::board::{castle_rights::ALL_CASTLE_RIGHTS, Board};
+    use crate::{
+        board::{castle_rights::ALL_CASTLE_RIGHTS, Board},
+        chess_position,
+    };
     use common::bitboard::square::*;
 
     #[test]
@@ -160,42 +163,56 @@ mod tests {
 
     #[test]
     fn test_game_ending_stalemate() {
-        let mut board = Board::new();
-        let mut move_generator = MoveGenerator::new();
-
-        board.put(A1, Piece::King, Color::White).unwrap();
-        board.put(H8, Piece::King, Color::Black).unwrap();
+        let mut board = chess_position! {
+            .......k
+            ........
+            ........
+            ........
+            ........
+            ........
+            ........
+            K.......
+        };
         board.set_turn(Color::Black);
         board.lose_castle_rights(ALL_CASTLE_RIGHTS);
         println!("Testing board:\n{}", board);
 
-        let ending = game_ending(&mut board, &mut move_generator, Color::Black);
+        let ending = game_ending(&mut board, &mut MoveGenerator::new(), Color::Black);
         matches!(ending, Some(GameEnding::Stalemate));
     }
 
     #[test]
     fn test_game_ending_checkmate() {
-        let mut board = Board::new();
-        let mut move_generator = MoveGenerator::new();
-
-        board.put(A1, Piece::King, Color::White).unwrap();
-        board.put(H8, Piece::King, Color::Black).unwrap();
-        board.put(H7, Piece::Queen, Color::Black).unwrap();
+        let mut board = chess_position! {
+            .......k
+            .......q
+            ........
+            ........
+            ........
+            ........
+            ........
+            K.......
+        };
         board.set_turn(Color::Black);
         board.lose_castle_rights(ALL_CASTLE_RIGHTS);
         println!("Testing board:\n{}", board);
 
-        let ending = game_ending(&mut board, &mut move_generator, Color::Black);
+        let ending = game_ending(&mut board, &mut MoveGenerator::new(), Color::Black);
         matches!(ending, Some(GameEnding::Checkmate));
     }
 
     #[test]
     fn test_is_endgame_one_minor_piece() {
-        let mut board = Board::new();
-        board.put(A1, Piece::King, Color::White).unwrap();
-        board.put(H8, Piece::King, Color::Black).unwrap();
-        board.put(D5, Piece::Queen, Color::Black).unwrap();
-        board.put(H7, Piece::Bishop, Color::Black).unwrap();
+        let mut board = chess_position! {
+            .......k
+            .......b
+            ........
+            ...q....
+            ........
+            ........
+            ........
+            K.......
+        };
         println!("Testing board:\n{}", board);
 
         assert!(!is_endgame(&board));
@@ -207,12 +224,16 @@ mod tests {
 
     #[test]
     fn test_is_endgame_both_sides_no_queens() {
-        let mut board = Board::new();
-        board.put(A1, Piece::King, Color::White).unwrap();
-        board.put(H8, Piece::King, Color::Black).unwrap();
-        board.put(H7, Piece::Queen, Color::Black).unwrap();
-        board.put(D5, Piece::Bishop, Color::Black).unwrap();
-        board.put(B2, Piece::Queen, Color::White).unwrap();
+        let mut board = chess_position! {
+            .......k
+            .......q
+            ........
+            ...b....
+            ........
+            ........
+            .Q......
+            K.......
+        };
         println!("Testing board:\n{}", board);
 
         assert!(!is_endgame(&board));
@@ -231,9 +252,16 @@ mod tests {
 
     #[test]
     fn test_pawn_material_bonus_on_final_rank() {
-        let mut board = Board::new();
-        board.put(H7, Piece::Pawn, Color::White).unwrap();
-        board.put(H2, Piece::Pawn, Color::Black).unwrap();
+        let board = chess_position! {
+            ........
+            .......P
+            ........
+            ........
+            ........
+            ........
+            .......p
+            ........
+        };
         println!("Testing board:\n{}", board);
 
         let white_score = material_score(&board, Color::White);

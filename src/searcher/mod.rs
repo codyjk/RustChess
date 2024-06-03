@@ -227,18 +227,25 @@ mod tests {
     use crate::board::color::Color;
     use crate::board::piece::Piece;
     use crate::chess_move::standard::StandardChessMove;
-    use crate::std_move;
+    use crate::{chess_position, std_move};
+    use common::bitboard::bitboard::Bitboard;
     use common::bitboard::square::*;
 
     #[test]
     fn test_find_mate_in_1_white() {
-        let mut board = Board::new();
         let mut searcher = Searcher::new(1);
         let mut move_generator = MoveGenerator::new();
 
-        board.put(C2, Piece::King, Color::White).unwrap();
-        board.put(A2, Piece::King, Color::Black).unwrap();
-        board.put(B8, Piece::Queen, Color::White).unwrap();
+        let mut board = chess_position! {
+            .Q......
+            ........
+            ........
+            ........
+            ........
+            ........
+            k.K.....
+            ........
+        };
         board.set_turn(Color::White);
         board.lose_castle_rights(ALL_CASTLE_RIGHTS);
         println!("Testing board:\n{}", board);
@@ -254,13 +261,18 @@ mod tests {
 
     #[test]
     fn test_find_mate_in_1_black() {
-        let mut board = Board::new();
         let mut searcher = Searcher::new(1);
         let mut move_generator = MoveGenerator::new();
-
-        board.put(C2, Piece::King, Color::Black).unwrap();
-        board.put(A2, Piece::King, Color::White).unwrap();
-        board.put(B8, Piece::Queen, Color::Black).unwrap();
+        let mut board = chess_position! {
+            .q......
+            ........
+            ........
+            ........
+            ........
+            ........
+            K.k.....
+            ........
+        };
         board.set_turn(Color::Black);
         board.lose_castle_rights(ALL_CASTLE_RIGHTS);
 
@@ -274,18 +286,19 @@ mod tests {
 
     #[test]
     fn test_find_back_rank_mate_in_2_white() {
-        let mut board = Board::new();
         let mut searcher = Searcher::new(2);
         let mut move_generator = MoveGenerator::new();
 
-        board.put(A7, Piece::Pawn, Color::Black).unwrap();
-        board.put(B7, Piece::Pawn, Color::Black).unwrap();
-        board.put(C7, Piece::Pawn, Color::Black).unwrap();
-        board.put(B8, Piece::King, Color::Black).unwrap();
-        board.put(H8, Piece::Rook, Color::Black).unwrap();
-        board.put(D1, Piece::Rook, Color::White).unwrap();
-        board.put(D2, Piece::Queen, Color::White).unwrap();
-        board.put(A1, Piece::King, Color::White).unwrap();
+        let mut board = chess_position! {
+            .k.....r
+            ppp.....
+            ........
+            ........
+            ........
+            ........
+            ...Q....
+            K..R....
+        };
         board.set_turn(Color::White);
         board.lose_castle_rights(ALL_CASTLE_RIGHTS);
 
@@ -319,18 +332,19 @@ mod tests {
 
     #[test]
     fn test_find_back_rank_mate_in_2_black() {
-        let mut board = Board::new();
         let mut searcher = Searcher::new(3);
         let mut move_generator = MoveGenerator::new();
 
-        board.put(F2, Piece::Pawn, Color::White).unwrap();
-        board.put(G2, Piece::Pawn, Color::White).unwrap();
-        board.put(H2, Piece::Pawn, Color::White).unwrap();
-        board.put(G1, Piece::King, Color::White).unwrap();
-        board.put(A1, Piece::Rook, Color::White).unwrap();
-        board.put(E8, Piece::Rook, Color::Black).unwrap();
-        board.put(E7, Piece::Queen, Color::Black).unwrap();
-        board.put(H8, Piece::King, Color::Black).unwrap();
+        let mut board = chess_position! {
+            ....r..k
+            ....q...
+            ........
+            ........
+            ........
+            ........
+            .....PPP
+            R.....K.
+        };
         board.set_turn(Color::Black);
         board.lose_castle_rights(ALL_CASTLE_RIGHTS);
 

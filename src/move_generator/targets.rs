@@ -282,7 +282,7 @@ mod tests {
     use super::*;
     use crate::chess_move::standard::StandardChessMove;
     use crate::chess_move::ChessMove;
-    use crate::std_move;
+    use crate::{chess_position, std_move};
 
     impl Targets {
         pub fn new() -> Self {
@@ -293,13 +293,16 @@ mod tests {
     #[test]
     fn test_generate_attack_targets_1() {
         let mut targets = Targets::new();
-        let mut board = Board::new();
-
-        board.put(A4, Piece::Pawn, Color::White).unwrap();
-        board.put(B5, Piece::Pawn, Color::Black).unwrap();
-        board.put(B1, Piece::Rook, Color::White).unwrap();
-        board.put(H1, Piece::King, Color::Black).unwrap();
-        board.put(A5, Piece::Queen, Color::White).unwrap();
+        let board = chess_position! {
+            ........
+            ........
+            ........
+            Qp......
+            P.......
+            ........
+            ........
+            .R.....k
+        };
         println!("Testing board:\n{}", board);
 
         let expected_white_targets = Bitboard::EMPTY
@@ -361,25 +364,6 @@ mod tests {
             board.toggle_turn();
         }
         println!("Testing board:\n{}", board);
-
-        //   +---+---+---+---+---+---+---+---+
-        // 8 | r | n | b | q | k | b | n | r |
-        //   +---+---+---+---+---+---+---+---+
-        // 7 | p | p | p | p | p |   |   | p |
-        //   +---+---+---+---+---+---+---+---+
-        // 6 |   |   |   |   |   |   | p |   |
-        //   +---+---+---+---+---+---+---+---+
-        // 5 |   |   |   |   |   | p |   | Q |
-        //   +---+---+---+---+---+---+---+---+
-        // 4 |   |   |   |   | P |   |   |   |
-        //   +---+---+---+---+---+---+---+---+
-        // 3 |   |   |   |   |   |   |   |   |
-        //   +---+---+---+---+---+---+---+---+
-        // 2 | P | P | P | P |   | P | P | P |
-        //   +---+---+---+---+---+---+---+---+
-        // 1 | R | N | B |   | K | B | N | R |
-        //   +---+---+---+---+---+---+---+---+
-        //     A   B   C   D   E   F   G   H
 
         let expected_white_targets = Bitboard::EMPTY
             // knights

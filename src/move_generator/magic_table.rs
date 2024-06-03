@@ -119,24 +119,26 @@ fn magic_index(entry: &MagicEntry, blockers: Bitboard) -> usize {
 mod tests {
     use common::bitboard::square::*;
 
-    use crate::board::{color::Color, piece::Piece, Board};
+    use crate::{
+        board::{color::Color, piece::Piece, Board},
+        chess_position,
+    };
 
     use super::*;
 
     #[test]
     fn test_get_rook_targets() {
-        let mut board = Board::new();
         let magic_table = MagicTable::new();
-
-        // Source piece
-        board.put(C3, Piece::Rook, Color::White).unwrap();
-
-        // Blockers
-        board.put(A3, Piece::Pawn, Color::White).unwrap();
-        board.put(F3, Piece::Pawn, Color::Black).unwrap();
-        board.put(H3, Piece::Pawn, Color::Black).unwrap();
-        board.put(C2, Piece::King, Color::White).unwrap();
-        board.put(C7, Piece::Pawn, Color::White).unwrap();
+        let board = chess_position! {
+            ........
+            ..P.....
+            ........
+            ........
+            ........
+            P.R..p.p
+            ..K.....
+            ........
+        };
         println!("Testing board:\n{}", board);
 
         let targets = magic_table.get_rook_targets(C3, board.occupied());
@@ -149,17 +151,17 @@ mod tests {
 
     #[test]
     fn test_get_bishop_targets() {
-        let mut board = Board::new();
         let magic_table = MagicTable::new();
-
-        // Source piece
-        board.put(C3, Piece::Bishop, Color::White).unwrap();
-
-        // Blockers
-        board.put(B2, Piece::Bishop, Color::Black).unwrap();
-        board.put(E5, Piece::Pawn, Color::Black).unwrap();
-        board.put(H7, Piece::Pawn, Color::Black).unwrap();
-        println!("Testing board:\n{}", board);
+        let board = chess_position! {
+            ........
+            .......p
+            ........
+            ....p...
+            ........
+            ..B.....
+            .b......
+            ........
+        };
 
         let targets = magic_table.get_bishop_targets(C3, board.occupied());
         println!("Bishop targets:\n{}", targets);
@@ -171,16 +173,18 @@ mod tests {
 
     #[test]
     fn test_get_queen_targets() {
-        let mut board = Board::new();
         let magic_table = MagicTable::new();
+        let board = chess_position! {
+            ........
+            ........
+            ........
+            Qp......
+            P.......
+            ........
+            ........
+            .R.....k
+        };
 
-        board.put(A5, Piece::Queen, Color::White).unwrap();
-
-        // Blockers
-        board.put(A4, Piece::Pawn, Color::White).unwrap();
-        board.put(B5, Piece::Pawn, Color::Black).unwrap();
-        board.put(B1, Piece::Rook, Color::White).unwrap();
-        board.put(H1, Piece::King, Color::Black).unwrap();
         println!("Testing board:\n{}", board);
         println!("Occupied squares:\n{}", board.occupied());
 
