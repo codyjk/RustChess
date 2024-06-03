@@ -2,6 +2,7 @@ use crate::board::Board;
 use crate::chess_move::ChessMove;
 use crate::evaluate;
 use crate::move_generator::MoveGenerator;
+use log::debug;
 use rustc_hash::FxHashMap;
 use thiserror::Error;
 
@@ -14,6 +15,7 @@ pub struct Searcher {
     searched_position_count: usize,
     cache_hit_count: usize,
     termination_count: usize,
+    current_line_stack: Vec<ChessMove>,
 }
 
 #[derive(Error, Debug)]
@@ -30,6 +32,7 @@ impl Searcher {
             searched_position_count: 0,
             cache_hit_count: 0,
             termination_count: 0,
+            current_line_stack: Vec::new(),
         }
     }
 
@@ -66,6 +69,9 @@ impl Searcher {
             .map(|chess_move| {
                 chess_move.apply(board).unwrap();
                 board.toggle_turn();
+                self.push_move_to_current_line(chess_move.clone());
+                debug!("Current line: {:?}", self.current_line_stack);
+
                 let score = self.alpha_beta_max(
                     self.search_depth,
                     board,
@@ -73,8 +79,11 @@ impl Searcher {
                     i16::MIN,
                     i16::MAX,
                 );
+
                 chess_move.undo(board).unwrap();
                 board.toggle_turn();
+                self.pop_move_from_current_line();
+
                 score
             })
             .collect();
@@ -101,6 +110,7 @@ impl Searcher {
 
         if depth == 0 {
             let score = evaluate::score(board, move_generator, board.turn());
+            debug!("Eval score (max): {}", score);
             return score;
         }
 
@@ -112,10 +122,15 @@ impl Searcher {
         for chess_move in candidates.iter() {
             chess_move.apply(board).unwrap();
             board.toggle_turn();
+            self.push_move_to_current_line(chess_move.clone());
+            debug!("Current line: {:?}", self.current_line_stack);
+
             let score = self.alpha_beta_min(depth - 1, board, move_generator, alpha, beta);
             let board_hash = board.current_position_hash();
+
             chess_move.undo(board).unwrap();
             board.toggle_turn();
+            self.pop_move_from_current_line();
 
             if score >= beta {
                 self.termination_count += 1;
@@ -142,7 +157,9 @@ impl Searcher {
         self.searched_position_count += 1;
 
         if depth == 0 {
-            let score = -evaluate::score(board, move_generator, board.turn());
+            let eval_score = evaluate::score(board, move_generator, board.turn());
+            debug!("Eval score (min): {}", eval_score);
+            let score = -eval_score;
             return score;
         }
 
@@ -154,10 +171,15 @@ impl Searcher {
         for chess_move in candidates.iter() {
             chess_move.apply(board).unwrap();
             board.toggle_turn();
+            self.push_move_to_current_line(chess_move.clone());
+            debug!("Current line: {:?}", self.current_line_stack);
+
             let score = self.alpha_beta_max(depth - 1, board, move_generator, alpha, beta);
             let board_hash = board.current_position_hash();
+
             chess_move.undo(board).unwrap();
             board.toggle_turn();
+            self.pop_move_from_current_line();
 
             if score <= alpha {
                 self.termination_count += 1;
@@ -187,6 +209,14 @@ impl Searcher {
             }
             None => None,
         }
+    }
+
+    fn push_move_to_current_line(&mut self, chess_move: ChessMove) {
+        self.current_line_stack.push(chess_move);
+    }
+
+    fn pop_move_from_current_line(&mut self) {
+        self.current_line_stack.clear();
     }
 }
 

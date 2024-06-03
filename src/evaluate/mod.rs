@@ -14,6 +14,9 @@ use self::evaluation_tables::{
 
 mod evaluation_tables;
 
+const BLACK_WINS: i16 = i16::MIN / 2;
+const WHITE_WINS: i16 = i16::MAX / 2;
+
 #[derive(Debug)]
 pub enum GameEnding {
     Checkmate,
@@ -60,8 +63,8 @@ pub fn score(board: &mut Board, move_generator: &mut MoveGenerator, current_turn
     // Check for position repetition
     if board.max_seen_position_count() == 3 {
         match current_turn {
-            Color::White => return i16::MIN,
-            Color::Black => return i16::MAX,
+            Color::White => return BLACK_WINS,
+            Color::Black => return WHITE_WINS,
         }
     }
 
@@ -69,12 +72,12 @@ pub fn score(board: &mut Board, move_generator: &mut MoveGenerator, current_turn
         game_ending(board, move_generator, current_turn),
         current_turn,
     ) {
-        (Some(GameEnding::Checkmate), Color::White) => i16::MAX,
-        (Some(GameEnding::Checkmate), Color::Black) => i16::MIN,
-        (Some(GameEnding::Stalemate), Color::White) => i16::MIN,
-        (Some(GameEnding::Stalemate), Color::Black) => i16::MAX,
-        (Some(GameEnding::Draw), Color::White) => i16::MIN,
-        (Some(GameEnding::Draw), Color::Black) => i16::MAX,
+        (Some(GameEnding::Checkmate), Color::White) => WHITE_WINS,
+        (Some(GameEnding::Checkmate), Color::Black) => BLACK_WINS,
+        (Some(GameEnding::Stalemate), Color::White) => BLACK_WINS,
+        (Some(GameEnding::Stalemate), Color::Black) => WHITE_WINS,
+        (Some(GameEnding::Draw), Color::White) => BLACK_WINS,
+        (Some(GameEnding::Draw), Color::Black) => WHITE_WINS,
         _ => material_score(board, Color::White) - material_score(board, Color::Black),
     }
 }
