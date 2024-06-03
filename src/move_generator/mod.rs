@@ -17,7 +17,7 @@ use common::bitboard::square::*;
 use rustc_hash::FxHashMap;
 use targets::{PieceTarget, Targets};
 
-use self::targets::generate_pawn_targets;
+use self::targets::{generate_pawn_attack_targets, generate_pawn_move_targets};
 
 pub const PAWN_PROMOTIONS: [Piece; 4] = [Piece::Queen, Piece::Rook, Piece::Bishop, Piece::Knight];
 
@@ -114,12 +114,20 @@ fn generate_valid_moves(board: &mut Board, color: Color, targets: &mut Targets) 
     moves
 }
 
+/// Generates all pawn moves, regardless of which rank the pawn is on.
+/// To get promotions, the code later applies some special logic to find the
+/// targets that are at the end of the board, and then expand those targets
+/// into the candidate promotion pieces.
 fn generate_pawn_moves(moves: &mut Vec<ChessMove>, board: &Board, color: Color) {
-    // `generate_pawn_targets` blindly generates all pawn "targets": squares
-    // that pawns can either move or capture. to get promotions, we will apply
-    // some special logic to find the targets that are at the end of the board,
-    // and then expand those targets into the candidate promotion pieces.
-    let piece_targets = generate_pawn_targets(board, color);
+    let mut piece_targets = generate_pawn_move_targets(board, color);
+    let attack_targets = generate_pawn_attack_targets(board, color);
+    let opponent_pieces = board.pieces(color.opposite()).occupied();
+    attack_targets.iter().for_each(|&(piece, target)| {
+        if target.overlaps(opponent_pieces) {
+            piece_targets.push((piece, target & opponent_pieces));
+        }
+    });
+
     let mut all_pawn_moves = Vec::new();
     expand_piece_targets(&mut all_pawn_moves, board, color, piece_targets);
 

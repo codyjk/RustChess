@@ -141,7 +141,7 @@ impl Targets {
     }
 }
 
-pub fn generate_pawn_targets(board: &Board, color: Color) -> Vec<PieceTarget> {
+pub fn generate_pawn_move_targets(board: &Board, color: Color) -> Vec<PieceTarget> {
     let mut piece_targets: Vec<PieceTarget> = vec![];
 
     let pawns = board.pieces(color).locate(Piece::Pawn);
@@ -189,14 +189,6 @@ pub fn generate_pawn_targets(board: &Board, color: Color) -> Vec<PieceTarget> {
         piece_targets.push((pawn, targets));
     }
 
-    let attack_targets = board.pieces(color.opposite()).occupied();
-
-    for (pawn, targets) in generate_pawn_attack_targets(board, color) {
-        if attack_targets.overlaps(targets) {
-            piece_targets.push((pawn, attack_targets & targets));
-        }
-    }
-
     piece_targets
 }
 
@@ -225,7 +217,6 @@ pub fn generate_pawn_attack_targets(board: &Board, color: Color) -> Vec<PieceTar
         };
 
         let targets = attack_east | attack_west;
-
         piece_targets.push((pawn, targets));
     }
 
