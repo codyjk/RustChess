@@ -1,8 +1,9 @@
 use common::bitboard::bitboard::Bitboard;
 
-use super::castle_rights::{CastleRightsBitmask, ALL_CASTLE_RIGHTS};
+use super::castle_rights_bitmask::{CastleRightsBitmask, ALL_CASTLE_RIGHTS};
 
-/// Stores information about state changes related to individual chess moves.
+/// Stores information about state changes related to individual chess moves,
+/// including en passant targets, castle rights, and position clocks.
 #[derive(Clone)]
 pub struct MoveInfo {
     en_passant_target_stack: Vec<Bitboard>,

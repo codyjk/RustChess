@@ -9,6 +9,13 @@ use std::{
 
 use crate::bitboard::square::from_rank_file;
 
+/// Represents a chess board as a 64-bit integer. In practice, there will be
+/// one bitboard for each player's piece type (e.g. white pawns, black knights).
+/// Additionally, bitboards are used throughout the application to represent
+/// occupied squares, attack maps, and individual squares.
+/// By representing the board as a single 64-bit integer, we can take advantage
+/// of the CPU's bitwise operations to quickly calculate moves, attacks, and other
+/// board state changes.
 #[derive(Clone, Copy, PartialEq, Debug, PartialOrd, Eq, Ord, Hash)]
 pub struct Bitboard(pub u64);
 

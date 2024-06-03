@@ -13,6 +13,7 @@ use common::bitboard::bitboard::Bitboard;
 use rand::{self, Rng};
 use thiserror::Error;
 
+/// Represents the state and control of a chess game.
 pub struct Game {
     board: Board,
     move_history: Vec<ChessMove>,
@@ -174,7 +175,7 @@ impl Game {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::board::castle_rights::ALL_CASTLE_RIGHTS;
+    use crate::board::castle_rights_bitmask::ALL_CASTLE_RIGHTS;
     use crate::board::piece::Piece;
     use crate::chess_move::standard::StandardChessMove;
     use crate::chess_move::ChessMove;

@@ -16,6 +16,9 @@ pub mod standard;
 
 type Capture = (Piece, Color);
 
+/// Represents the different types of chess moves. The lower level structs
+/// in this enum encapsulate the logic for applying the move to, and undoing
+/// the move on, a chess board.
 #[derive(Clone, Eq, PartialOrd, Ord)]
 pub enum ChessMove {
     Standard(StandardChessMove),

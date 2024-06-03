@@ -2,7 +2,7 @@ use crate::board::color::Color;
 use crate::board::piece::Piece;
 use crate::board::Board;
 use common::bitboard::bitboard::Bitboard;
-use common::bitboard::square::ORDERED;
+use common::bitboard::square::ORDERED_SQUARES;
 use rustc_hash::FxHashMap;
 
 use super::magic_table::MagicTable;
@@ -11,7 +11,7 @@ pub type PieceTarget = (Bitboard, Bitboard); // (piece_square, targets)
 
 /// The `Targets` struct is responsible for generating move and attack targets for each piece on the board.
 /// It uses precomputed tables for the knight and king pieces, and generates targets for sliding pieces
-/// (rooks, bishops, queens) using ray tables.
+/// (rooks, bishops, queens) using magic bitboards.
 pub struct Targets {
     kings: [Bitboard; 64],
     knights: [Bitboard; 64],
@@ -68,7 +68,7 @@ impl Targets {
         let pieces = board.pieces(color).locate(piece);
         let occupied = board.pieces(color).occupied();
 
-        for sq in ORDERED {
+        for sq in ORDERED_SQUARES {
             if !pieces.overlaps(sq) {
                 continue;
             }

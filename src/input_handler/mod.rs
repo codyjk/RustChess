@@ -13,6 +13,8 @@ pub enum InputError {
     InvalidInput { input: String },
 }
 
+/// Parses a command from stdin. The command should be in the format of two squares
+/// in algebraic notation, e.g. "e2e4".
 pub fn parse_command() -> Result<Box<dyn Command>, InputError> {
     let mut input = String::new();
     let raw = match io::stdin().read_line(&mut input) {

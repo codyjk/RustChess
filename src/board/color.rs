@@ -9,6 +9,8 @@ pub enum Color {
 }
 
 impl Color {
+    const ALL: [Color; 2] = [Color::Black, Color::White];
+
     pub fn color(&self) -> Self {
         match self {
             Color::Black => Color::Black,
@@ -29,11 +31,9 @@ impl Color {
             Color::Black => false,
         }
     }
-}
 
-impl Color {
     fn random() -> Self {
-        *COLORS.choose(&mut rand::thread_rng()).unwrap()
+        *Self::ALL.choose(&mut rand::thread_rng()).unwrap()
     }
 }
 
@@ -46,8 +46,6 @@ impl fmt::Display for Color {
         write!(f, "{}", color_str)
     }
 }
-
-const COLORS: [Color; 2] = [Color::Black, Color::White];
 
 // used for parsing cli args
 type ParseError = &'static str;
@@ -69,7 +67,7 @@ mod tests {
 
     #[test]
     fn test_random() {
-        assert!(COLORS.contains(&Color::random()));
+        assert!(Color::ALL.contains(&Color::random()));
     }
 
     #[test]
@@ -85,6 +83,6 @@ mod tests {
     #[test]
     fn test_parse_random() {
         let rand_color = Color::from_str("random").unwrap();
-        assert!(COLORS.contains(&rand_color));
+        assert!(Color::ALL.contains(&rand_color));
     }
 }

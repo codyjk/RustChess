@@ -6,9 +6,13 @@ use crate::board::{color::Color, error::BoardError, piece::Piece, Board};
 
 use super::Capture;
 
+/// Represents an en passant chess move.
 #[derive(PartialEq, Clone, Eq, PartialOrd, Ord)]
 pub struct EnPassantChessMove {
+    /// The square the pawn is moving from.
     from_square: Bitboard,
+
+    /// The square the pawn is moving to.
     to_square: Bitboard,
 }
 

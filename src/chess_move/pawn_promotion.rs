@@ -6,6 +6,9 @@ use crate::board::{error::BoardError, piece::Piece, Board};
 
 use super::{standard::StandardChessMove, Capture};
 
+/// Represents a pawn promotion chess move. The board logic is implemented as
+/// a superset of a standard pawn move, but at the end, the pawn is replaced
+/// with the promotion piece.
 #[derive(PartialEq, Clone, Eq, PartialOrd, Ord)]
 pub struct PawnPromotionChessMove {
     from_square: Bitboard,

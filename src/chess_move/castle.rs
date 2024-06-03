@@ -2,7 +2,7 @@ use core::fmt;
 
 use super::Capture;
 use crate::board::{
-    castle_rights::{
+    castle_rights_bitmask::{
         BLACK_KINGSIDE_RIGHTS, BLACK_QUEENSIDE_RIGHTS, WHITE_KINGSIDE_RIGHTS,
         WHITE_QUEENSIDE_RIGHTS,
     },
@@ -14,12 +14,16 @@ use crate::board::{
 use common::bitboard::bitboard::Bitboard;
 use common::bitboard::square::*;
 
+/// Represents a castle move in chess. This struct encapsulates the logic for applying
+/// and undoing a castle move on a chess board.
+/// The intended entry points for this struct are the `castle_kingside` and `castle_queenside`.
+/// As such, the struct is not intended to be constructed directly.
 #[derive(PartialEq, Clone, Eq, PartialOrd, Ord)]
 pub struct CastleChessMove {
-    // The square the king is moving from
+    /// The square the king is moving from
     from_square: Bitboard,
 
-    // The square the king is moving to
+    /// The square the king is moving to
     to_square: Bitboard,
 }
 

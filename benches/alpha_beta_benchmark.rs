@@ -1,5 +1,5 @@
 use chess::alpha_beta_searcher::AlphaBetaSearcher;
-use chess::board::castle_rights::ALL_CASTLE_RIGHTS;
+use chess::board::castle_rights_bitmask::ALL_CASTLE_RIGHTS;
 use chess::board::color::Color;
 use chess::board::piece::Piece;
 use chess::board::Board;

@@ -3,10 +3,13 @@ use std::io::{BufWriter, Write};
 
 use crate::random_number_generator::generate_random_u64;
 
-// Constants for Zobrist hashing
+// https://www.chessprogramming.org/Zobrist_Hashing
+
 const PIECES: [&str; 6] = ["pawn", "rook", "knight", "bishop", "king", "queen"];
 const SQUARES: usize = 64;
 
+/// Generates three tables of random u64s for Zobrist hashing and writes them to a file
+/// that is included in the project's primary module.
 pub fn write_zobrist_tables(out: &mut BufWriter<File>) -> std::io::Result<()> {
     // Generate ZOBRIST_PIECES_TABLE
     let mut zobrist_table = [[[0u64; 2]; SQUARES]; PIECES.len()];

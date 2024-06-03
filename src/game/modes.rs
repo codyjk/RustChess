@@ -6,6 +6,8 @@ use std::thread::sleep;
 use std::time::{Duration, SystemTime};
 use termion::clear;
 
+// TODO(codyjk): This code, and the resulting UI, needs to be made prettier.
+
 pub fn play_computer(depth: u8, player_color: Color) {
     let game = &mut Game::new(depth);
 

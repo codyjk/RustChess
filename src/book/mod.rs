@@ -15,6 +15,8 @@ impl BookNode {
     }
 }
 
+/// A book of common opening lines, represented as a basic DAG.
+/// Each node in the DAG represents a move in the opening line.
 pub struct Book {
     root: BookNode,
 }
@@ -70,6 +72,8 @@ impl Book {
 pub fn book_move(from_square: Bitboard, to_square: Bitboard) -> BookMove {
     (from_square, to_square)
 }
+
+// TODO(codyjk): Maybe move this to precompile somehow?
 
 pub fn generate_opening_book() -> Book {
     let mut book = Book::new();

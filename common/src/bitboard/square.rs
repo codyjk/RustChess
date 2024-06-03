@@ -1,5 +1,8 @@
 use regex::Regex;
 
+// TODO(codyjk): Rather than depend on the Bitboard type, it would be nice
+// if Square were its own enum.
+
 use crate::bitboard::bitboard::Bitboard;
 
 pub const A1: Bitboard = Bitboard(1 << 0);
@@ -127,13 +130,13 @@ pub fn to_algebraic(square: Bitboard) -> &'static str {
     tables::ALGEBRAIC[i - 1]
 }
 
-pub const ORDERED: [Bitboard; 64] = tables::ORDERED;
+pub const ORDERED_SQUARES: [Bitboard; 64] = tables::ORDERED_SQUARES;
 
 #[rustfmt::skip]
 mod tables {
     use super::*;
 
-    pub const ORDERED: [Bitboard; 64] = [
+    pub const ORDERED_SQUARES: [Bitboard; 64] = [
         A1, A2, A3, A4, A5, A6, A7, A8,
         B1, B2, B3, B4, B5, B6, B7, B8,
         C1, C2, C3, C4, C5, C6, C7, C8,

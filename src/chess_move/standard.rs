@@ -1,7 +1,7 @@
 use core::fmt;
 
 use crate::board::{
-    castle_rights::{
+    castle_rights_bitmask::{
         BLACK_KINGSIDE_RIGHTS, BLACK_QUEENSIDE_RIGHTS, WHITE_KINGSIDE_RIGHTS,
         WHITE_QUEENSIDE_RIGHTS,
     },
@@ -17,6 +17,8 @@ use common::bitboard::{
 
 use super::{pawn_promotion::PawnPromotionChessMove, Capture};
 
+/// Represents a standard chess move. A standard move is a move that does not involve
+/// pawn promotion, en passant, or castling.
 #[derive(PartialEq, Clone, Eq, PartialOrd, Ord)]
 pub struct StandardChessMove {
     from_square: Bitboard,

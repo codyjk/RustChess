@@ -1,6 +1,6 @@
 use common::bitboard::{
     bitboard::Bitboard,
-    square::{from_rank_file, to_rank_file, ORDERED},
+    square::{from_rank_file, to_rank_file, ORDERED_SQUARES},
 };
 
 include!(concat!(env!("OUT_DIR"), "/magic_table.rs"));
@@ -59,7 +59,7 @@ fn make_table(
     magics: &[MagicEntry; 64],
 ) -> Vec<Bitboard> {
     let mut table = vec![Bitboard::EMPTY; table_size];
-    for &square in &ORDERED {
+    for &square in &ORDERED_SQUARES {
         let magic_entry = &magics[square.trailing_zeros() as usize];
         let mask = Bitboard(magic_entry.mask);
 

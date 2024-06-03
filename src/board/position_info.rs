@@ -7,6 +7,8 @@ use super::{color::Color, piece::Piece};
 include!(concat!(env!("OUT_DIR"), "/zobrist_table.rs"));
 
 /// Stores information about state changes related to the current (and previous) positions.
+/// Holds the logic for incrementally updating the hash of the current position using
+/// Zobrist hashing: https://www.chessprogramming.org/Zobrist_Hashing
 #[derive(Clone)]
 pub struct PositionInfo {
     position_count: FxHashMap<u64, u8>,
@@ -94,7 +96,7 @@ impl PositionInfo {
 
 #[cfg(test)]
 mod tests {
-    use common::bitboard::square::ORDERED;
+    use common::bitboard::square::ORDERED_SQUARES;
 
     use super::*;
 
@@ -118,8 +120,7 @@ mod tests {
     fn test_zobrist_hashing_en_passant_target() {
         let mut position_info = PositionInfo::new();
         let mut hash = 0;
-        // zip with ORDERED to get the correct square for each zobrist number
-        let pairs = ZOBRIST_EN_PASSANT_TABLE.iter().zip(ORDERED.iter());
+        let pairs = ZOBRIST_EN_PASSANT_TABLE.iter().zip(ORDERED_SQUARES.iter());
         for (zobrist_num, square) in pairs {
             position_info.update_zobrist_hash_toggle_en_passant_target(*square);
             hash ^= zobrist_num;

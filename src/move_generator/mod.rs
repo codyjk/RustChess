@@ -1,7 +1,7 @@
 mod magic_table;
 mod targets;
 
-use crate::board::castle_rights::{
+use crate::board::castle_rights_bitmask::{
     BLACK_KINGSIDE_RIGHTS, BLACK_QUEENSIDE_RIGHTS, WHITE_KINGSIDE_RIGHTS, WHITE_QUEENSIDE_RIGHTS,
 };
 use crate::board::color::Color;
@@ -21,6 +21,9 @@ use self::targets::{generate_pawn_attack_targets, generate_pawn_move_targets};
 
 pub const PAWN_PROMOTIONS: [Piece; 4] = [Piece::Queen, Piece::Rook, Piece::Bishop, Piece::Knight];
 
+/// Implements a move generation algorithm that generates all possible moves for
+/// a given board state. The algorithm is optimized to cache the results of
+/// previous move generation calls to avoid redundant work.
 #[derive(Default)]
 pub struct MoveGenerator {
     targets: Targets,
@@ -101,6 +104,8 @@ impl MoveGenerator {
     }
 }
 
+/// Generates all valid moves for the given board state and color. The code is
+/// implemented in such a way that copying of lists of moves is minimized.
 fn generate_valid_moves(board: &mut Board, color: Color, targets: &mut Targets) -> Vec<ChessMove> {
     let mut moves = Vec::new();
 
@@ -226,7 +231,7 @@ fn expand_piece_targets(
     // TODO(codyjk): Do we need to loop over every square?
     for (piece, target_squares) in piece_targets {
         let piece_sq = assert_square(piece);
-        for &target in &ORDERED {
+        for &target in &ORDERED_SQUARES {
             if !target_squares.overlaps(target) {
                 continue;
             }

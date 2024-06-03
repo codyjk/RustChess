@@ -24,6 +24,8 @@ pub enum SearchError {
     NoAvailableMoves,
 }
 
+/// Implements alpha-beta minimax search to find the "best" move to a given depth.
+/// The "best" move is determined by the scoring function implemented in the `evaluate` module.
 impl AlphaBetaSearcher {
     pub fn new(depth: u8) -> Self {
         Self {
@@ -227,7 +229,7 @@ impl AlphaBetaSearcher {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::board::castle_rights::ALL_CASTLE_RIGHTS;
+    use crate::board::castle_rights_bitmask::ALL_CASTLE_RIGHTS;
     use crate::board::color::Color;
     use crate::board::piece::Piece;
     use crate::chess_move::standard::StandardChessMove;

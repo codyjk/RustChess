@@ -8,16 +8,19 @@ use log::debug;
 
 use crate::random_number_generator::generate_random_u64;
 
-// Based off of https://analog-hors.github.io/site/magic-bitboards/
-
+/// Represents a piece that slides any number of squares on a board - a rook
+/// or a bishop, each of which can move in 4 directions (as repressented by move_offsets).
+/// A queen's moveset is the union of a rook's and a bishop's.
 struct SlidingPiece {
-    deltas: [(i8, i8); 4],
+    move_offsets: [(i8, i8); 4],
 }
 
 impl SlidingPiece {
-    fn moves(&self, square: Bitboard, blockers: Bitboard) -> Bitboard {
+    /// Generates a bitboard of target squares for a sliding piece on the given
+    /// square. The piece's target squares are terminated by the blockers, if any.
+    fn targets(&self, square: Bitboard, blockers: Bitboard) -> Bitboard {
         let mut moves = Bitboard::EMPTY;
-        for &(d_rank, d_file) in &self.deltas {
+        for &(d_rank, d_file) in &self.move_offsets {
             let mut ray = square;
             while !blockers.overlaps(ray) {
                 if let Some(shifted) = try_offset(ray, d_rank, d_file) {
@@ -31,9 +34,10 @@ impl SlidingPiece {
         moves
     }
 
+    /// Generates a bitboard of target squares for a sliding piece on the given
     fn relevant_blockers(&self, square: Bitboard) -> Bitboard {
         let mut blockers = Bitboard::EMPTY;
-        for &(d_rank, d_file) in &self.deltas {
+        for &(d_rank, d_file) in &self.move_offsets {
             let mut ray = square;
             while let Some(shifted) = try_offset(ray, d_rank, d_file) {
                 blockers |= ray;
@@ -59,11 +63,11 @@ fn try_offset(square: Bitboard, d_rank: i8, d_file: i8) -> Option<Bitboard> {
 }
 
 const ROOK: SlidingPiece = SlidingPiece {
-    deltas: [(1, 0), (0, -1), (-1, 0), (0, 1)],
+    move_offsets: [(1, 0), (0, -1), (-1, 0), (0, 1)],
 };
 
 const BISHOP: SlidingPiece = SlidingPiece {
-    deltas: [(1, 1), (1, -1), (-1, -1), (-1, 1)],
+    move_offsets: [(1, 1), (1, -1), (-1, -1), (-1, 1)],
 };
 
 struct MagicEntry {
@@ -72,6 +76,7 @@ struct MagicEntry {
     shift: u8,
 }
 
+// Table strategy based off of https://analog-hors.github.io/site/magic-bitboards/
 fn magic_index(entry: &MagicEntry, blockers: Bitboard) -> usize {
     let blockers = blockers & entry.mask;
     let hash = blockers.0.wrapping_mul(entry.magic);
@@ -81,11 +86,11 @@ fn magic_index(entry: &MagicEntry, blockers: Bitboard) -> usize {
 // Given a sliding piece and a square, finds a magic number that
 // perfectly maps input blockers into its solution in a hash table
 fn find_magic(
-    slider: &SlidingPiece,
+    sliding_piece: &SlidingPiece,
     square: Bitboard,
     index_bits: u8,
 ) -> (MagicEntry, Vec<Bitboard>) {
-    let mask = slider.relevant_blockers(square);
+    let mask = sliding_piece.relevant_blockers(square);
     let shift = 64 - index_bits;
 
     loop {
@@ -93,7 +98,7 @@ fn find_magic(
         // by two more random values to cut down on the bits set.
         let magic = generate_random_u64() & generate_random_u64() & generate_random_u64();
         let magic_entry = MagicEntry { mask, magic, shift };
-        if let Ok(table) = try_make_table(slider, square, &magic_entry) {
+        if let Ok(table) = try_make_table(sliding_piece, square, &magic_entry) {
             return (magic_entry, table);
         }
     }
@@ -104,16 +109,17 @@ struct TableFillError;
 // Attempt to fill in a hash table using a magic number.
 // Fails if there are any non-constructive collisions.
 fn try_make_table(
-    slider: &SlidingPiece,
+    sliding_piece: &SlidingPiece,
     square: Bitboard,
     magic_entry: &MagicEntry,
 ) -> Result<Vec<Bitboard>, TableFillError> {
     let index_bits = 64 - magic_entry.shift;
     let mut table = vec![Bitboard::EMPTY; 1 << index_bits];
-    // Iterate all configurations of blockers
+
+    // Iterate through all configurations of blockers along the ray.
     let mut blockers = Bitboard::EMPTY;
     loop {
-        let moves = slider.moves(square, blockers);
+        let moves = sliding_piece.targets(square, blockers);
         let table_entry = &mut table[magic_index(magic_entry, blockers)];
         if table_entry.is_empty() {
             // Write to empty slot
@@ -123,7 +129,7 @@ fn try_make_table(
             return Err(TableFillError);
         }
 
-        // Carry-Rippler trick that enumerates all subsets of the mask, getting us all blockers.
+        // On each iteration, we find the next configuration of blockers using this trick.
         // https://www.chessprogramming.org/Traversing_Subsets_of_a_Set#All_Subsets_of_any_Set
         blockers.0 = blockers.0.wrapping_sub(magic_entry.mask.0) & magic_entry.mask.0;
         if blockers.is_empty() {
@@ -135,21 +141,21 @@ fn try_make_table(
 }
 
 fn find_and_write_magics(
-    slider: &SlidingPiece,
-    slider_name: &str,
+    sliding_piece: &SlidingPiece,
+    sliding_piece_name: &str,
     out: &mut BufWriter<File>,
 ) -> std::io::Result<()> {
     writeln!(out,
         "pub const {}_MAGICS: &[MagicEntry; 64] = &[",
-        slider_name
+        sliding_piece_name
     )?;
     let mut total_table_size = 0;
     for square_i in 0..64 {
         let square = Bitboard(1) << square_i;
         debug!("Finding magic for square: {:?}", square);
-        let index_bits = slider.relevant_blockers(square).popcnt() as u8;
+        let index_bits = sliding_piece.relevant_blockers(square).popcnt() as u8;
         debug!("Index bits: {}", index_bits);
-        let (entry, table) = find_magic(slider, square, index_bits);
+        let (entry, table) = find_magic(sliding_piece, square, index_bits);
         // In the final move generator, each table is concatenated into one contiguous table
         // for convenience, so an offset is added to denote the start of each segment.
         writeln!(out,
@@ -161,7 +167,7 @@ fn find_and_write_magics(
     writeln!(out,"];")?;
     writeln!(out,
         "pub const {}_TABLE_SIZE: usize = {};",
-        slider_name, total_table_size
+        sliding_piece_name, total_table_size
     )?;
     Ok(())
 }

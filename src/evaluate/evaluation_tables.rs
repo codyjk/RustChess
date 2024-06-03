@@ -1,18 +1,17 @@
-/// https://www.chessprogramming.org/Simplified_Evaluation_Function
-
 /// Matches ordering of `Piece` enum.
 /// [pawn, knight, bishop, rook, queen, king]
 pub const MATERIAL_VALUES: [i16; 6] = [100, 320, 330, 500, 900, 20000];
 
-// [midgame, endgame] tables for
-// [pawn, knight, bishop, rook, queen, king]
+/// [midgame, endgame] tables for
+/// [pawn, knight, bishop, rook, queen, king]
+#[rustfmt::skip]
 pub const BONUS_TABLES: [[[i16; 64]; 2]; 6] = [
-    [PAWN_BONUSES, PAWN_BONUSES],
-    [KNIGHT_BONUSES, KNIGHT_BONUSES],
-    [BISHOP_BONUSES, BISHOP_BONUSES],
-    [ROOK_BONUSES, ROOK_BONUSES],
-    [QUEEN_BONUSES, QUEEN_BONUSES],
-    [KING_MIDGAME_BONUSES, KING_ENDGAME_BONUSES],
+    [PAWN_BONUSES,          PAWN_BONUSES],
+    [KNIGHT_BONUSES,        KNIGHT_BONUSES],
+    [BISHOP_BONUSES,        BISHOP_BONUSES],
+    [ROOK_BONUSES,          ROOK_BONUSES],
+    [QUEEN_BONUSES,         QUEEN_BONUSES],
+    [KING_MIDGAME_BONUSES,  KING_ENDGAME_BONUSES],
 ];
 
 #[rustfmt::skip]

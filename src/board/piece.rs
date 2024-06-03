@@ -2,6 +2,7 @@ use std::fmt;
 
 use super::color::Color;
 
+/// Represents a chess piece.
 #[derive(Clone, Copy, PartialEq, Debug, Eq, PartialOrd, Ord)]
 pub enum Piece {
     Pawn,
@@ -113,7 +114,7 @@ mod tests {
     fn test_piece_to_and_from_usize() {
         for i in 0..6 {
             let piece = Piece::from_usize(i);
-            assert_eq!(Piece::from_usize(i as usize) as usize, i);
+            assert_eq!(Piece::from_usize(i) as usize, i);
             assert_eq!(piece as usize, i);
         }
     }

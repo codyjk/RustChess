@@ -3,10 +3,14 @@ use common::bitboard::bitboard::Bitboard;
 use super::piece::Piece;
 use super::BoardError;
 
+/// Encapsulates the state for a set of pieces on the board, represented as bitboards.
 #[derive(Clone, PartialEq)]
 pub struct PieceSet {
-    // [pawns, rooks, knights, bishops, kings, queens]
+    /// Bitboards for each piece type.
+    /// [pawns, rooks, knights, bishops, kings, queens]
     bitboards: [Bitboard; 6],
+
+    /// Bitboard representing all occupied squares. Incrementally updated as pieces are added or removed.
     occupied: Bitboard,
 }
 

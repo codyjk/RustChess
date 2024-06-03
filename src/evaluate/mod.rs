@@ -14,6 +14,9 @@ use self::evaluation_tables::{
 
 mod evaluation_tables;
 
+// These scores are significantly larger than any possible material value,
+// and therefore will incentivize the engine to select for (or against) their own
+// (or the opponent's) win or draw condition.
 const BLACK_WINS: i16 = i16::MIN / 2;
 const WHITE_WINS: i16 = i16::MAX / 2;
 
@@ -32,6 +35,7 @@ fn current_player_is_in_check(board: &Board, move_generator: &mut MoveGenerator)
     king.overlaps(attacked_squares)
 }
 
+/// Returns the game ending state if the game has ended, otherwise returns None.
 pub fn game_ending(
     board: &mut Board,
     move_generator: &mut MoveGenerator,
@@ -59,6 +63,7 @@ pub fn game_ending(
     None
 }
 
+/// Returns the score of the board from the perspective of the current player.
 pub fn score(board: &mut Board, move_generator: &mut MoveGenerator, current_turn: Color) -> i16 {
     // Check for position repetition
     if board.max_seen_position_count() == 3 {
@@ -82,9 +87,16 @@ pub fn score(board: &mut Board, move_generator: &mut MoveGenerator, current_turn
     }
 }
 
+/// Returns the material score of the board for the given player. The bonus tables
+/// incentivize the placement of pieces on specific parts of the board (e.g.
+/// knights towards the center, bishops on long diagonals, etc.).
 fn material_score(board: &Board, color: Color) -> i16 {
     let mut material = 0;
     let pieces = board.pieces(color);
+
+    // The code shares the bonuses between white and black. To achieve this, the
+    // lookup against the bonus table is transposed depending on which player
+    // the bonus is being evaluated for.
     let index_lookup = match color {
         Color::White => SQUARE_TO_WHITE_BONUS_INDEX,
         Color::Black => SQUARE_TO_BLACK_BONUS_INDEX,
@@ -117,6 +129,7 @@ fn material_score(board: &Board, color: Color) -> i16 {
     material
 }
 
+/// Endgame conditions:
 /// 1. Both sides have no queens or
 /// 2. Every side which has a queen has additionally no other pieces or one minorpiece maximum.
 fn is_endgame(board: &Board) -> bool {
@@ -144,7 +157,7 @@ fn is_endgame(board: &Board) -> bool {
 mod tests {
     use super::*;
     use crate::{
-        board::{castle_rights::ALL_CASTLE_RIGHTS, Board},
+        board::{castle_rights_bitmask::ALL_CASTLE_RIGHTS, Board},
         chess_position,
     };
     use common::bitboard::square::*;

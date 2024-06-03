@@ -1,4 +1,4 @@
-pub mod castle_rights;
+pub mod castle_rights_bitmask;
 pub mod color;
 pub mod error;
 pub mod piece;
@@ -16,8 +16,13 @@ use piece_set::PieceSet;
 
 use crate::chess_position;
 
-use self::{castle_rights::CastleRightsBitmask, move_info::MoveInfo, position_info::PositionInfo};
+use self::{
+    castle_rights_bitmask::CastleRightsBitmask, move_info::MoveInfo, position_info::PositionInfo,
+};
 
+/// Represents the state of a chess board. The top level struct holds piece position
+/// info, whereas the lower level `move_info` and `position_info` structs hold state
+/// related to en passant targets, castling rights, and zobrist hashing.
 #[derive(Clone)]
 pub struct Board {
     white: PieceSet,
