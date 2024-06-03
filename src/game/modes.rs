@@ -206,7 +206,7 @@ fn print_board(board: &Board) {
             };
             board_str.push_str(&format!(" {} |", piece_str));
         }
-        board_str.push_str("\n");
+        board_str.push('\n');
         board_str.push_str("  +---+---+---+---+---+---+---+---+\n");
     }
     board_str.push_str("    A   B   C   D   E   F   G   H\n");

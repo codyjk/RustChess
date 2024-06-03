@@ -226,7 +226,7 @@ pub fn generate_pawn_attack_targets(board: &Board, color: Color) -> Vec<PieceTar
 pub fn generate_knight_targets_table() -> [Bitboard; 64] {
     let mut table = [Bitboard::EMPTY; 64];
 
-    for square_i in 0..64 {
+    for (square_i, targets) in table.iter_mut().enumerate() {
         let knight = Bitboard(1 << square_i);
 
         // nne = north-north-east, nee = north-east-east, etc..
@@ -239,10 +239,8 @@ pub fn generate_knight_targets_table() -> [Bitboard; 64] {
         let move_sww = knight >> 10 & !Bitboard::G_FILE & !Bitboard::H_FILE;
         let move_ssw = knight >> 17 & !Bitboard::H_FILE;
 
-        let targets =
+        *targets =
             move_nne | move_nee | move_see | move_sse | move_nnw | move_nww | move_sww | move_ssw;
-
-        table[square_i] = targets;
     }
 
     table
@@ -251,25 +249,21 @@ pub fn generate_knight_targets_table() -> [Bitboard; 64] {
 pub fn generate_king_targets_table() -> [Bitboard; 64] {
     let mut table = [Bitboard::EMPTY; 64];
 
-    for square_i in 0..64 {
+    for (square_i, targets) in table.iter_mut().enumerate() {
         let king = Bitboard(1 << square_i);
-
-        let mut targets = Bitboard::EMPTY;
 
         // shift the king's position. in the event that it falls off of the boundary,
         // we want to negate the rank/file where the king would fall.
-        targets |= (king << 9) & !Bitboard::RANK_1 & !Bitboard::A_FILE; // northeast
-        targets |= (king << 8) & !Bitboard::RANK_1; // north
-        targets |= (king << 7) & !Bitboard::RANK_1 & !Bitboard::H_FILE; // northwest
+        *targets |= (king << 9) & !Bitboard::RANK_1 & !Bitboard::A_FILE; // northeast
+        *targets |= (king << 8) & !Bitboard::RANK_1; // north
+        *targets |= (king << 7) & !Bitboard::RANK_1 & !Bitboard::H_FILE; // northwest
 
-        targets |= (king >> 7) & !Bitboard::RANK_8 & !Bitboard::A_FILE; // southeast
-        targets |= (king >> 8) & !Bitboard::RANK_8; // south
-        targets |= (king >> 9) & !Bitboard::RANK_8 & !Bitboard::H_FILE; // southwest
+        *targets |= (king >> 7) & !Bitboard::RANK_8 & !Bitboard::A_FILE; // southeast
+        *targets |= (king >> 8) & !Bitboard::RANK_8; // south
+        *targets |= (king >> 9) & !Bitboard::RANK_8 & !Bitboard::H_FILE; // southwest
 
-        targets |= (king << 1) & !Bitboard::A_FILE; // east
-        targets |= (king >> 1) & !Bitboard::H_FILE; // west
-
-        table[square_i] = targets;
+        *targets |= (king << 1) & !Bitboard::A_FILE; // east
+        *targets |= (king >> 1) & !Bitboard::H_FILE; // west
     }
 
     table
