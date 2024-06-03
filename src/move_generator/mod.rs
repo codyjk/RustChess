@@ -1,6 +1,8 @@
 mod magic_table;
 mod targets;
 
+use std::num::NonZeroUsize;
+
 use crate::board::castle_rights_bitmask::{
     BLACK_KINGSIDE_RIGHTS, BLACK_QUEENSIDE_RIGHTS, WHITE_KINGSIDE_RIGHTS, WHITE_QUEENSIDE_RIGHTS,
 };
@@ -14,7 +16,7 @@ use crate::chess_move::standard::StandardChessMove;
 use crate::chess_move::ChessMove;
 use common::bitboard::bitboard::Bitboard;
 use common::bitboard::square::*;
-use rustc_hash::FxHashMap;
+use lru::LruCache;
 use targets::{PieceTarget, Targets};
 
 use self::targets::{generate_pawn_attack_targets, generate_pawn_move_targets};
@@ -24,12 +26,22 @@ pub const PAWN_PROMOTIONS: [Piece; 4] = [Piece::Queen, Piece::Rook, Piece::Bisho
 /// Implements a move generation algorithm that generates all possible moves for
 /// a given board state. The algorithm is optimized to cache the results of
 /// previous move generation calls to avoid redundant work.
-#[derive(Default)]
 pub struct MoveGenerator {
     targets: Targets,
     // (board, color) -> moves
-    cache: FxHashMap<(u64, u8), Vec<ChessMove>>,
+    cache: LruCache<(u64, u8), Vec<ChessMove>>,
     hit_count: usize,
+}
+
+impl Default for MoveGenerator {
+    fn default() -> Self {
+        Self {
+            targets: Targets::default(),
+            // Potentially a lot of memory, but helpful for high depths
+            cache: LruCache::new(NonZeroUsize::new(100_000).unwrap()),
+            hit_count: 0,
+        }
+    }
 }
 
 impl MoveGenerator {
@@ -45,15 +57,6 @@ impl MoveGenerator {
         self.cache.len()
     }
 
-    pub fn cache_size_in_bytes(&self) -> usize {
-        self.cache.len() * std::mem::size_of::<(u64, u8)>()
-            + self
-                .cache
-                .values()
-                .map(|v| v.len() * std::mem::size_of::<ChessMove>())
-                .sum::<usize>()
-    }
-
     pub fn reset_cache_hit_count(&mut self) {
         self.hit_count = 0;
     }
@@ -66,7 +69,7 @@ impl MoveGenerator {
         }
 
         let moves = generate_valid_moves(board, color, &mut self.targets);
-        self.cache.insert(key, moves.clone());
+        self.cache.put(key, moves.clone());
         moves
     }
 

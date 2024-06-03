@@ -72,9 +72,8 @@ pub fn play_computer(depth: u8, player_color: Color) {
                         game.move_generator_cache_hit_count(),
                     );
                     println!(
-                        "move_generator_cache_entry_count={}, move_generator_cache_size_in_bytes={}",
+                        "(move_generator_cache_entry_count={})",
                         game.move_genereator_cache_entry_count(),
-                        game.move_generator_cache_size_in_bytes(),
                     );
                     game.reset_move_generator_cache_hit_count();
                 }
@@ -143,9 +142,8 @@ pub fn computer_vs_computer(move_limit: u8, sleep_between_turns_in_ms: u64, dept
                     game.move_generator_cache_hit_count(),
                 );
                 println!(
-                    "(move_generator_cache_entry_count={}, move_generator_cache_size_in_bytes={})",
+                    "(move_generator_cache_entry_count={})",
                     game.move_genereator_cache_entry_count(),
-                    game.move_generator_cache_size_in_bytes(),
                 );
                 game.reset_move_generator_cache_hit_count();
                 continue;

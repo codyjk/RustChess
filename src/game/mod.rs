@@ -163,10 +163,6 @@ impl Game {
         self.move_generator.cache_entry_count()
     }
 
-    pub fn move_generator_cache_size_in_bytes(&self) -> usize {
-        self.move_generator.cache_size_in_bytes()
-    }
-
     pub fn reset_move_generator_cache_hit_count(&mut self) {
         self.move_generator.reset_cache_hit_count();
     }
