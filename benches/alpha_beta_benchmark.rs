@@ -1,12 +1,12 @@
 use chess::board::castle_rights::ALL_CASTLE_RIGHTS;
 use chess::board::color::Color;
 use chess::board::piece::Piece;
-use chess::board::square::{A1, E7, E8, F2, G1, G2, H2, H8};
 use chess::board::Board;
 use chess::evaluate::{self, GameEnding};
 use chess::move_generator::MoveGenerator;
 use chess::searcher::Searcher;
 
+use common::bitboard::square::*;
 use criterion::{criterion_group, criterion_main, Criterion};
 
 fn criterion_benchmark(c: &mut Criterion) {
