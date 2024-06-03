@@ -1,6 +1,7 @@
 pub mod command;
 pub mod modes;
 
+use crate::alpha_beta_searcher::{AlphaBetaSearcher, SearchError};
 use crate::board::color::Color;
 use crate::board::error::BoardError;
 use crate::board::Board;
@@ -8,7 +9,6 @@ use crate::book::{generate_opening_book, Book};
 use crate::chess_move::ChessMove;
 use crate::evaluate::{self, GameEnding};
 use crate::move_generator::MoveGenerator;
-use crate::searcher::{SearchError, Searcher};
 use common::bitboard::bitboard::Bitboard;
 use rand::{self, Rng};
 use thiserror::Error;
@@ -18,7 +18,7 @@ pub struct Game {
     move_history: Vec<ChessMove>,
     book: Book,
     move_generator: MoveGenerator,
-    searcher: Searcher,
+    searcher: AlphaBetaSearcher,
 }
 
 #[derive(Error, Debug)]
@@ -42,7 +42,7 @@ impl Game {
             move_history: Vec::new(),
             book: generate_opening_book(),
             move_generator: MoveGenerator::new(),
-            searcher: Searcher::new(search_depth),
+            searcher: AlphaBetaSearcher::new(search_depth),
         }
     }
 

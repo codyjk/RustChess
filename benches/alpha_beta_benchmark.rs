@@ -1,12 +1,13 @@
+use chess::alpha_beta_searcher::AlphaBetaSearcher;
 use chess::board::castle_rights::ALL_CASTLE_RIGHTS;
 use chess::board::color::Color;
 use chess::board::piece::Piece;
 use chess::board::Board;
+use chess::chess_position;
 use chess::evaluate::{self, GameEnding};
 use chess::move_generator::MoveGenerator;
-use chess::searcher::Searcher;
 
-use common::bitboard::square::*;
+use common::bitboard::bitboard::Bitboard;
 use criterion::{criterion_group, criterion_main, Criterion};
 
 fn criterion_benchmark(c: &mut Criterion) {
@@ -19,18 +20,18 @@ criterion_group!(benches, criterion_benchmark);
 criterion_main!(benches);
 
 fn find_alpha_beta_mate_in_2() {
-    let mut board = Board::new();
-    let mut searcher = Searcher::new(2);
+    let mut searcher = AlphaBetaSearcher::new(2);
     let mut move_generator = MoveGenerator::new();
-
-    board.put(F2, Piece::Pawn, Color::White).unwrap();
-    board.put(G2, Piece::Pawn, Color::White).unwrap();
-    board.put(H2, Piece::Pawn, Color::White).unwrap();
-    board.put(G1, Piece::King, Color::White).unwrap();
-    board.put(A1, Piece::Rook, Color::White).unwrap();
-    board.put(E8, Piece::Rook, Color::Black).unwrap();
-    board.put(E7, Piece::Queen, Color::Black).unwrap();
-    board.put(H8, Piece::King, Color::Black).unwrap();
+    let mut board = chess_position! {
+        ....r..k
+        ....q...
+        ........
+        ........
+        ........
+        ........
+        .....PPP
+        R.....K.
+    };
     board.set_turn(Color::Black);
     board.lose_castle_rights(ALL_CASTLE_RIGHTS);
 

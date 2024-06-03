@@ -9,7 +9,7 @@ use thiserror::Error;
 type SearchNode = (u64, i16, i16); // position_hash, alpha, beta
 type SearchResult = i16; // best_score
 
-pub struct Searcher {
+pub struct AlphaBetaSearcher {
     search_depth: u8,
     search_result_cache: FxHashMap<SearchNode, SearchResult>,
     searched_position_count: usize,
@@ -24,7 +24,7 @@ pub enum SearchError {
     NoAvailableMoves,
 }
 
-impl Searcher {
+impl AlphaBetaSearcher {
     pub fn new(depth: u8) -> Self {
         Self {
             search_depth: depth,
@@ -48,14 +48,18 @@ impl Searcher {
         self.termination_count
     }
 
+    pub fn reset_stats(&mut self) {
+        self.searched_position_count = 0;
+        self.cache_hit_count = 0;
+        self.termination_count = 0;
+    }
+
     pub fn search(
         &mut self,
         board: &mut Board,
         move_generator: &mut MoveGenerator,
     ) -> Result<ChessMove, SearchError> {
-        self.searched_position_count = 0;
-        self.cache_hit_count = 0;
-        self.termination_count = 0;
+        self.reset_stats();
 
         let current_turn = board.turn();
         let candidates = move_generator.generate_moves(board, current_turn);
@@ -233,7 +237,7 @@ mod tests {
 
     #[test]
     fn test_find_mate_in_1_white() {
-        let mut searcher = Searcher::new(1);
+        let mut searcher = AlphaBetaSearcher::new(1);
         let mut move_generator = MoveGenerator::new();
 
         let mut board = chess_position! {
@@ -261,7 +265,7 @@ mod tests {
 
     #[test]
     fn test_find_mate_in_1_black() {
-        let mut searcher = Searcher::new(1);
+        let mut searcher = AlphaBetaSearcher::new(1);
         let mut move_generator = MoveGenerator::new();
         let mut board = chess_position! {
             .q......
@@ -286,7 +290,7 @@ mod tests {
 
     #[test]
     fn test_find_back_rank_mate_in_2_white() {
-        let mut searcher = Searcher::new(2);
+        let mut searcher = AlphaBetaSearcher::new(2);
         let mut move_generator = MoveGenerator::new();
 
         let mut board = chess_position! {
@@ -332,7 +336,7 @@ mod tests {
 
     #[test]
     fn test_find_back_rank_mate_in_2_black() {
-        let mut searcher = Searcher::new(3);
+        let mut searcher = AlphaBetaSearcher::new(3);
         let mut move_generator = MoveGenerator::new();
 
         let mut board = chess_position! {
