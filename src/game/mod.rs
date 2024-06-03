@@ -178,7 +178,7 @@ mod tests {
     use crate::board::piece::Piece;
     use crate::chess_move::standard::StandardChessMove;
     use crate::chess_move::ChessMove;
-    use crate::std_move;
+    use crate::{chess_position, std_move};
     use common::bitboard::square;
 
     #[test]
@@ -209,11 +209,16 @@ mod tests {
 
     #[test]
     fn test_draw_from_repetition() {
-        let mut board = Board::new();
-        board.put(square::A1, Piece::Rook, Color::White).unwrap();
-        board.put(square::A2, Piece::King, Color::White).unwrap();
-        board.put(square::H7, Piece::Rook, Color::Black).unwrap();
-        board.put(square::H8, Piece::King, Color::Black).unwrap();
+        let mut board = chess_position! {
+            .......k
+            .......r
+            ........
+            ........
+            ........
+            ........
+            K.......
+            R.......
+        };
         board.set_turn(Color::White);
         board.lose_castle_rights(ALL_CASTLE_RIGHTS);
 
