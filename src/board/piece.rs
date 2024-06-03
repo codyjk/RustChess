@@ -60,6 +60,23 @@ impl Piece {
             _ => None,
         }
     }
+
+    pub fn to_unicode_piece_char(&self, color: Color) -> char {
+        match (self, color) {
+            (Piece::Bishop, Color::Black) => '♗',
+            (Piece::Bishop, Color::White) => '♝',
+            (Piece::King, Color::Black) => '♔',
+            (Piece::King, Color::White) => '♚',
+            (Piece::Knight, Color::Black) => '♘',
+            (Piece::Knight, Color::White) => '♞',
+            (Piece::Pawn, Color::Black) => '♙',
+            (Piece::Pawn, Color::White) => '♟',
+            (Piece::Queen, Color::Black) => '♕',
+            (Piece::Queen, Color::White) => '♛',
+            (Piece::Rook, Color::Black) => '♖',
+            (Piece::Rook, Color::White) => '♜',
+        }
+    }
 }
 
 pub const ALL_PIECES: [Piece; 6] = [

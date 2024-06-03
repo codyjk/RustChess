@@ -1,19 +1,19 @@
 use super::{Game, GameEnding};
 use crate::board::color::Color;
+use crate::board::Board;
 use crate::game::command::{Command, MakeWaterfallMove};
 use crate::input_handler;
+use common::bitboard::square::from_rank_file;
 use std::thread::sleep;
 use std::time::{Duration, SystemTime};
 use termion::clear;
-
-// TODO(codyjk): This code, and the resulting UI, needs to be made prettier.
 
 pub fn play_computer(depth: u8, player_color: Color) {
     let game = &mut Game::new(depth);
 
     println!("{}", clear::All);
     println!("You are {}", player_color);
-    println!("{}", game.board);
+    print_board(&game.board);
     print_enter_move_prompt();
 
     loop {
@@ -50,9 +50,8 @@ pub fn play_computer(depth: u8, player_color: Color) {
 
                 print_board_and_stats(game);
                 if player_color == game.board.turn() {
-                    print_enter_move_prompt();
-                } else {
                     println!("* Move took: {:?}", duration);
+                    print_enter_move_prompt();
                 }
                 continue;
             }
@@ -157,7 +156,7 @@ fn print_board_and_stats(game: &mut Game) {
         game.board.turn().opposite(),
         last_move
     );
-    println!("{}\n", game.board);
+    print_board(&game.board);
     println!("* Turn: {}", game.board.turn());
     println!("* Halfmove clock: {}", game.board.halfmove_clock());
     println!("* Fullmove clock: {}", game.board.fullmove_clock());
@@ -171,4 +170,45 @@ fn print_board_and_stats(game: &mut Game) {
 
 fn print_enter_move_prompt() {
     println!("Enter your move:");
+}
+
+/// Prints a board to the console in the following format:
+///   +---+---+---+---+---+---+---+---+
+/// 8 | r | n | b | q | k | b | n | r |
+///   +---+---+---+---+---+---+---+---+
+/// 7 | p | p | p | p | p |   |   | p |
+///   +---+---+---+---+---+---+---+---+
+/// 6 |   |   |   |   |   |   | p |   |
+///   +---+---+---+---+---+---+---+---+
+/// 5 |   |   |   |   |   | p |   | Q |
+///   +---+---+---+---+---+---+---+---+
+/// 4 |   |   |   |   | P |   |   |   |
+///   +---+---+---+---+---+---+---+---+
+/// 3 |   |   |   |   |   |   |   |   |
+///   +---+---+---+---+---+---+---+---+
+/// 2 | P | P | P | P |   | P | P | P |
+///   +---+---+---+---+---+---+---+---+
+/// 1 | R | N | B |   | K | B | N | R |
+///   +---+---+---+---+---+---+---+---+
+///     A   B   C   D   E   F   G   H
+fn print_board(board: &Board) {
+    let mut board_str = String::new();
+    board_str.push_str("  +---+---+---+---+---+---+---+---+\n");
+    for rank in 0..8 {
+        let transposed_rank = 7 - rank;
+        board_str.push_str(&format!("{} |", transposed_rank + 1));
+        for file in 0..8 {
+            let square = from_rank_file(transposed_rank, file);
+            let piece = board.get(square);
+            let piece_str = match piece {
+                Some((piece, color)) => piece.to_unicode_piece_char(color).to_string(),
+                None => " ".to_string(),
+            };
+            board_str.push_str(&format!(" {} |", piece_str));
+        }
+        board_str.push_str("\n");
+        board_str.push_str("  +---+---+---+---+---+---+---+---+\n");
+    }
+    board_str.push_str("    A   B   C   D   E   F   G   H\n");
+    println!("{}", board_str);
 }
