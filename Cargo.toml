@@ -24,9 +24,17 @@ precompile = { path = "precompile" }
 
 [profile.release]
 debug = true
+lto = true
+codegen-units = 1
+opt-level = 3
+incremental = false
 
 [profile.bench]
 debug = true
+lto = true
+codegen-units = 1
+opt-level = 3
+incremental = false
 
 [dev-dependencies]
 criterion = "0.3"
