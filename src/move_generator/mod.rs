@@ -1,5 +1,4 @@
 mod magic_table;
-mod ray_table;
 mod targets;
 
 use crate::board::castle_rights::{
@@ -106,9 +105,7 @@ fn generate_valid_moves(board: &mut Board, color: Color, targets: &mut Targets) 
     let mut moves = Vec::new();
 
     generate_knight_moves(&mut moves, board, color, targets);
-    generate_rook_moves(&mut moves, board, color, targets);
-    generate_bishop_moves(&mut moves, board, color, targets);
-    generate_queen_moves(&mut moves, board, color, targets);
+    generate_sliding_moves(&mut moves, board, color, targets);
     generate_king_moves(&mut moves, board, color, targets);
     generate_pawn_moves(&mut moves, board, color);
     generate_castle_moves(&mut moves, board, color, targets);
@@ -202,28 +199,13 @@ fn generate_knight_moves(
     )
 }
 
-fn generate_rook_moves(moves: &mut Vec<ChessMove>, board: &Board, color: Color, targets: &Targets) {
-    let piece_targets = targets.generate_rook_targets(board, color);
-    expand_piece_targets(moves, board, color, piece_targets)
-}
-
-fn generate_bishop_moves(
+fn generate_sliding_moves(
     moves: &mut Vec<ChessMove>,
     board: &Board,
     color: Color,
     targets: &Targets,
 ) {
-    let piece_targets = targets.generate_bishop_targets(board, color);
-    expand_piece_targets(moves, board, color, piece_targets)
-}
-
-fn generate_queen_moves(
-    moves: &mut Vec<ChessMove>,
-    board: &Board,
-    color: Color,
-    targets: &Targets,
-) {
-    let piece_targets = targets.generate_queen_targets(board, color);
+    let piece_targets = targets.generate_sliding_targets(board, color);
     expand_piece_targets(moves, board, color, piece_targets)
 }
 
@@ -500,7 +482,7 @@ mod tests {
         expected_moves.sort();
 
         let mut moves = vec![];
-        generate_rook_moves(&mut moves, &board, Color::White, &Targets::new());
+        generate_sliding_moves(&mut moves, &board, Color::White, &Targets::new());
         moves.sort();
 
         assert_eq!(expected_moves, moves);
@@ -518,7 +500,7 @@ mod tests {
         expected_moves.sort();
 
         let mut moves = vec![];
-        generate_rook_moves(&mut moves, &board, Color::White, &Targets::new());
+        generate_sliding_moves(&mut moves, &board, Color::White, &Targets::new());
         moves.sort();
 
         assert_eq!(expected_moves, moves);
@@ -546,7 +528,7 @@ mod tests {
         expected_moves.sort();
 
         let mut moves = vec![];
-        generate_bishop_moves(&mut moves, &board, Color::White, &Targets::new());
+        generate_sliding_moves(&mut moves, &board, Color::White, &Targets::new());
         moves.sort();
 
         assert_eq!(expected_moves, moves);
@@ -597,7 +579,7 @@ mod tests {
         expected_moves.sort();
 
         let mut moves = vec![];
-        generate_queen_moves(&mut moves, &board, Color::White, &Targets::new());
+        generate_sliding_moves(&mut moves, &board, Color::White, &Targets::new());
         moves.sort();
 
         assert_eq!(expected_moves, moves);

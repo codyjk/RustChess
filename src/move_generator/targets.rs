@@ -5,10 +5,7 @@ use common::bitboard::bitboard::Bitboard;
 use common::bitboard::square::ORDERED;
 use rustc_hash::FxHashMap;
 
-use super::{
-    magic_table::MagicTable,
-    ray_table::{Direction, RayTable},
-};
+use super::magic_table::MagicTable;
 
 pub type PieceTarget = (Bitboard, Bitboard); // (piece_square, targets)
 
@@ -18,35 +15,18 @@ pub type PieceTarget = (Bitboard, Bitboard); // (piece_square, targets)
 pub struct Targets {
     kings: [Bitboard; 64],
     knights: [Bitboard; 64],
-    ray_table: RayTable,
     magic_table: MagicTable,
     // (color, board_hash) -> attack_targets
     attacks_cache: FxHashMap<(u8, u64), Bitboard>,
 }
 
-const ROOK_DIRS: [Direction; 4] = [
-    Direction::North,
-    Direction::East,
-    Direction::South,
-    Direction::West,
-];
-
-const BISHOP_DIRS: [Direction; 4] = [
-    Direction::NorthWest,
-    Direction::NorthEast,
-    Direction::SouthWest,
-    Direction::SouthEast,
-];
-
 impl Default for Targets {
     fn default() -> Self {
-        let ray_table = RayTable::new();
         let magic_table = MagicTable::new();
 
         Self {
             kings: generate_king_targets_table(),
             knights: generate_knight_targets_table(),
-            ray_table,
             magic_table,
             attacks_cache: FxHashMap::default(),
         }
@@ -104,28 +84,6 @@ impl Targets {
         piece_targets
     }
 
-    pub fn generate_rook_targets(&self, board: &Board, color: Color) -> Vec<PieceTarget> {
-        self.generate_ray_targets(board, color, Piece::Rook, ROOK_DIRS)
-    }
-
-    pub fn generate_bishop_targets(&self, board: &Board, color: Color) -> Vec<PieceTarget> {
-        self.generate_ray_targets(board, color, Piece::Bishop, BISHOP_DIRS)
-    }
-
-    pub fn generate_queen_targets(&self, board: &Board, color: Color) -> Vec<PieceTarget> {
-        let mut piece_targets: Vec<PieceTarget> = vec![];
-
-        piece_targets.append(&mut self.generate_ray_targets(board, color, Piece::Queen, ROOK_DIRS));
-        piece_targets.append(&mut self.generate_ray_targets(
-            board,
-            color,
-            Piece::Queen,
-            BISHOP_DIRS,
-        ));
-
-        piece_targets
-    }
-
     pub fn generate_sliding_targets(&self, board: &Board, color: Color) -> Vec<PieceTarget> {
         let occupied = board.occupied();
         let mut piece_targets: Vec<_> = vec![];
@@ -171,74 +129,6 @@ impl Targets {
             Some(old_targets) => old_targets,
             None => attack_targets,
         }
-    }
-
-    fn generate_ray_targets(
-        &self,
-        board: &Board,
-        color: Color,
-        ray_piece: Piece,
-        ray_dirs: [Direction; 4],
-    ) -> Vec<PieceTarget> {
-        let pieces = board.pieces(color).locate(ray_piece);
-        let occupied = board.occupied();
-        let mut piece_targets: Vec<_> = vec![];
-
-        for x in 0..64 {
-            let piece = Bitboard(1 << x);
-            if !pieces.overlaps(piece) {
-                continue;
-            }
-
-            let mut target_squares = Bitboard::EMPTY;
-
-            for dir in ray_dirs.iter() {
-                let ray = self.ray_table.get(piece, *dir);
-                if ray.is_empty() {
-                    continue;
-                }
-
-                let intercepts = ray & occupied;
-
-                if intercepts.is_empty() {
-                    piece_targets.push((piece, ray));
-                    continue;
-                }
-
-                // intercept = where the piece's ray is terminated.
-                // in each direction, the goal is to select the intercept
-                // that is closest to the piece. for each direction, this is either
-                // the leftmost or rightmost bit.
-                let intercept = match dir {
-                    // ROOKS
-                    Direction::North => rightmost_bit(intercepts),
-                    Direction::East => rightmost_bit(intercepts),
-                    Direction::South => leftmost_bit(intercepts),
-                    Direction::West => leftmost_bit(intercepts),
-
-                    // BISHOPS
-                    Direction::NorthWest => rightmost_bit(intercepts),
-                    Direction::NorthEast => rightmost_bit(intercepts),
-                    Direction::SouthWest => leftmost_bit(intercepts),
-                    Direction::SouthEast => leftmost_bit(intercepts),
-                };
-
-                let blocked_squares = self.ray_table.get(intercept, *dir);
-
-                target_squares |= ray ^ blocked_squares;
-
-                // if the intercept is the same color piece, remove it from the targets.
-                // otherwise, it is a target square because it belongs to the other
-                // color and can therefore be captured
-                if board.pieces(color).occupied().overlaps(intercept) {
-                    target_squares ^= intercept;
-                }
-            }
-
-            piece_targets.push((piece, target_squares));
-        }
-
-        piece_targets
     }
 
     fn get_precomputed_targets(&self, square: Bitboard, piece: Piece) -> Bitboard {
@@ -392,25 +282,6 @@ pub fn generate_king_targets_table() -> [Bitboard; 64] {
     }
 
     table
-}
-
-fn rightmost_bit(x: Bitboard) -> Bitboard {
-    x & (!x + Bitboard(1))
-}
-
-fn leftmost_bit(x: Bitboard) -> Bitboard {
-    let mut b = x;
-
-    // fill in rightmost bits
-    b |= b >> 32;
-    b |= b >> 16;
-    b |= b >> 8;
-    b |= b >> 4;
-    b |= b >> 2;
-    b |= b >> 1;
-
-    // get the leftmost bit
-    b ^ (b >> 1)
 }
 
 #[cfg(test)]
