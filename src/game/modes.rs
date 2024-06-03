@@ -35,7 +35,7 @@ pub fn play_computer(depth: u8, player_color: Color) {
                 }
             }
         } else {
-            Box::new(MakeWaterfallMove {})
+            Box::<MakeWaterfallMove>::default()
         };
 
         let start_time = SystemTime::now();

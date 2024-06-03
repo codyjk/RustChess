@@ -30,6 +30,7 @@ impl Command for MakeMove {
     }
 }
 
+#[derive(Default)]
 pub struct MakeWaterfallMove {}
 
 impl Command for MakeWaterfallMove {
