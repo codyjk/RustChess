@@ -166,6 +166,14 @@ impl Game {
     pub fn reset_move_generator_cache_hit_count(&mut self) {
         self.move_generator.reset_cache_hit_count();
     }
+
+    pub fn last_move(&self) -> Option<ChessMove> {
+        self.move_history.last().cloned()
+    }
+
+    pub fn search_depth(&self) -> u8 {
+        self.searcher.search_depth()
+    }
 }
 
 #[cfg(test)]

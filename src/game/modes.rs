@@ -12,10 +12,11 @@ pub fn play_computer(depth: u8, player_color: Color) {
     let game = &mut Game::new(depth);
 
     println!("{}", clear::All);
-    println!("you are {}", player_color);
-    loop {
-        println!("{}", game.board);
+    println!("You are {}", player_color);
+    println!("{}", game.board);
+    print_enter_move_prompt();
 
+    loop {
         match game.check_game_over_for_current_turn() {
             Some(GameEnding::Checkmate) => {
                 println!("checkmate!");
@@ -42,40 +43,16 @@ pub fn play_computer(depth: u8, player_color: Color) {
 
         let start_time = SystemTime::now();
         match command.execute(game) {
-            Ok(chess_move) => {
+            Ok(_chess_move) => {
                 let duration = SystemTime::now().duration_since(start_time).unwrap();
                 println!("{}", clear::All);
-                let player = match player_color {
-                    c if c == game.board.turn() => "you",
-                    _ => "computer",
-                };
                 game.board.toggle_turn();
-                let score = game.score(game.board.turn());
 
-                println!(
-                    "{} chose {} (depth={}, took={}ms, halfmove_clock={}, fullmove_clock={}, score={})",
-                    player,
-                    chess_move,
-                    depth,
-                    duration.as_millis(),
-                    game.board.halfmove_clock(),
-                    game.board.fullmove_clock(),
-                    score,
-                );
-
-                if game.board.turn() == player_color {
-                    println!(
-                        "(positions_searched={}, alpha_beta_cache_hits={}, alpha_beta_terminations={}, move_generator_cache_hits={})",
-                        game.searched_position_count(),
-                        game.alpha_beta_cache_hit_count(),
-                        game.alpha_beta_termination_count(),
-                        game.move_generator_cache_hit_count(),
-                    );
-                    println!(
-                        "(move_generator_cache_entry_count={})",
-                        game.move_genereator_cache_entry_count(),
-                    );
-                    game.reset_move_generator_cache_hit_count();
+                print_board_and_stats(game);
+                if player_color == game.board.turn() {
+                    print_enter_move_prompt();
+                } else {
+                    println!("* Move took: {:?}", duration);
                 }
                 continue;
             }
@@ -90,7 +67,6 @@ pub fn computer_vs_computer(move_limit: u8, sleep_between_turns_in_ms: u64, dept
     println!("{}", clear::All);
 
     loop {
-        println!("{}", game.board);
         sleep(Duration::from_millis(sleep_between_turns_in_ms));
 
         match game.check_game_over_for_current_turn() {
@@ -113,38 +89,13 @@ pub fn computer_vs_computer(move_limit: u8, sleep_between_turns_in_ms: u64, dept
             break;
         }
 
-        let start_time = SystemTime::now();
         let result = game.make_waterfall_book_then_alpha_beta_move();
 
         match result {
-            Ok(chess_move) => {
-                let duration = SystemTime::now().duration_since(start_time).unwrap();
+            Ok(_chess_move) => {
                 println!("{}", clear::All);
                 game.board.toggle_turn();
-                let score = game.score(game.board.turn());
-
-                println!(
-                    "{} chose {} (depth={}, took={}ms, halfmove_clock={}, fullmove_clock={}, score={})",
-                    game.board.turn(),
-                    chess_move,
-                    depth,
-                    duration.as_millis(),
-                    game.board.halfmove_clock(),
-                    game.board.fullmove_clock(),
-                    score,
-                );
-
-                println!(
-                    "(positions_searched={}, alpha_beta_cache_hits={}, alpha_beta_terminations={}, move_generator_cache_hits={})",
-                    game.searched_position_count(),
-                    game.alpha_beta_cache_hit_count(),
-                    game.alpha_beta_termination_count(),
-                    game.move_generator_cache_hit_count(),
-                );
-                println!(
-                    "(move_generator_cache_entry_count={})",
-                    game.move_genereator_cache_entry_count(),
-                );
+                print_board_and_stats(&mut game);
                 game.reset_move_generator_cache_hit_count();
                 continue;
             }
@@ -194,4 +145,30 @@ pub fn player_vs_player() {
             Err(error) => println!("error: {}", error),
         }
     }
+}
+
+fn print_board_and_stats(game: &mut Game) {
+    let last_move = match game.last_move() {
+        Some(chess_move) => chess_move.to_string(),
+        None => "-".to_string(),
+    };
+    println!(
+        "{} chose move: {}\n",
+        game.board.turn().opposite(),
+        last_move
+    );
+    println!("{}\n", game.board);
+    println!("* Turn: {}", game.board.turn());
+    println!("* Halfmove clock: {}", game.board.halfmove_clock());
+    println!("* Fullmove clock: {}", game.board.fullmove_clock());
+    println!("* Score: {}", game.score(game.board.turn()));
+    println!(
+        "* Positions searched: {} (depth {})",
+        game.searched_position_count(),
+        game.search_depth()
+    );
+}
+
+fn print_enter_move_prompt() {
+    println!("Enter your move:");
 }

@@ -56,6 +56,10 @@ impl AlphaBetaSearcher {
         self.termination_count = 0;
     }
 
+    pub fn search_depth(&self) -> u8 {
+        self.search_depth
+    }
+
     pub fn search(
         &mut self,
         board: &mut Board,
