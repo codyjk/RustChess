@@ -1,4 +1,4 @@
-use chess::alpha_beta_searcher::AlphaBetaSearcher;
+use chess::alpha_beta_searcher::{alpha_beta_search, SearchContext};
 use chess::board::castle_rights_bitmask::ALL_CASTLE_RIGHTS;
 use chess::board::color::Color;
 use chess::board::piece::Piece;
@@ -20,7 +20,7 @@ criterion_group!(benches, criterion_benchmark);
 criterion_main!(benches);
 
 fn find_alpha_beta_mate_in_2() {
-    let mut searcher = AlphaBetaSearcher::new(2);
+    let mut search_context = SearchContext::new(2);
     let mut move_generator = MoveGenerator::new();
     let mut board = chess_position! {
         ....r..k
@@ -35,13 +35,13 @@ fn find_alpha_beta_mate_in_2() {
     board.set_turn(Color::Black);
     board.lose_castle_rights(ALL_CASTLE_RIGHTS);
 
-    let move1 = searcher.search(&mut board, &mut move_generator).unwrap();
+    let move1 = alpha_beta_search(&mut search_context, &mut board, &mut move_generator).unwrap();
     move1.apply(&mut board).unwrap();
     board.toggle_turn();
-    let move2 = searcher.search(&mut board, &mut move_generator).unwrap();
+    let move2 = alpha_beta_search(&mut search_context, &mut board, &mut move_generator).unwrap();
     move2.apply(&mut board).unwrap();
     board.toggle_turn();
-    let move3 = searcher.search(&mut board, &mut move_generator).unwrap();
+    let move3 = alpha_beta_search(&mut search_context, &mut board, &mut move_generator).unwrap();
     move3.apply(&mut board).unwrap();
     let current_turn = board.toggle_turn();
 

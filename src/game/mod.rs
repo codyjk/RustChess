@@ -1,7 +1,7 @@
 pub mod command;
 pub mod modes;
 
-use crate::alpha_beta_searcher::{AlphaBetaSearcher, SearchError};
+use crate::alpha_beta_searcher::{alpha_beta_search, SearchContext, SearchError};
 use crate::board::color::Color;
 use crate::board::error::BoardError;
 use crate::board::Board;
@@ -19,7 +19,7 @@ pub struct Game {
     move_history: Vec<ChessMove>,
     book: Book,
     move_generator: MoveGenerator,
-    searcher: AlphaBetaSearcher,
+    search_context: SearchContext,
 }
 
 #[derive(Error, Debug)]
@@ -43,7 +43,7 @@ impl Game {
             move_history: Vec::new(),
             book: generate_opening_book(),
             move_generator: MoveGenerator::new(),
-            searcher: AlphaBetaSearcher::new(search_depth),
+            search_context: SearchContext::new(search_depth),
         }
     }
 
@@ -81,10 +81,11 @@ impl Game {
     }
 
     pub fn make_alpha_beta_best_move(&mut self) -> Result<ChessMove, GameError> {
-        let best_move = match self
-            .searcher
-            .search(&mut self.board, &mut self.move_generator)
-        {
+        let best_move = match alpha_beta_search(
+            &mut self.search_context,
+            &mut self.board,
+            &mut self.move_generator,
+        ) {
             Ok(mv) => mv,
             Err(err) => return Err(GameError::SearchError { error: err }),
         };
@@ -144,15 +145,19 @@ impl Game {
     }
 
     pub fn searched_position_count(&self) -> usize {
-        self.searcher.searched_position_count()
+        self.search_context.searched_position_count()
     }
 
     pub fn alpha_beta_cache_hit_count(&self) -> usize {
-        self.searcher.cache_hit_count()
+        self.search_context.cache_hit_count()
     }
 
     pub fn alpha_beta_termination_count(&self) -> usize {
-        self.searcher.termination_count()
+        self.search_context.termination_count()
+    }
+
+    pub fn search_depth(&self) -> u8 {
+        self.search_context.search_depth()
     }
 
     pub fn move_generator_cache_hit_count(&self) -> usize {
@@ -169,10 +174,6 @@ impl Game {
 
     pub fn last_move(&self) -> Option<ChessMove> {
         self.move_history.last().cloned()
-    }
-
-    pub fn search_depth(&self) -> u8 {
-        self.searcher.search_depth()
     }
 }
 

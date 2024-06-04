@@ -91,6 +91,7 @@ dependencies = [
  "lru",
  "precompile",
  "rand",
+ "rayon",
  "regex",
  "rustc-hash",
  "smallvec",

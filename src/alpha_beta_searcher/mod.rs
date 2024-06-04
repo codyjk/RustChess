@@ -2,20 +2,25 @@ use crate::board::Board;
 use crate::chess_move::ChessMove;
 use crate::evaluate;
 use crate::move_generator::MoveGenerator;
-use log::debug;
 use rustc_hash::FxHashMap;
 use thiserror::Error;
+
+use rayon::prelude::*;
+use std::sync::{Arc, RwLock};
 
 type SearchNode = (u64, i16, i16); // position_hash, alpha, beta
 type SearchResult = i16; // best_score
 
-pub struct AlphaBetaSearcher {
+/// Represents the state and control of a search for the best move in a chess position.
+/// The search is implemented using alpha-beta minimax search, and uses `rayon`
+/// to parallelize the search across multiple threads. Access to the search context is thread-safe.
+#[derive(Clone)]
+pub struct SearchContext {
     search_depth: u8,
-    search_result_cache: FxHashMap<SearchNode, SearchResult>,
-    searched_position_count: usize,
-    cache_hit_count: usize,
-    termination_count: usize,
-    current_line_stack: Vec<ChessMove>,
+    search_result_cache: Arc<RwLock<FxHashMap<SearchNode, SearchResult>>>,
+    searched_position_count: Arc<RwLock<usize>>,
+    cache_hit_count: Arc<RwLock<usize>>,
+    termination_count: Arc<RwLock<usize>>,
 }
 
 #[derive(Error, Debug)]
@@ -24,209 +29,212 @@ pub enum SearchError {
     NoAvailableMoves,
 }
 
-/// Implements alpha-beta minimax search to find the "best" move to a given depth.
-/// The "best" move is determined by the scoring function implemented in the `evaluate` module.
-impl AlphaBetaSearcher {
+impl SearchContext {
     pub fn new(depth: u8) -> Self {
         Self {
             search_depth: depth,
-            search_result_cache: FxHashMap::default(),
-            searched_position_count: 0,
-            cache_hit_count: 0,
-            termination_count: 0,
-            current_line_stack: Vec::new(),
+            search_result_cache: Arc::new(RwLock::new(FxHashMap::default())),
+            searched_position_count: Arc::new(RwLock::new(0)),
+            cache_hit_count: Arc::new(RwLock::new(0)),
+            termination_count: Arc::new(RwLock::new(0)),
         }
     }
 
+    pub fn reset_stats(&mut self) {
+        *self.searched_position_count.write().unwrap() = 0;
+        *self.cache_hit_count.write().unwrap() = 0;
+        *self.termination_count.write().unwrap() = 0;
+    }
+
     pub fn searched_position_count(&self) -> usize {
-        self.searched_position_count
+        *self.searched_position_count.read().unwrap()
     }
 
     pub fn cache_hit_count(&self) -> usize {
-        self.cache_hit_count
+        *self.cache_hit_count.read().unwrap()
     }
 
     pub fn termination_count(&self) -> usize {
-        self.termination_count
-    }
-
-    pub fn reset_stats(&mut self) {
-        self.searched_position_count = 0;
-        self.cache_hit_count = 0;
-        self.termination_count = 0;
+        *self.termination_count.read().unwrap()
     }
 
     pub fn search_depth(&self) -> u8 {
         self.search_depth
     }
+}
 
-    pub fn search(
-        &mut self,
-        board: &mut Board,
-        move_generator: &mut MoveGenerator,
-    ) -> Result<ChessMove, SearchError> {
-        self.reset_stats();
+/// Implements alpha-beta minimax search to find the "best" move to a given depth.
+/// The "best" move is determined by the scoring function implemented in the `evaluate` module.
+pub fn alpha_beta_search(
+    context: &mut SearchContext,
+    board: &mut Board,
+    move_generator: &mut MoveGenerator,
+) -> Result<ChessMove, SearchError> {
+    context.reset_stats();
 
-        let current_turn = board.turn();
-        let candidates = move_generator.generate_moves(board, current_turn);
+    let current_turn = board.turn();
+    let candidates = move_generator.generate_moves(board, current_turn);
 
-        if candidates.is_empty() {
-            return Err(SearchError::NoAvailableMoves);
-        }
-
-        let scores: Vec<i16> = candidates
-            .iter()
-            .map(|chess_move| {
-                chess_move.apply(board).unwrap();
-                board.toggle_turn();
-                self.push_move_to_current_line(chess_move.clone());
-                debug!("Current line: {:?}", self.current_line_stack);
-
-                let score = self.alpha_beta_max(
-                    self.search_depth,
-                    board,
-                    move_generator,
-                    i16::MIN,
-                    i16::MAX,
-                );
-
-                chess_move.undo(board).unwrap();
-                board.toggle_turn();
-                self.pop_move_from_current_line();
-
-                score
-            })
-            .collect();
-
-        let mut results = candidates
-            .into_iter()
-            .zip(scores.iter())
-            .collect::<Vec<_>>();
-        results.sort_by(|(_, score_a), (_, score_b)| score_a.partial_cmp(score_b).unwrap());
-        results.reverse();
-        let (best_move, _) = results.pop().unwrap();
-        Ok(best_move)
+    if candidates.is_empty() {
+        return Err(SearchError::NoAvailableMoves);
     }
 
-    fn alpha_beta_max(
-        &mut self,
-        depth: u8,
-        board: &mut Board,
-        move_generator: &mut MoveGenerator,
-        mut alpha: i16,
-        beta: i16,
-    ) -> i16 {
-        self.searched_position_count += 1;
+    // `par_iter` is a rayon primitive that allows for parallel iteration over a collection.
+    let scores: Vec<(ChessMove, i16)> = candidates
+        .par_iter()
+        .map(|chess_move| {
+            let mut local_board = board.clone();
+            let mut local_move_generator = MoveGenerator::new();
+            let mut local_context = context.clone();
+            let search_depth = context.search_depth;
 
-        if depth == 0 {
-            let score = evaluate::score(board, move_generator, board.turn());
-            debug!("Eval score (max): {}", score);
-            return score;
-        }
+            chess_move.apply(&mut local_board).unwrap();
+            local_board.toggle_turn();
 
-        if let Some(cached_score) = self.check_cache(board.current_position_hash(), alpha, beta) {
-            return cached_score;
-        }
-        let candidates = move_generator.generate_moves(board, board.turn());
+            let score = alpha_beta_max(
+                &mut local_context,
+                search_depth,
+                &mut local_board,
+                &mut local_move_generator,
+                i16::MIN,
+                i16::MAX,
+            );
 
-        for chess_move in candidates.iter() {
-            chess_move.apply(board).unwrap();
-            board.toggle_turn();
-            self.push_move_to_current_line(chess_move.clone());
-            debug!("Current line: {:?}", self.current_line_stack);
+            chess_move.undo(&mut local_board).unwrap();
+            local_board.toggle_turn();
 
-            let score = self.alpha_beta_min(depth - 1, board, move_generator, alpha, beta);
-            let board_hash = board.current_position_hash();
+            (chess_move.clone(), score)
+        })
+        .collect();
 
-            chess_move.undo(board).unwrap();
-            board.toggle_turn();
-            self.pop_move_from_current_line();
+    let mut results = scores;
+    results.sort_by(|(_, score_a), (_, score_b)| score_a.partial_cmp(score_b).unwrap());
+    results.reverse();
+    let (best_move, _) = results.pop().unwrap();
+    Ok(best_move)
+}
 
-            if score >= beta {
-                self.termination_count += 1;
-                self.set_cache(board_hash, alpha, beta, score);
-                return beta;
+fn alpha_beta_max(
+    context: &mut SearchContext,
+    depth: u8,
+    board: &mut Board,
+    move_generator: &mut MoveGenerator,
+    mut alpha: i16,
+    beta: i16,
+) -> i16 {
+    {
+        let mut count = context.searched_position_count.write().unwrap();
+        *count += 1;
+    }
+
+    if depth == 0 {
+        return evaluate::score(board, move_generator, board.turn());
+    }
+
+    if let Some(cached_score) = check_cache(context, board.current_position_hash(), alpha, beta) {
+        return cached_score;
+    }
+
+    let candidates = move_generator.generate_moves(board, board.turn());
+
+    for chess_move in candidates.iter() {
+        chess_move.apply(board).unwrap();
+        board.toggle_turn();
+
+        let score = alpha_beta_min(context, depth - 1, board, move_generator, alpha, beta);
+        let board_hash = board.current_position_hash();
+
+        chess_move.undo(board).unwrap();
+        board.toggle_turn();
+
+        if score >= beta {
+            {
+                let mut count = context.termination_count.write().unwrap();
+                *count += 1;
             }
+            set_cache(context, board_hash, alpha, beta, score);
+            return beta;
+        }
 
-            if score > alpha {
-                alpha = score;
+        if score > alpha {
+            alpha = score;
+        }
+    }
+
+    alpha
+}
+
+fn alpha_beta_min(
+    context: &mut SearchContext,
+    depth: u8,
+    board: &mut Board,
+    move_generator: &mut MoveGenerator,
+    alpha: i16,
+    mut beta: i16,
+) -> i16 {
+    {
+        let mut count = context.searched_position_count.write().unwrap();
+        *count += 1;
+    }
+
+    if depth == 0 {
+        return -evaluate::score(board, move_generator, board.turn());
+    }
+
+    if let Some(cached_score) = check_cache(context, board.current_position_hash(), alpha, beta) {
+        return cached_score;
+    }
+
+    let candidates = move_generator.generate_moves(board, board.turn());
+
+    for chess_move in candidates.iter() {
+        chess_move.apply(board).unwrap();
+        board.toggle_turn();
+
+        let score = alpha_beta_max(context, depth - 1, board, move_generator, alpha, beta);
+        let board_hash = board.current_position_hash();
+
+        chess_move.undo(board).unwrap();
+        board.toggle_turn();
+
+        if score <= alpha {
+            {
+                let mut count = context.termination_count.write().unwrap();
+                *count += 1;
             }
+            set_cache(context, board_hash, alpha, beta, score);
+            return alpha;
         }
 
-        alpha
-    }
-
-    fn alpha_beta_min(
-        &mut self,
-        depth: u8,
-        board: &mut Board,
-        move_generator: &mut MoveGenerator,
-        alpha: i16,
-        mut beta: i16,
-    ) -> i16 {
-        self.searched_position_count += 1;
-
-        if depth == 0 {
-            let eval_score = evaluate::score(board, move_generator, board.turn());
-            debug!("Eval score (min): {}", eval_score);
-            let score = -eval_score;
-            return score;
-        }
-
-        if let Some(cached_score) = self.check_cache(board.current_position_hash(), alpha, beta) {
-            return cached_score;
-        }
-        let candidates = move_generator.generate_moves(board, board.turn());
-
-        for chess_move in candidates.iter() {
-            chess_move.apply(board).unwrap();
-            board.toggle_turn();
-            self.push_move_to_current_line(chess_move.clone());
-            debug!("Current line: {:?}", self.current_line_stack);
-
-            let score = self.alpha_beta_max(depth - 1, board, move_generator, alpha, beta);
-            let board_hash = board.current_position_hash();
-
-            chess_move.undo(board).unwrap();
-            board.toggle_turn();
-            self.pop_move_from_current_line();
-
-            if score <= alpha {
-                self.termination_count += 1;
-                self.set_cache(board_hash, alpha, beta, score);
-                return alpha;
-            }
-
-            if score < beta {
-                beta = score;
-            }
-        }
-
-        beta
-    }
-
-    fn set_cache(&mut self, position_hash: u64, alpha: i16, beta: i16, score: i16) {
-        let search_node = (position_hash, alpha, beta);
-        self.search_result_cache.insert(search_node, score);
-    }
-
-    fn check_cache(&mut self, position_hash: u64, alpha: i16, beta: i16) -> Option<i16> {
-        let search_node = (position_hash, alpha, beta);
-        match self.search_result_cache.get(&search_node) {
-            Some(&prev_best_score) => {
-                self.cache_hit_count += 1;
-                Some(prev_best_score)
-            }
-            None => None,
+        if score < beta {
+            beta = score;
         }
     }
 
-    fn push_move_to_current_line(&mut self, chess_move: ChessMove) {
-        self.current_line_stack.push(chess_move);
-    }
+    beta
+}
 
-    fn pop_move_from_current_line(&mut self) {
-        self.current_line_stack.clear();
+fn set_cache(context: &mut SearchContext, position_hash: u64, alpha: i16, beta: i16, score: i16) {
+    let search_node = (position_hash, alpha, beta);
+    let mut cache = context.search_result_cache.write().unwrap();
+    cache.insert(search_node, score);
+}
+
+fn check_cache(
+    context: &mut SearchContext,
+    position_hash: u64,
+    alpha: i16,
+    beta: i16,
+) -> Option<i16> {
+    let search_node = (position_hash, alpha, beta);
+    let cache = context.search_result_cache.read().unwrap();
+    match cache.get(&search_node) {
+        Some(&prev_best_score) => {
+            let mut count = context.cache_hit_count.write().unwrap();
+            *count += 1;
+            Some(prev_best_score)
+        }
+        None => None,
     }
 }
 
@@ -243,7 +251,7 @@ mod tests {
 
     #[test]
     fn test_find_mate_in_1_white() {
-        let mut searcher = AlphaBetaSearcher::new(1);
+        let mut search_context = SearchContext::new(1);
         let mut move_generator = MoveGenerator::new();
 
         let mut board = chess_position! {
@@ -260,7 +268,8 @@ mod tests {
         board.lose_castle_rights(ALL_CASTLE_RIGHTS);
         println!("Testing board:\n{}", board);
 
-        let chess_move = searcher.search(&mut board, &mut move_generator).unwrap();
+        let chess_move =
+            alpha_beta_search(&mut search_context, &mut board, &mut move_generator).unwrap();
         let valid_checkmates = [std_move!(B8, B2), std_move!(B8, A8), std_move!(B8, A7)];
         assert!(
             valid_checkmates.contains(&chess_move),
@@ -271,7 +280,7 @@ mod tests {
 
     #[test]
     fn test_find_mate_in_1_black() {
-        let mut searcher = AlphaBetaSearcher::new(1);
+        let mut search_context = SearchContext::new(1);
         let mut move_generator = MoveGenerator::new();
         let mut board = chess_position! {
             .q......
@@ -288,7 +297,8 @@ mod tests {
 
         println!("Testing board:\n{}", board);
 
-        let chess_move = searcher.search(&mut board, &mut move_generator).unwrap();
+        let chess_move =
+            alpha_beta_search(&mut search_context, &mut board, &mut move_generator).unwrap();
 
         let valid_checkmates = [std_move!(B8, B2), std_move!(B8, A8), std_move!(B8, A7)];
         assert!(valid_checkmates.contains(&chess_move));
@@ -296,7 +306,7 @@ mod tests {
 
     #[test]
     fn test_find_back_rank_mate_in_2_white() {
-        let mut searcher = AlphaBetaSearcher::new(2);
+        let mut search_context = SearchContext::new(3);
         let mut move_generator = MoveGenerator::new();
 
         let mut board = chess_position! {
@@ -321,19 +331,22 @@ mod tests {
         ];
         let mut expected_move_iter = expected_moves.iter();
 
-        let move1 = searcher.search(&mut board, &mut move_generator).unwrap();
+        let move1 =
+            alpha_beta_search(&mut search_context, &mut board, &mut move_generator).unwrap();
         move1.apply(&mut board).unwrap();
         board.toggle_turn();
         assert_eq!(expected_move_iter.next().unwrap(), &move1);
         println!("Testing board:\n{}", board);
 
-        let move2 = searcher.search(&mut board, &mut move_generator).unwrap();
+        let move2 =
+            alpha_beta_search(&mut search_context, &mut board, &mut move_generator).unwrap();
         move2.apply(&mut board).unwrap();
         board.toggle_turn();
         assert_eq!(expected_move_iter.next().unwrap(), &move2);
         println!("Testing board:\n{}", board);
 
-        let move3 = searcher.search(&mut board, &mut move_generator).unwrap();
+        let move3 =
+            alpha_beta_search(&mut search_context, &mut board, &mut move_generator).unwrap();
         move3.apply(&mut board).unwrap();
         board.toggle_turn();
         assert_eq!(expected_move_iter.next().unwrap(), &move3);
@@ -342,7 +355,7 @@ mod tests {
 
     #[test]
     fn test_find_back_rank_mate_in_2_black() {
-        let mut searcher = AlphaBetaSearcher::new(3);
+        let mut search_context = SearchContext::new(3);
         let mut move_generator = MoveGenerator::new();
 
         let mut board = chess_position! {
@@ -367,7 +380,8 @@ mod tests {
         ];
         let mut expected_move_iter = expected_moves.iter();
 
-        let move1 = searcher.search(&mut board, &mut move_generator).unwrap();
+        let move1 =
+            alpha_beta_search(&mut search_context, &mut board, &mut move_generator).unwrap();
         move1.apply(&mut board).unwrap();
         board.toggle_turn();
         assert_eq!(
@@ -377,7 +391,8 @@ mod tests {
         );
         println!("Testing board:\n{}", board);
 
-        let move2 = searcher.search(&mut board, &mut move_generator).unwrap();
+        let move2 =
+            alpha_beta_search(&mut search_context, &mut board, &mut move_generator).unwrap();
         move2.apply(&mut board).unwrap();
         board.toggle_turn();
         assert_eq!(
@@ -387,7 +402,8 @@ mod tests {
         );
         println!("Testing board:\n{}", board);
 
-        let move3 = searcher.search(&mut board, &mut move_generator).unwrap();
+        let move3 =
+            alpha_beta_search(&mut search_context, &mut board, &mut move_generator).unwrap();
         move3.apply(&mut board).unwrap();
         board.toggle_turn();
         assert_eq!(
