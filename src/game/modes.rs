@@ -151,6 +151,15 @@ fn print_board_and_stats(game: &mut Game) {
         Some(chess_move) => chess_move.to_string(),
         None => "-".to_string(),
     };
+    let searched_position_count = game.searched_position_count();
+    let searched_position_message = match searched_position_count {
+        0 => "0 (book move)".to_string(),
+        _ => format!(
+            "{} (depth {})",
+            searched_position_count,
+            game.search_depth()
+        ),
+    };
     println!(
         "{} chose move: {}\n",
         game.board.turn().opposite(),
@@ -159,13 +168,8 @@ fn print_board_and_stats(game: &mut Game) {
     print_board(&game.board);
     println!("* Turn: {}", game.board.turn());
     println!("* Halfmove clock: {}", game.board.halfmove_clock());
-    println!("* Fullmove clock: {}", game.board.fullmove_clock());
     println!("* Score: {}", game.score(game.board.turn()));
-    println!(
-        "* Positions searched: {} (depth {})",
-        game.searched_position_count(),
-        game.search_depth()
-    );
+    println!("* Positions searched: {}", searched_position_message);
 }
 
 fn print_enter_move_prompt() {
