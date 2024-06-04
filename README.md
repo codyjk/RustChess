@@ -1,6 +1,8 @@
 # `chess`
 A chess engine written in Rust.
 
+![Example of player playing against the engine](demo.gif)
+
 ## Usage
 
 `cargo run` in the project root will build and then run the CLI.
