@@ -4,10 +4,16 @@ use crate::board::Board;
 use common::bitboard::bitboard::Bitboard;
 use common::bitboard::square::ORDERED_SQUARES;
 use rustc_hash::FxHashMap;
+use smallvec::{smallvec, SmallVec};
 
 use super::magic_table::MagicTable;
 
+/// A `PieceTarget` is a tuple of a piece's square and the squares it can move to.
 pub type PieceTarget = (Bitboard, Bitboard); // (piece_square, targets)
+
+/// A list of PieceTargets that is optimized for small sizes.
+/// Similar to `ChessMoveList`, see the documentation for reasoning around performance.
+pub type PieceTargetList = SmallVec<[PieceTarget; 16]>;
 
 /// The `Targets` struct is responsible for generating move and attack targets for each piece on the board.
 /// It uses precomputed tables for the knight and king pieces, and generates targets for sliding pieces
@@ -35,7 +41,7 @@ impl Default for Targets {
 
 impl Targets {
     pub fn generate_attack_targets(&mut self, board: &Board, color: Color) -> Bitboard {
-        let mut piece_targets: Vec<PieceTarget> = vec![];
+        let mut piece_targets: PieceTargetList = smallvec![];
         let mut attack_targets = Bitboard::EMPTY;
 
         piece_targets.append(&mut generate_pawn_attack_targets(board, color));
@@ -63,8 +69,8 @@ impl Targets {
         board: &Board,
         color: Color,
         piece: Piece,
-    ) -> Vec<PieceTarget> {
-        let mut piece_targets: Vec<_> = vec![];
+    ) -> PieceTargetList {
+        let mut piece_targets: PieceTargetList = smallvec![];
         let pieces = board.pieces(color).locate(piece);
         let occupied = board.pieces(color).occupied();
 
@@ -84,9 +90,9 @@ impl Targets {
         piece_targets
     }
 
-    pub fn generate_sliding_targets(&self, board: &Board, color: Color) -> Vec<PieceTarget> {
+    pub fn generate_sliding_targets(&self, board: &Board, color: Color) -> PieceTargetList {
         let occupied = board.occupied();
-        let mut piece_targets: Vec<_> = vec![];
+        let mut piece_targets: PieceTargetList = smallvec![];
 
         for x in 0..64 {
             let square = Bitboard(1 << x);
@@ -141,8 +147,8 @@ impl Targets {
     }
 }
 
-pub fn generate_pawn_move_targets(board: &Board, color: Color) -> Vec<PieceTarget> {
-    let mut piece_targets: Vec<PieceTarget> = vec![];
+pub fn generate_pawn_move_targets(board: &Board, color: Color) -> PieceTargetList {
+    let mut piece_targets: PieceTargetList = smallvec![];
 
     let pawns = board.pieces(color).locate(Piece::Pawn);
     let occupied = board.occupied();
@@ -195,8 +201,8 @@ pub fn generate_pawn_move_targets(board: &Board, color: Color) -> Vec<PieceTarge
 // having a separate function for generating pawn attacks is useful for generating
 // attack maps. this separates the attacked squares from the ones with enemy pieces
 // on them
-pub fn generate_pawn_attack_targets(board: &Board, color: Color) -> Vec<PieceTarget> {
-    let mut piece_targets: Vec<PieceTarget> = vec![];
+pub fn generate_pawn_attack_targets(board: &Board, color: Color) -> PieceTargetList {
+    let mut piece_targets: PieceTargetList = smallvec![];
 
     let pawns = board.pieces(color).locate(Piece::Pawn);
 
