@@ -27,6 +27,7 @@ pub enum GameEnding {
     Draw,
 }
 
+#[inline(always)]
 fn current_player_is_in_check(board: &Board, move_generator: &mut MoveGenerator) -> bool {
     let current_player = board.turn();
     let king = board.pieces(current_player).locate(Piece::King);
@@ -36,6 +37,7 @@ fn current_player_is_in_check(board: &Board, move_generator: &mut MoveGenerator)
 }
 
 /// Returns the game ending state if the game has ended, otherwise returns None.
+#[inline(always)]
 pub fn game_ending(
     board: &mut Board,
     move_generator: &mut MoveGenerator,
@@ -64,6 +66,7 @@ pub fn game_ending(
 }
 
 /// Returns the score of the board from the perspective of the current player.
+#[inline(always)]
 pub fn score(board: &mut Board, move_generator: &mut MoveGenerator, current_turn: Color) -> i16 {
     // Check for position repetition
     if board.max_seen_position_count() == 3 {
@@ -90,6 +93,7 @@ pub fn score(board: &mut Board, move_generator: &mut MoveGenerator, current_turn
 /// Returns the material score of the board for the given player. The bonus tables
 /// incentivize the placement of pieces on specific parts of the board (e.g.
 /// knights towards the center, bishops on long diagonals, etc.).
+#[inline(always)]
 fn material_score(board: &Board, color: Color) -> i16 {
     let mut material = 0;
     let pieces = board.pieces(color);
@@ -132,6 +136,7 @@ fn material_score(board: &Board, color: Color) -> i16 {
 /// Endgame conditions:
 /// 1. Both sides have no queens or
 /// 2. Every side which has a queen has additionally no other pieces or one minorpiece maximum.
+#[inline(always)]
 fn is_endgame(board: &Board) -> bool {
     let white_queen = board.pieces(Color::White).locate(Piece::Queen);
     let black_queen = board.pieces(Color::Black).locate(Piece::Queen);
