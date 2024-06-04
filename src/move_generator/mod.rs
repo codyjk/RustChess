@@ -17,7 +17,7 @@ use crate::chess_move::ChessMove;
 use common::bitboard::bitboard::Bitboard;
 use common::bitboard::square::*;
 use lru::LruCache;
-use smallvec::SmallVec;
+use smallvec::{smallvec, SmallVec};
 use targets::Targets;
 
 use self::targets::{generate_pawn_attack_targets, generate_pawn_move_targets, PieceTargetList};
@@ -135,7 +135,8 @@ fn generate_valid_moves(board: &mut Board, color: Color, targets: &mut Targets) 
 /// into the candidate promotion pieces.
 fn generate_pawn_moves(moves: &mut ChessMoveList, board: &Board, color: Color) {
     let mut piece_targets = generate_pawn_move_targets(board, color);
-    let attack_targets = generate_pawn_attack_targets(board, color);
+    let mut attack_targets: PieceTargetList = smallvec![];
+    generate_pawn_attack_targets(&mut attack_targets, board, color);
     let opponent_pieces = board.pieces(color.opposite()).occupied();
     attack_targets.iter().for_each(|&(piece, target)| {
         if target.overlaps(opponent_pieces) {
@@ -214,12 +215,14 @@ fn generate_knight_moves(
     color: Color,
     targets: &Targets,
 ) {
-    expand_piece_targets(
-        moves,
+    let mut piece_targets: PieceTargetList = smallvec![];
+    targets.generate_targets_from_precomputed_tables(
+        &mut piece_targets,
         board,
         color,
-        targets.generate_targets_from_precomputed_tables(board, color, Piece::Knight),
-    )
+        Piece::Knight,
+    );
+    expand_piece_targets(moves, board, color, piece_targets)
 }
 
 fn generate_sliding_moves(
@@ -228,7 +231,8 @@ fn generate_sliding_moves(
     color: Color,
     targets: &Targets,
 ) {
-    let piece_targets = targets.generate_sliding_targets(board, color);
+    let mut piece_targets: PieceTargetList = smallvec![];
+    targets.generate_sliding_targets(&mut piece_targets, board, color);
     expand_piece_targets(moves, board, color, piece_targets)
 }
 
@@ -258,12 +262,9 @@ fn expand_piece_targets(
 }
 
 fn generate_king_moves(moves: &mut ChessMoveList, board: &Board, color: Color, targets: &Targets) {
-    expand_piece_targets(
-        moves,
-        board,
-        color,
-        targets.generate_targets_from_precomputed_tables(board, color, Piece::King),
-    )
+    let mut piece_targets: PieceTargetList = smallvec![];
+    targets.generate_targets_from_precomputed_tables(&mut piece_targets, board, color, Piece::King);
+    expand_piece_targets(moves, board, color, piece_targets)
 }
 
 fn generate_castle_moves(

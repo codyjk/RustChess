@@ -44,18 +44,20 @@ impl Targets {
         let mut piece_targets: PieceTargetList = smallvec![];
         let mut attack_targets = Bitboard::EMPTY;
 
-        piece_targets.append(&mut generate_pawn_attack_targets(board, color));
-        piece_targets.append(&mut self.generate_sliding_targets(board, color));
-        piece_targets.append(&mut self.generate_targets_from_precomputed_tables(
+        generate_pawn_attack_targets(&mut piece_targets, board, color);
+        self.generate_sliding_targets(&mut piece_targets, board, color);
+        self.generate_targets_from_precomputed_tables(
+            &mut piece_targets,
             board,
             color,
             Piece::Knight,
-        ));
-        piece_targets.append(&mut self.generate_targets_from_precomputed_tables(
+        );
+        self.generate_targets_from_precomputed_tables(
+            &mut piece_targets,
             board,
             color,
             Piece::King,
-        ));
+        );
 
         for (_piece, targets) in piece_targets {
             attack_targets |= targets;
@@ -66,11 +68,11 @@ impl Targets {
 
     pub fn generate_targets_from_precomputed_tables(
         &self,
+        piece_targets: &mut PieceTargetList,
         board: &Board,
         color: Color,
         piece: Piece,
-    ) -> PieceTargetList {
-        let mut piece_targets: PieceTargetList = smallvec![];
+    ) {
         let pieces = board.pieces(color).locate(piece);
         let occupied = board.pieces(color).occupied();
 
@@ -86,13 +88,15 @@ impl Targets {
 
             piece_targets.push((sq, candidates));
         }
-
-        piece_targets
     }
 
-    pub fn generate_sliding_targets(&self, board: &Board, color: Color) -> PieceTargetList {
+    pub fn generate_sliding_targets(
+        &self,
+        piece_targets: &mut PieceTargetList,
+        board: &Board,
+        color: Color,
+    ) {
         let occupied = board.occupied();
-        let mut piece_targets: PieceTargetList = smallvec![];
 
         for x in 0..64 {
             let square = Bitboard(1 << x);
@@ -114,8 +118,6 @@ impl Targets {
                 ^ (board.pieces(color).occupied() & targets_including_own_pieces);
             piece_targets.push((square, target_squares));
         }
-
-        piece_targets
     }
 
     pub fn get_cached_attack(&self, color: Color, board_hash: u64) -> Option<Bitboard> {
@@ -201,9 +203,11 @@ pub fn generate_pawn_move_targets(board: &Board, color: Color) -> PieceTargetLis
 // having a separate function for generating pawn attacks is useful for generating
 // attack maps. this separates the attacked squares from the ones with enemy pieces
 // on them
-pub fn generate_pawn_attack_targets(board: &Board, color: Color) -> PieceTargetList {
-    let mut piece_targets: PieceTargetList = smallvec![];
-
+pub fn generate_pawn_attack_targets(
+    piece_targets: &mut PieceTargetList,
+    board: &Board,
+    color: Color,
+) {
     let pawns = board.pieces(color).locate(Piece::Pawn);
 
     for x in 0..64 {
@@ -225,8 +229,6 @@ pub fn generate_pawn_attack_targets(board: &Board, color: Color) -> PieceTargetL
         let targets = attack_east | attack_west;
         piece_targets.push((pawn, targets));
     }
-
-    piece_targets
 }
 
 pub fn generate_knight_targets_table() -> [Bitboard; 64] {
