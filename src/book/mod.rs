@@ -3,15 +3,14 @@ use rustc_hash::FxHashMap;
 
 type BookMove = (Bitboard, Bitboard);
 
+#[derive(Default)]
 struct BookNode {
     lines: FxHashMap<BookMove, Box<BookNode>>,
 }
 
 impl BookNode {
-    pub fn new() -> Self {
-        Self {
-            lines: FxHashMap::default(),
-        }
+    fn new() -> Self {
+        Default::default()
     }
 }
 
@@ -23,9 +22,11 @@ pub struct Book {
 
 impl Default for Book {
     fn default() -> Self {
-        Self {
-            root: BookNode::new(),
-        }
+        let mut book = Self {
+            root: BookNode::default(),
+        };
+        populate_opening_book(&mut book);
+        book
     }
 }
 
@@ -75,9 +76,7 @@ pub fn book_move(from_square: Bitboard, to_square: Bitboard) -> BookMove {
 
 // TODO(codyjk): Maybe move this to precompile somehow?
 
-pub fn generate_opening_book() -> Book {
-    let mut book = Book::new();
-
+fn populate_opening_book(book: &mut Book) {
     // Four knights
 
     book.add_line("e2e4 e7e5 b1c3 g8f6 g1f3 b8c6 f1b5 f8b4 e1g1 e8g8 d2d3 d7d6 c1g5 b4c3 b2c3 d8e7 f1e1 c6d8 d3d4 d8e6");
@@ -307,6 +306,4 @@ pub fn generate_opening_book() -> Book {
     book.add_line(
         "g1f3 d7d5 c2c4 d5c4 e2e3 c7c5 f1c4 e7e6 e1g1 g8f6 b2b3 b8c6 c1b2 a7a6 a2a4 f8e7",
     );
-
-    book
 }

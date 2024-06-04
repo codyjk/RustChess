@@ -5,7 +5,7 @@ use crate::alpha_beta_searcher::{alpha_beta_search, SearchContext, SearchError};
 use crate::board::color::Color;
 use crate::board::error::BoardError;
 use crate::board::Board;
-use crate::book::{generate_opening_book, Book};
+use crate::book::Book;
 use crate::chess_move::ChessMove;
 use crate::evaluate::{self, GameEnding};
 use crate::move_generator::MoveGenerator;
@@ -41,7 +41,7 @@ impl Game {
         Self {
             board,
             move_history: Vec::new(),
-            book: generate_opening_book(),
+            book: Book::new(),
             move_generator: MoveGenerator::new(),
             search_context: SearchContext::new(search_depth),
         }
