@@ -9,18 +9,18 @@ use structopt::StructOpt;
 #[structopt(name = "chess", about = "chess engine cli")]
 enum Chess {
     CountPositions {
-        #[structopt(short, long, default_value = "3")]
+        #[structopt(short, long, default_value = "4")]
         depth: u8,
     },
     Play {
-        #[structopt(short, long, default_value = "3")]
+        #[structopt(short, long, default_value = "4")]
         depth: u8,
         #[structopt(short = "c", long = "color", default_value = "random")]
         color: Color,
     },
     Pvp,
     Watch {
-        #[structopt(short, long, default_value = "3")]
+        #[structopt(short, long, default_value = "4")]
         depth: u8,
     },
 }
