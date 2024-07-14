@@ -14,13 +14,17 @@ pub struct EnPassantChessMove {
 
     /// The square the pawn is moving to.
     to_square: Bitboard,
+
+    /// En passant always captures a pawn.
+    capture: Capture,
 }
 
 impl EnPassantChessMove {
-    pub fn new(from_square: Bitboard, to_square: Bitboard) -> Self {
+    pub fn new(from_square: Bitboard, to_square: Bitboard, capture: Capture) -> Self {
         Self {
             from_square,
             to_square,
+            capture,
         }
     }
 
@@ -32,14 +36,17 @@ impl EnPassantChessMove {
         self.from_square
     }
 
-    pub fn capture(&self) -> Option<Capture> {
-        None
+    pub fn capture(&self) -> Capture {
+        // TODO(codyjk): If we could decouple `Capture` from Color,
+        // this could just return a pawn.
+        self.capture
     }
 
     pub fn apply(&self, board: &mut Board) -> Result<Option<Capture>, BoardError> {
         let EnPassantChessMove {
             from_square,
             to_square,
+            ..
         } = self;
         let maybe_piece = board.remove(*from_square);
         let (piece_to_move, color) = match maybe_piece {
@@ -75,6 +82,7 @@ impl EnPassantChessMove {
         let EnPassantChessMove {
             from_square,
             to_square,
+            ..
         } = self;
 
         // remove the moved pawn
@@ -129,8 +137,8 @@ impl fmt::Debug for EnPassantChessMove {
 
 #[macro_export]
 macro_rules! en_passant_move {
-    ($from:expr, $to:expr) => {
-        ChessMove::EnPassant(EnPassantChessMove::new($from, $to))
+    ($from:expr, $to:expr, $capture:expr) => {
+        ChessMove::EnPassant(EnPassantChessMove::new($from, $to, $capture))
     };
 }
 
@@ -162,7 +170,7 @@ mod tests {
         assert_eq!(Some((Piece::Pawn, Color::White)), board.get(D4));
         assert_eq!(D3, board.peek_en_passant_target());
 
-        let en_passant = en_passant_move!(E4, D3);
+        let en_passant = en_passant_move!(E4, D3, (Piece::Pawn, Color::White));
         en_passant.apply(&mut board).unwrap();
         println!("After en passant:\n{}", board);
         assert_eq!(Some((Piece::Pawn, Color::Black)), board.get(D3));
@@ -194,7 +202,7 @@ mod tests {
         standard_move_revealing_ep.apply(&mut board).unwrap();
         assert_ne!(initial_hash, board.current_position_hash());
 
-        let en_passant = en_passant_move!(E4, D3);
+        let en_passant = en_passant_move!(E4, D3, (Piece::Pawn, Color::White));
         en_passant.apply(&mut board).unwrap();
         assert_ne!(initial_hash, board.current_position_hash());
 

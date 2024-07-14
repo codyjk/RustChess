@@ -28,7 +28,7 @@ pub enum GameEnding {
 }
 
 #[inline(always)]
-fn current_player_is_in_check(board: &Board, move_generator: &mut MoveGenerator) -> bool {
+pub fn current_player_is_in_check(board: &Board, move_generator: &mut MoveGenerator) -> bool {
     let current_player = board.turn();
     let king = board.pieces(current_player).locate(Piece::King);
     let attacked_squares = move_generator.get_attack_targets(board, current_player.opposite());

@@ -9,6 +9,7 @@ use self::{
     pawn_promotion::PawnPromotionChessMove, standard::StandardChessMove,
 };
 
+pub mod algebraic_notation;
 pub mod castle;
 pub mod en_passant;
 pub mod pawn_promotion;
@@ -50,7 +51,7 @@ impl ChessMove {
         match self {
             ChessMove::Standard(m) => m.capture(),
             ChessMove::PawnPromotion(m) => m.capture(),
-            ChessMove::EnPassant(m) => m.capture(),
+            ChessMove::EnPassant(m) => Some(m.capture()),
             ChessMove::Castle(_m) => None,
         }
     }

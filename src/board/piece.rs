@@ -2,7 +2,8 @@ use std::fmt;
 
 use super::color::Color;
 
-/// Represents a chess piece.
+/// Represents a chess piece. The order of the pieces is important,
+/// as it is used to index into the tables below.
 #[derive(Clone, Copy, PartialEq, Debug, Eq, PartialOrd, Ord)]
 pub enum Piece {
     Pawn,
@@ -12,6 +13,32 @@ pub enum Piece {
     Queen,
     King,
 }
+
+/// Used when rendering algebraic notation.
+const ALGEBRAIC_PIECE_STRS: [&str; 6] = ["", "N", "B", "R", "Q", "K"];
+
+/// Used when rendering ASCII notation.
+const ASCII_PIECE_CHARS: [[char; 2]; 6] = [
+    ['p', 'P'],
+    ['n', 'N'],
+    ['b', 'B'],
+    ['r', 'R'],
+    ['q', 'Q'],
+    ['k', 'K'],
+];
+
+/// Used when rendering the Unicode board.
+const UNICODE_PIECE_CHARS: [[char; 2]; 6] = [
+    ['♙', '♟'],
+    ['♘', '♞'],
+    ['♗', '♝'],
+    ['♖', '♜'],
+    ['♕', '♛'],
+    ['♔', '♚'],
+];
+
+/// Used in `Display` implementations.
+const PIECE_NAMES: [&str; 6] = ["pawn", "knight", "bishop", "rook", "queen", "king"];
 
 impl Piece {
     pub fn from_usize(i: usize) -> Self {
@@ -27,20 +54,7 @@ impl Piece {
     }
 
     pub fn to_char(&self, color: Color) -> char {
-        match (self, color) {
-            (Piece::Bishop, Color::Black) => 'b',
-            (Piece::Bishop, Color::White) => 'B',
-            (Piece::King, Color::Black) => 'k',
-            (Piece::King, Color::White) => 'K',
-            (Piece::Knight, Color::Black) => 'n',
-            (Piece::Knight, Color::White) => 'N',
-            (Piece::Pawn, Color::Black) => 'p',
-            (Piece::Pawn, Color::White) => 'P',
-            (Piece::Queen, Color::Black) => 'q',
-            (Piece::Queen, Color::White) => 'Q',
-            (Piece::Rook, Color::Black) => 'r',
-            (Piece::Rook, Color::White) => 'R',
-        }
+        ASCII_PIECE_CHARS[*self as usize][color as usize]
     }
 
     pub fn from_char(c: char) -> Option<(Piece, Color)> {
@@ -62,20 +76,11 @@ impl Piece {
     }
 
     pub fn to_unicode_piece_char(&self, color: Color) -> char {
-        match (self, color) {
-            (Piece::Bishop, Color::Black) => '♗',
-            (Piece::Bishop, Color::White) => '♝',
-            (Piece::King, Color::Black) => '♔',
-            (Piece::King, Color::White) => '♚',
-            (Piece::Knight, Color::Black) => '♘',
-            (Piece::Knight, Color::White) => '♞',
-            (Piece::Pawn, Color::Black) => '♙',
-            (Piece::Pawn, Color::White) => '♟',
-            (Piece::Queen, Color::Black) => '♕',
-            (Piece::Queen, Color::White) => '♛',
-            (Piece::Rook, Color::Black) => '♖',
-            (Piece::Rook, Color::White) => '♜',
-        }
+        UNICODE_PIECE_CHARS[*self as usize][color as usize]
+    }
+
+    pub fn to_algebraic_str(&self) -> &str {
+        ALGEBRAIC_PIECE_STRS[*self as usize]
     }
 }
 
@@ -90,15 +95,7 @@ pub const ALL_PIECES: [Piece; 6] = [
 
 impl fmt::Display for Piece {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let msg = match self {
-            Self::Bishop => "bishop",
-            Self::King => "king",
-            Self::Knight => "knight",
-            Self::Pawn => "pawn",
-            Self::Queen => "queen",
-            Self::Rook => "rook",
-        };
-        write!(f, "{}", msg)
+        write!(f, "{}", PIECE_NAMES[*self as usize])
     }
 }
 
