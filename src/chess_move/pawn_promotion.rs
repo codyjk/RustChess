@@ -48,7 +48,7 @@ impl PawnPromotionChessMove {
         self.promote_to_piece
     }
 
-    pub fn apply(&self, board: &mut Board) -> Result<Option<Capture>, BoardError> {
+    pub fn apply(&self, board: &mut Board) -> Result<(), BoardError> {
         let PawnPromotionChessMove {
             from_square,
             to_square,
@@ -59,7 +59,7 @@ impl PawnPromotionChessMove {
         // This is a special case. It's like a standard move, but we replace the
         // pawn at the end. So apply the standard move first.
         let standard_move = StandardChessMove::new(*from_square, *to_square, *expected_capture);
-        let capture = standard_move.apply(board)?;
+        standard_move.apply(board)?;
 
         // Then, we perform the promotion.
         match board.remove(*to_square) {
@@ -69,11 +69,10 @@ impl PawnPromotionChessMove {
             _ => return Err(BoardError::PromotionNonPawnError),
         }
 
-        // Return the capture result from the standard move.
-        Ok(capture)
+        Ok(())
     }
 
-    pub fn undo(&self, board: &mut Board) -> Result<Option<Capture>, BoardError> {
+    pub fn undo(&self, board: &mut Board) -> Result<(), BoardError> {
         let PawnPromotionChessMove {
             from_square,
             to_square,
@@ -91,7 +90,9 @@ impl PawnPromotionChessMove {
 
         // Then, undo the standard move.
         let standard_move = StandardChessMove::new(*from_square, *to_square, *expected_capture);
-        standard_move.undo(board)
+        standard_move.undo(board)?;
+
+        Ok(())
     }
 }
 

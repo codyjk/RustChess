@@ -1,6 +1,5 @@
 use core::fmt;
 
-use super::Capture;
 use crate::board::{
     castle_rights_bitmask::{
         BLACK_KINGSIDE_RIGHTS, BLACK_QUEENSIDE_RIGHTS, WHITE_KINGSIDE_RIGHTS,
@@ -57,7 +56,7 @@ impl CastleChessMove {
         self.from_square
     }
 
-    pub fn apply(&self, board: &mut Board) -> Result<Option<Capture>, BoardError> {
+    pub fn apply(&self, board: &mut Board) -> Result<(), BoardError> {
         let CastleChessMove {
             from_square: king_from,
             to_square: king_to,
@@ -123,10 +122,10 @@ impl CastleChessMove {
         board.push_en_passant_target(Bitboard::EMPTY);
         board.lose_castle_rights(lost_castle_rights);
 
-        Ok(None)
+        Ok(())
     }
 
-    pub fn undo(&self, board: &mut Board) -> Result<Option<Capture>, BoardError> {
+    pub fn undo(&self, board: &mut Board) -> Result<(), BoardError> {
         let CastleChessMove {
             from_square: king_from,
             to_square: king_to,
@@ -188,7 +187,7 @@ impl CastleChessMove {
         board.pop_en_passant_target();
         board.pop_castle_rights();
 
-        Ok(None)
+        Ok(())
     }
 }
 

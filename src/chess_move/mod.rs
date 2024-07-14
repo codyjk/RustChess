@@ -56,22 +56,26 @@ impl ChessMove {
         }
     }
 
-    pub fn apply(&self, board: &mut Board) -> Result<Option<Capture>, BoardError> {
-        match self {
+    pub fn apply(&self, board: &mut Board) -> Result<(), BoardError> {
+        let result = match self {
             ChessMove::Standard(m) => m.apply(board),
             ChessMove::PawnPromotion(m) => m.apply(board),
             ChessMove::EnPassant(m) => m.apply(board),
             ChessMove::Castle(m) => m.apply(board),
-        }
+        };
+
+        map_ok(result)
     }
 
-    pub fn undo(&self, board: &mut Board) -> Result<Option<Capture>, BoardError> {
-        match self {
+    pub fn undo(&self, board: &mut Board) -> Result<(), BoardError> {
+        let result = match self {
             ChessMove::Standard(m) => m.undo(board),
             ChessMove::PawnPromotion(m) => m.undo(board),
             ChessMove::EnPassant(m) => m.undo(board),
             ChessMove::Castle(m) => m.undo(board),
-        }
+        };
+
+        map_ok(result)
     }
 }
 
@@ -97,6 +101,10 @@ impl fmt::Display for ChessMove {
         };
         write!(f, "{} {}{}{}", move_type, from_square, to_square, capture)
     }
+}
+
+fn map_ok<T, E>(result: Result<T, E>) -> Result<(), E> {
+    result.map(|_| ())
 }
 
 impl fmt::Debug for ChessMove {

@@ -47,7 +47,7 @@ impl StandardChessMove {
         self.capture
     }
 
-    pub fn apply(&self, board: &mut Board) -> Result<Option<Capture>, BoardError> {
+    pub fn apply(&self, board: &mut Board) -> Result<(), BoardError> {
         let StandardChessMove {
             from_square,
             to_square,
@@ -78,10 +78,10 @@ impl StandardChessMove {
         board.lose_castle_rights(lost_castle_rights);
         board.put(*to_square, piece_to_move, color).unwrap();
 
-        Ok(captured_piece)
+        Ok(())
     }
 
-    pub fn undo(&self, board: &mut Board) -> Result<Option<Capture>, BoardError> {
+    pub fn undo(&self, board: &mut Board) -> Result<(), BoardError> {
         let StandardChessMove {
             from_square,
             to_square,
@@ -107,7 +107,8 @@ impl StandardChessMove {
         board
             .put(*from_square, piece_to_move_back, piece_color)
             .unwrap();
-        Ok(None)
+
+        Ok(())
     }
 
     // In move generation, we convert standard pawn moves on the final rank
@@ -269,9 +270,8 @@ mod tests {
 
         for (from_square, to_square, moved, expected_capture) in &moves {
             let chess_move = StandardChessMove::new(*from_square, *to_square, *expected_capture);
-            let captured = chess_move.apply(&mut board).unwrap();
+            chess_move.apply(&mut board).unwrap();
             assert_eq!(board.get(*to_square).unwrap(), *moved);
-            assert_eq!(captured, *expected_capture);
             println!("New board state:\n{}", board);
         }
     }
