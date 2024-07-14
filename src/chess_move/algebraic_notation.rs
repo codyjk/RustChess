@@ -142,7 +142,7 @@ fn get_disambiguating_chars(
     let starting_rank_char = get_rank_char(chess_move.from_square());
 
     // Pawn captures are always disambiguated by file (eg. dxc3 instead of just xc3)
-    if piece == Piece::Pawn && chess_move.capture().is_some() {
+    if piece == Piece::Pawn && chess_move.captures().is_some() {
         return starting_file_char.to_string();
     }
 
@@ -209,7 +209,7 @@ fn move_puts_opponent_in_checkmate(
 }
 
 fn get_capture_char(chess_move: &ChessMove) -> &str {
-    if chess_move.capture().is_some() {
+    if chess_move.captures().is_some() {
         CAPTURE_CHAR
     } else {
         EMPTY_STRING

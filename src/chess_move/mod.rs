@@ -47,7 +47,7 @@ impl ChessMove {
         }
     }
 
-    pub fn capture(&self) -> Option<Capture> {
+    pub fn captures(&self) -> Option<Capture> {
         match self {
             ChessMove::Standard(m) => m.capture(),
             ChessMove::PawnPromotion(m) => m.capture(),
@@ -95,7 +95,7 @@ impl fmt::Display for ChessMove {
         };
         let from_square = to_algebraic(self.from_square());
         let to_square = to_algebraic(self.to_square());
-        let capture = match self.capture() {
+        let capture = match self.captures() {
             Some((piece, _)) => format!(" capturing {}", piece),
             None => "".to_string(),
         };

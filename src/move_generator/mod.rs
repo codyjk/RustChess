@@ -160,10 +160,10 @@ fn generate_pawn_moves(moves: &mut ChessMoveList, board: &Board, color: Color) {
     for promotable_pawn_move in promotable_pawn_moves.iter() {
         let from_square = promotable_pawn_move.from_square();
         let to_square = promotable_pawn_move.to_square();
-        let capture = promotable_pawn_move.capture();
+        let captures = promotable_pawn_move.captures();
         for &promotion in &PAWN_PROMOTIONS {
             let pawn_promotion =
-                PawnPromotionChessMove::new(from_square, to_square, capture, promotion);
+                PawnPromotionChessMove::new(from_square, to_square, captures, promotion);
             moves.push(ChessMove::PawnPromotion(pawn_promotion));
         }
     }
