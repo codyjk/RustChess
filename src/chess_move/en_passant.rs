@@ -50,12 +50,12 @@ impl EnPassantChessMove {
         } = self;
         let maybe_piece = board.remove(*from_square);
         let (piece_to_move, color) = match maybe_piece {
-            None => return Err(BoardError::FromSquareIsEmpty { op: "apply" }),
+            None => return Err(BoardError::FromSquareIsEmptyMoveApplicationError),
             Some((piece, color)) => (piece, color),
         };
 
         if piece_to_move != Piece::Pawn {
-            return Err(BoardError::EnPassantNonPawn { op: "apply" });
+            return Err(BoardError::EnPassantNonPawnMoveApplicationError);
         }
 
         // the captured pawn is "behind" the target square
@@ -65,7 +65,7 @@ impl EnPassantChessMove {
         };
 
         if board.remove(capture_square).is_none() {
-            return Err(BoardError::EnPassantNonCapture);
+            return Err(BoardError::EnPassantDidNotResultInCaptureError);
         }
 
         board.reset_halfmove_clock();
@@ -87,12 +87,12 @@ impl EnPassantChessMove {
         // remove the moved pawn
         let maybe_piece = board.remove(*to_square);
         let (piece_to_move_back, piece_color) = match maybe_piece {
-            None => return Err(BoardError::ToSquareIsEmpty { op: "undo" }),
+            None => return Err(BoardError::ToSquareIsEmptyMoveUndoError),
             Some((piece, color)) => (piece, color),
         };
 
         if piece_to_move_back != Piece::Pawn {
-            return Err(BoardError::EnPassantNonPawn { op: "undo" });
+            return Err(BoardError::EnPassantNonPawnMoveUndoError);
         }
 
         // return the pawn to its original square

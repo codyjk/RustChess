@@ -56,9 +56,9 @@ impl StandardChessMove {
 
         let (piece_to_move, color) = board
             .remove(*from_square)
-            .ok_or(BoardError::FromSquareIsEmpty { op: "apply" })?;
+            .ok_or(BoardError::FromSquareIsEmptyMoveApplicationError)?;
         if board.get(*to_square) != *expected_capture {
-            return Err(BoardError::UnexpectedCaptureResult);
+            return Err(BoardError::UnexpectedCaptureResultError);
         }
         let captured_piece = board.remove(*to_square);
 
@@ -91,7 +91,7 @@ impl StandardChessMove {
         // Remove the moved piece.
         let (piece_to_move_back, piece_color) = board
             .remove(*to_square)
-            .ok_or(BoardError::ToSquareIsEmpty { op: "undo" })?;
+            .ok_or(BoardError::ToSquareIsEmptyMoveUndoError)?;
 
         // Put the captured piece back.
         if capture.is_some() {
@@ -139,7 +139,7 @@ impl StandardChessMove {
         promote_to_piece: Piece,
     ) -> Result<PawnPromotionChessMove, BoardError> {
         if !self.is_promotable_pawn(board) {
-            return Err(BoardError::PawnNotPromotable);
+            return Err(BoardError::PawnNotPromotableError);
         }
 
         Ok(PawnPromotionChessMove::new(

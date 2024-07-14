@@ -2,32 +2,36 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum BoardError {
-    #[error("that square already has a piece on it")]
-    SquareOccupied,
-    #[error("cannot {op:?} chess move, the `from` square is empty")]
-    FromSquareIsEmpty { op: &'static str },
-    #[error("cannot {op:?} chess move, the `to` square is empty")]
-    ToSquareIsEmpty { op: &'static str },
-    #[error("the expected capture result is different than what is on the target square")]
-    UnexpectedCaptureResult,
-    #[error("cannot {op:?} en passant, the piece is not a pawn")]
-    EnPassantNonPawn { op: &'static str },
-    #[error("en passant didn't result in a capture")]
-    EnPassantNonCapture,
+    #[error("Cannot put a piece on a square that is already occupied")]
+    SquareOccupiedBoardPutError,
+    #[error("Cannot apply chess move, the `from` square is empty")]
+    FromSquareIsEmptyMoveApplicationError,
+    #[error("Cannot applychess move, the `to` square is empty")]
+    ToSquareIsEmptyMoveApplicationError,
+    #[error("Cannot apply chess move, the expected capture result is different than what is on the target square")]
+    ToSquareIsEmptyMoveUndoError,
+    #[error("Cannot undo chess move, the expected capture result is different than what is on the target square")]
+    UnexpectedCaptureResultError,
+    #[error("cannot apply en passant, the piece is not a pawn")]
+    EnPassantNonPawnMoveApplicationError,
+    #[error("Cannot undo en passant, the piece is not a pawn")]
+    EnPassantNonPawnMoveUndoError,
+    #[error("En passant didn't result in a capture")]
+    EnPassantDidNotResultInCaptureError,
     #[error(
-        "invalid castle move, king can only move 2 squares to left or right on its original rank"
+        "Invalid castle move, king can only move 2 squares to left or right on its original rank"
     )]
     InvalidCastleMoveError,
-    #[error("invalid castle state: {msg:?}")]
+    #[error("Invalid castle state: {msg:?}")]
     InvalidCastleStateError { msg: &'static str },
-    #[error("castle operation was not applied to a king")]
+    #[error("Castle operation was not applied to a king")]
     CastleNonKingError,
-    #[error("castle operation was not applied to a rook")]
+    #[error("Castle operation was not applied to a rook")]
     CastleNonRookError,
-    #[error("promotion square did not contain a pawn")]
+    #[error("Promotion square did not contain a pawn")]
     PromotionNonPawnError,
-    #[error("this move is for a pawn on the final rank, it must be a promotion move")]
-    PawnPromotionRequired,
-    #[error("this pawn is not promotable")]
-    PawnNotPromotable,
+    #[error("This move is for a pawn on the final rank, it must be a promotion move")]
+    PawnPromotionRequiredError,
+    #[error("This pawn is not promotable")]
+    PawnNotPromotableError,
 }

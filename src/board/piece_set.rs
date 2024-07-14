@@ -51,7 +51,7 @@ impl PieceSet {
 
     pub fn put(&mut self, square: Bitboard, piece: Piece) -> Result<(), BoardError> {
         if self.is_occupied(square) {
-            return Err(BoardError::SquareOccupied);
+            return Err(BoardError::SquareOccupiedBoardPutError);
         }
 
         self.bitboards[piece as usize] |= square;

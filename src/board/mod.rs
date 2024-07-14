@@ -96,7 +96,7 @@ impl Board {
 
     pub fn put(&mut self, square: Bitboard, piece: Piece, color: Color) -> Result<(), BoardError> {
         if self.is_occupied(square) {
-            return Err(BoardError::SquareOccupied);
+            return Err(BoardError::SquareOccupiedBoardPutError);
         }
 
         let result = match color {
