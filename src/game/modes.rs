@@ -1,6 +1,8 @@
 use super::{Game, GameEnding};
 use crate::board::color::Color;
 use crate::board::Board;
+use crate::chess_move::algebraic_notation::enumerate_candidate_moves_with_algebraic_notation;
+use crate::chess_move::ChessMove;
 use crate::game::command::{Command, MakeWaterfallMove};
 use crate::input_handler;
 use common::bitboard::square::from_rank_file;
@@ -29,6 +31,10 @@ pub fn play_computer(depth: u8, player_color: Color) {
             _ => (),
         };
 
+        // Precalculate the moves and their algebraic notations, so that we
+        // can render it after a move is made.
+        let enumerated_candidate_moves = enumerated_candidate_moves(game);
+
         let command: Box<dyn Command> = if player_color == game.board.turn() {
             match input_handler::parse_command() {
                 Ok(command) => command,
@@ -48,7 +54,7 @@ pub fn play_computer(depth: u8, player_color: Color) {
                 println!("{}", clear::All);
                 game.board.toggle_turn();
 
-                print_board_and_stats(game);
+                print_board_and_stats(game, enumerated_candidate_moves);
                 if player_color == game.board.turn() {
                     println!("* Move took: {:?}", duration);
                     print_enter_move_prompt();
@@ -88,13 +94,17 @@ pub fn computer_vs_computer(move_limit: u8, sleep_between_turns_in_ms: u64, dept
             break;
         }
 
+        // Precalculate the moves and their algebraic notations, so that we
+        // can render it after a move is made.
+        let enumerated_candidate_moves = enumerated_candidate_moves(&mut game);
+
         let result = game.make_waterfall_book_then_alpha_beta_move();
 
         match result {
             Ok(_chess_move) => {
                 println!("{}", clear::All);
                 game.board.toggle_turn();
-                print_board_and_stats(&mut game);
+                print_board_and_stats(&mut game, enumerated_candidate_moves);
                 game.reset_move_generator_cache_hit_count();
                 continue;
             }
@@ -146,9 +156,21 @@ pub fn player_vs_player() {
     }
 }
 
-fn print_board_and_stats(game: &mut Game) {
+fn enumerated_candidate_moves(game: &mut Game) -> Vec<(ChessMove, String)> {
+    let board = &mut game.board;
+    let current_turn = board.turn();
+    let move_generator = &mut game.move_generator;
+    enumerate_candidate_moves_with_algebraic_notation(board, current_turn, move_generator)
+}
+
+fn print_board_and_stats(game: &mut Game, enumerated_candidate_moves: Vec<(ChessMove, String)>) {
     let last_move = match game.last_move() {
-        Some(chess_move) => chess_move.to_string(),
+        Some(chess_move) => enumerated_candidate_moves
+            .iter()
+            .find(|(move_, _)| move_ == &chess_move)
+            .unwrap()
+            .1
+            .clone(),
         None => "-".to_string(),
     };
     let searched_position_count = game.searched_position_count();

@@ -32,7 +32,7 @@ const EMPTY_STRING: &str = "";
 /// as the callsite has the complete list of moves and their notations fully described.
 ///
 /// See: https://www.chessprogramming.org/Algebraic_Notation
-pub fn enumerate_candidate_moves_in_algebraic_notation(
+pub fn enumerate_candidate_moves_with_algebraic_notation(
     board: &mut Board,
     current_player_color: Color,
     move_generator: &mut MoveGenerator,
