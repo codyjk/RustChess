@@ -14,17 +14,13 @@ pub struct EnPassantChessMove {
 
     /// The square the pawn is moving to.
     to_square: Bitboard,
-
-    /// En passant always captures a pawn.
-    captures: Capture,
 }
 
 impl EnPassantChessMove {
-    pub fn new(from_square: Bitboard, to_square: Bitboard, captures: Capture) -> Self {
+    pub fn new(from_square: Bitboard, to_square: Bitboard) -> Self {
         Self {
             from_square,
             to_square,
-            captures,
         }
     }
 
@@ -37,9 +33,7 @@ impl EnPassantChessMove {
     }
 
     pub fn captures(&self) -> Capture {
-        // TODO(codyjk): If we could decouple `Capture` from Color,
-        // this could just return a pawn.
-        self.captures
+        Capture(Piece::Pawn)
     }
 
     pub fn apply(&self, board: &mut Board) -> Result<(), BoardError> {
@@ -136,8 +130,8 @@ impl fmt::Debug for EnPassantChessMove {
 
 #[macro_export]
 macro_rules! en_passant_move {
-    ($from:expr, $to:expr, $captures:expr) => {
-        ChessMove::EnPassant(EnPassantChessMove::new($from, $to, $captures))
+    ($from:expr, $to:expr) => {
+        ChessMove::EnPassant(EnPassantChessMove::new($from, $to))
     };
 }
 
@@ -169,7 +163,7 @@ mod tests {
         assert_eq!(Some((Piece::Pawn, Color::White)), board.get(D4));
         assert_eq!(D3, board.peek_en_passant_target());
 
-        let en_passant = en_passant_move!(E4, D3, Capture(Piece::Pawn));
+        let en_passant = en_passant_move!(E4, D3);
         en_passant.apply(&mut board).unwrap();
         println!("After en passant:\n{}", board);
         assert_eq!(Some((Piece::Pawn, Color::Black)), board.get(D3));
@@ -201,7 +195,7 @@ mod tests {
         standard_move_revealing_ep.apply(&mut board).unwrap();
         assert_ne!(initial_hash, board.current_position_hash());
 
-        let en_passant = en_passant_move!(E4, D3, Capture(Piece::Pawn));
+        let en_passant = en_passant_move!(E4, D3);
         en_passant.apply(&mut board).unwrap();
         assert_ne!(initial_hash, board.current_position_hash());
 

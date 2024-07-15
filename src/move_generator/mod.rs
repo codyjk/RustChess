@@ -196,8 +196,7 @@ fn generate_en_passant_moves(moves: &mut ChessMoveList, board: &Board, color: Co
             Color::White => en_passant_target >> 9,
             Color::Black => en_passant_target << 7,
         };
-        let en_passant_move =
-            EnPassantChessMove::new(from_square, en_passant_target, Capture(Piece::Pawn));
+        let en_passant_move = EnPassantChessMove::new(from_square, en_passant_target);
         moves.push(ChessMove::EnPassant(en_passant_move));
     }
 
@@ -206,8 +205,7 @@ fn generate_en_passant_moves(moves: &mut ChessMoveList, board: &Board, color: Co
             Color::White => en_passant_target >> 7,
             Color::Black => en_passant_target << 9,
         };
-        let en_passant_move =
-            EnPassantChessMove::new(from_square, en_passant_target, Capture(Piece::Pawn));
+        let en_passant_move = EnPassantChessMove::new(from_square, en_passant_target);
         moves.push(ChessMove::EnPassant(en_passant_move));
     }
 }
@@ -741,10 +739,8 @@ mod tests {
             .unwrap();
         assert_eq!(C3, board.peek_en_passant_target());
 
-        let mut expected_black_moves: ChessMoveList = smallvec![
-            std_move!(D4, D3),
-            en_passant_move!(D4, C3, Capture(Piece::Pawn))
-        ];
+        let mut expected_black_moves: ChessMoveList =
+            smallvec![std_move!(D4, D3), en_passant_move!(D4, C3)];
         expected_black_moves.sort();
 
         let mut moves = smallvec![];

@@ -498,14 +498,14 @@ mod tests {
         assert_move_has_algebraic_notation!(
             &mut board,
             Color::Black,
-            en_passant_move!(C4, D3, Capture(Piece::Pawn)),
+            en_passant_move!(C4, D3),
             "cxd3"
         );
 
         assert_move_has_algebraic_notation!(
             &mut board,
             Color::Black,
-            en_passant_move!(E4, D3, Capture(Piece::Pawn)),
+            en_passant_move!(E4, D3),
             "exd3"
         );
     }
