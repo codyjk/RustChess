@@ -2,20 +2,19 @@ use core::fmt;
 
 use common::bitboard::{bitboard::Bitboard, square::to_algebraic};
 
-use crate::board::{color::Color, error::BoardError, piece::Piece, Board};
+use crate::board::{error::BoardError, piece::Piece, Board};
 
 use self::{
-    castle::CastleChessMove, en_passant::EnPassantChessMove,
+    capture::Capture, castle::CastleChessMove, en_passant::EnPassantChessMove,
     pawn_promotion::PawnPromotionChessMove, standard::StandardChessMove,
 };
 
 pub mod algebraic_notation;
+pub mod capture;
 pub mod castle;
 pub mod en_passant;
 pub mod pawn_promotion;
 pub mod standard;
-
-type Capture = (Piece, Color);
 
 /// Represents the different types of chess moves. The lower level structs
 /// in this enum encapsulate the logic for applying the move to, and undoing
@@ -96,7 +95,7 @@ impl fmt::Display for ChessMove {
         let from_square = to_algebraic(self.from_square());
         let to_square = to_algebraic(self.to_square());
         let capture = match self.captures() {
-            Some((piece, _)) => format!(" capturing {}", piece),
+            Some(capture) => format!(" capturing {}", capture.0),
             None => "".to_string(),
         };
         write!(f, "{} {}{}{}", move_type, from_square, to_square, capture)

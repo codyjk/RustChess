@@ -169,7 +169,7 @@ mod tests {
         assert_eq!(Some((Piece::Pawn, Color::White)), board.get(D4));
         assert_eq!(D3, board.peek_en_passant_target());
 
-        let en_passant = en_passant_move!(E4, D3, (Piece::Pawn, Color::White));
+        let en_passant = en_passant_move!(E4, D3, Capture(Piece::Pawn));
         en_passant.apply(&mut board).unwrap();
         println!("After en passant:\n{}", board);
         assert_eq!(Some((Piece::Pawn, Color::Black)), board.get(D3));
@@ -201,7 +201,7 @@ mod tests {
         standard_move_revealing_ep.apply(&mut board).unwrap();
         assert_ne!(initial_hash, board.current_position_hash());
 
-        let en_passant = en_passant_move!(E4, D3, (Piece::Pawn, Color::White));
+        let en_passant = en_passant_move!(E4, D3, Capture(Piece::Pawn));
         en_passant.apply(&mut board).unwrap();
         assert_ne!(initial_hash, board.current_position_hash());
 

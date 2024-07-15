@@ -51,32 +51,45 @@ impl StandardChessMove {
         let StandardChessMove {
             from_square,
             to_square,
-            captures: expected_captures,
+            captures,
         } = self;
 
-        let (piece_to_move, color) = board
+        let (piece_to_move, color_of_piece_to_move) = board
             .remove(*from_square)
             .ok_or(BoardError::FromSquareIsEmptyMoveApplicationError)?;
-        if board.get(*to_square) != *expected_captures {
+
+        let captured_piece_and_color = board.remove(*to_square);
+        let expected_capture_piece_and_color =
+            captures.map(|capture| (capture.0, color_of_piece_to_move.opposite()));
+        if captured_piece_and_color != expected_capture_piece_and_color {
             return Err(BoardError::UnexpectedCaptureResultError);
         }
-        let captured_piece = board.remove(*to_square);
 
-        let en_passant_target =
-            get_en_passant_target_square(piece_to_move, color, *from_square, *to_square);
+        let en_passant_target = get_en_passant_target_square(
+            piece_to_move,
+            color_of_piece_to_move,
+            *from_square,
+            *to_square,
+        );
         let lost_castle_rights =
-            get_lost_castle_rights_if_rook_or_king_moved(piece_to_move, color, *from_square)
-                | get_lost_castle_rights_if_rook_taken(captured_piece, *to_square);
+            get_lost_castle_rights_if_rook_or_king_moved(
+                piece_to_move,
+                color_of_piece_to_move,
+                *from_square,
+            ) | get_lost_castle_rights_if_rook_taken(captured_piece_and_color, *to_square);
 
-        if captured_piece.is_some() {
+        if captured_piece_and_color.is_some() {
             board.reset_halfmove_clock();
         } else {
             board.increment_halfmove_clock();
         }
+
         board.increment_fullmove_clock();
         board.push_en_passant_target(en_passant_target);
         board.lose_castle_rights(lost_castle_rights);
-        board.put(*to_square, piece_to_move, color).unwrap();
+        board
+            .put(*to_square, piece_to_move, color_of_piece_to_move)
+            .unwrap();
 
         Ok(())
     }
@@ -89,14 +102,17 @@ impl StandardChessMove {
         } = self;
 
         // Remove the moved piece.
-        let (piece_to_move_back, piece_color) = board
+        let (piece_to_move_back, color_of_piece_to_move_back) = board
             .remove(*to_square)
             .ok_or(BoardError::ToSquareIsEmptyMoveUndoError)?;
 
         // Put the captured piece back.
-        if captures.is_some() {
-            let (piece, color) = captures.unwrap();
-            board.put(*to_square, piece, color).unwrap();
+        if let Some(captures) = captures {
+            board.put(
+                *to_square,
+                captures.0,
+                color_of_piece_to_move_back.opposite(),
+            )?;
         }
 
         // Revert the board state.
@@ -105,7 +121,11 @@ impl StandardChessMove {
         board.pop_en_passant_target();
         board.pop_castle_rights();
         board
-            .put(*from_square, piece_to_move_back, piece_color)
+            .put(
+                *from_square,
+                piece_to_move_back,
+                color_of_piece_to_move_back,
+            )
             .unwrap();
 
         Ok(())
@@ -214,7 +234,7 @@ fn get_lost_castle_rights_if_rook_taken(
 impl fmt::Display for StandardChessMove {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let captures_msg = match self.captures {
-            Some((piece, color)) => format!(" (captures {})", piece.to_char(color)),
+            Some(capture) => format!(" (captures {})", capture.0),
             None => "".to_string(),
         };
 
@@ -263,7 +283,7 @@ mod tests {
                 E5,
                 D4,
                 (Piece::Pawn, Color::Black),
-                Some((Piece::Pawn, Color::White)),
+                Some(Capture(Piece::Pawn)),
             ),
         ];
 
@@ -325,7 +345,7 @@ mod tests {
             N.......
             ........
         };
-        let capture = std_move!(A2, B4, (Piece::Pawn, Color::Black));
+        let capture = std_move!(A2, B4, Capture(Piece::Pawn));
 
         capture.apply(&mut board).unwrap();
         capture.undo(&mut board).unwrap();
@@ -429,7 +449,7 @@ mod tests {
         println!("Testing board:\n{}", board);
 
         assert!(board.peek_castle_rights() & WHITE_QUEENSIDE_RIGHTS > 0);
-        let chess_move = std_move!(H8, A1, (Piece::Rook, Color::White));
+        let chess_move = std_move!(H8, A1, Capture(Piece::Rook));
         chess_move.apply(&mut board).unwrap();
         assert_eq!(0, board.peek_castle_rights() & WHITE_QUEENSIDE_RIGHTS);
     }
@@ -449,7 +469,7 @@ mod tests {
         println!("Testing board:\n{}", board);
 
         assert!(board.peek_castle_rights() & WHITE_KINGSIDE_RIGHTS > 0);
-        let chess_move = std_move!(A8, H1, (Piece::Rook, Color::White));
+        let chess_move = std_move!(A8, H1, Capture(Piece::Rook));
         chess_move.apply(&mut board).unwrap();
         assert_eq!(0, board.peek_castle_rights() & WHITE_KINGSIDE_RIGHTS);
     }
@@ -469,7 +489,7 @@ mod tests {
         println!("Testing board:\n{}", board);
 
         assert!(board.peek_castle_rights() & BLACK_QUEENSIDE_RIGHTS > 0);
-        let chess_move = std_move!(H1, A8, (Piece::Rook, Color::Black));
+        let chess_move = std_move!(H1, A8, Capture(Piece::Rook));
         chess_move.apply(&mut board).unwrap();
         assert_eq!(0, board.peek_castle_rights() & BLACK_QUEENSIDE_RIGHTS);
     }
@@ -489,7 +509,7 @@ mod tests {
         println!("Testing board:\n{}", board);
 
         assert!(board.peek_castle_rights() & BLACK_KINGSIDE_RIGHTS > 0);
-        let chess_move = std_move!(A1, H8, (Piece::Rook, Color::Black));
+        let chess_move = std_move!(A1, H8, Capture(Piece::Rook));
         chess_move.apply(&mut board).unwrap();
         assert_eq!(0, board.peek_castle_rights() & BLACK_KINGSIDE_RIGHTS);
     }

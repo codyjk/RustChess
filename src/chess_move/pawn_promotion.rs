@@ -99,7 +99,7 @@ impl PawnPromotionChessMove {
 impl fmt::Display for PawnPromotionChessMove {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let captures_msg = match self.captures {
-            Some((piece, color)) => format!(" (captures {})", piece.to_char(color)),
+            Some(capture) => format!(" (captures {})", capture.0),
             None => "".to_string(),
         };
 
@@ -175,7 +175,7 @@ mod tests {
         println!("Testing board:\n{}", board);
 
         let promotion =
-            PawnPromotionChessMove::new(A7, B8, Some((Piece::Rook, Color::Black)), Piece::Queen);
+            PawnPromotionChessMove::new(A7, B8, Some(Capture(Piece::Rook)), Piece::Queen);
 
         promotion.apply(&mut board).unwrap();
         println!("After applying promotion:\n{}", board);

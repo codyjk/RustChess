@@ -9,6 +9,7 @@ use crate::board::castle_rights_bitmask::{
 use crate::board::color::Color;
 use crate::board::piece::Piece;
 use crate::board::Board;
+use crate::chess_move::capture::Capture;
 use crate::chess_move::castle::CastleChessMove;
 use crate::chess_move::en_passant::EnPassantChessMove;
 use crate::chess_move::pawn_promotion::PawnPromotionChessMove;
@@ -195,11 +196,8 @@ fn generate_en_passant_moves(moves: &mut ChessMoveList, board: &Board, color: Co
             Color::White => en_passant_target >> 9,
             Color::Black => en_passant_target << 7,
         };
-        let en_passant_move = EnPassantChessMove::new(
-            from_square,
-            en_passant_target,
-            (Piece::Pawn, color.opposite()),
-        );
+        let en_passant_move =
+            EnPassantChessMove::new(from_square, en_passant_target, Capture(Piece::Pawn));
         moves.push(ChessMove::EnPassant(en_passant_move));
     }
 
@@ -208,11 +206,8 @@ fn generate_en_passant_moves(moves: &mut ChessMoveList, board: &Board, color: Co
             Color::White => en_passant_target >> 7,
             Color::Black => en_passant_target << 9,
         };
-        let en_passant_move = EnPassantChessMove::new(
-            from_square,
-            en_passant_target,
-            (Piece::Pawn, color.opposite()),
-        );
+        let en_passant_move =
+            EnPassantChessMove::new(from_square, en_passant_target, Capture(Piece::Pawn));
         moves.push(ChessMove::EnPassant(en_passant_move));
     }
 }
@@ -258,10 +253,7 @@ fn expand_piece_targets(
                 continue;
             }
 
-            let capture = board
-                .pieces(color.opposite())
-                .get(target)
-                .map(|piece| (piece, color.opposite()));
+            let capture = board.pieces(color.opposite()).get(target).map(Capture);
 
             let standard_move = StandardChessMove::new(piece_sq, target, capture);
             moves.push(ChessMove::Standard(standard_move));
@@ -393,15 +385,15 @@ mod tests {
             std_move!(D2, D3),
             std_move!(D2, D4),
             std_move!(G6, G7),
-            std_move!(G6, H7, (Piece::Pawn, Color::Black)),
+            std_move!(G6, H7, Capture(Piece::Pawn)),
             promotion!(B7, B8, None, Piece::Queen),
             promotion!(B7, B8, None, Piece::Rook),
             promotion!(B7, B8, None, Piece::Knight),
             promotion!(B7, B8, None, Piece::Bishop),
-            promotion!(B7, C8, Some((Piece::Rook, Color::Black)), Piece::Queen),
-            promotion!(B7, C8, Some((Piece::Rook, Color::Black)), Piece::Rook),
-            promotion!(B7, C8, Some((Piece::Rook, Color::Black)), Piece::Knight),
-            promotion!(B7, C8, Some((Piece::Rook, Color::Black)), Piece::Bishop),
+            promotion!(B7, C8, Some(Capture(Piece::Rook)), Piece::Queen),
+            promotion!(B7, C8, Some(Capture(Piece::Rook)), Piece::Rook),
+            promotion!(B7, C8, Some(Capture(Piece::Rook)), Piece::Knight),
+            promotion!(B7, C8, Some(Capture(Piece::Rook)), Piece::Bishop),
         ];
         expected_white_moves.sort();
 
@@ -410,7 +402,7 @@ mod tests {
             std_move!(D7, D5),
             std_move!(H7, H6),
             std_move!(H7, H5),
-            std_move!(H7, G6, (Piece::Pawn, Color::White)),
+            std_move!(H7, G6, Capture(Piece::Pawn)),
             promotion!(A2, A1, None, Piece::Queen),
             promotion!(A2, A1, None, Piece::Rook),
             promotion!(A2, A1, None, Piece::Knight),
@@ -470,7 +462,7 @@ mod tests {
         println!("Testing board:\n{}", board);
 
         let mut expected_white_moves: ChessMoveList = smallvec![
-            std_move!(C3, D5, (Piece::Pawn, Color::Black)),
+            std_move!(C3, D5, Capture(Piece::Pawn)),
             std_move!(C3, E2),
             std_move!(C3, D1),
             std_move!(C3, B5),
@@ -523,7 +515,7 @@ mod tests {
             std_move!(C3, E3),
             std_move!(C3, F3),
             std_move!(C3, G3),
-            std_move!(C3, H3, (Piece::Pawn, Color::Black)),
+            std_move!(C3, H3, Capture(Piece::Pawn)),
         ];
         expected_moves.sort();
 
@@ -578,7 +570,7 @@ mod tests {
             std_move!(E5, F4),
             std_move!(E5, F6),
             std_move!(E5, G3),
-            std_move!(E5, G7, (Piece::Pawn, Color::Black)),
+            std_move!(E5, G7, Capture(Piece::Pawn)),
             std_move!(E5, H2),
         ];
         expected_moves.sort();
@@ -609,14 +601,14 @@ mod tests {
             // NorthEast
             std_move!(E5, F6),
             std_move!(E5, G7),
-            std_move!(E5, H8, (Piece::Pawn, Color::Black)),
+            std_move!(E5, H8, Capture(Piece::Pawn)),
             // East
             std_move!(E5, F5),
             std_move!(E5, G5),
             std_move!(E5, H5),
             // SouthEast
             std_move!(E5, F4),
-            std_move!(E5, G3, (Piece::Pawn, Color::Black)),
+            std_move!(E5, G3, Capture(Piece::Pawn)),
             // South
             std_move!(E5, E4),
             std_move!(E5, E3),
@@ -683,7 +675,7 @@ mod tests {
 
         let mut expected_moves: ChessMoveList = smallvec![
             std_move!(E1, D1),
-            std_move!(E1, D2, (Piece::Pawn, Color::Black)),
+            std_move!(E1, D2, Capture(Piece::Pawn)),
             std_move!(E1, E2),
             std_move!(E1, F1),
             std_move!(E1, F2),
@@ -715,7 +707,7 @@ mod tests {
             std_move!(E5, D4),
             std_move!(E5, D5),
             std_move!(E5, D6),
-            std_move!(E5, E4, (Piece::Pawn, Color::Black)),
+            std_move!(E5, E4, Capture(Piece::Pawn)),
             std_move!(E5, F4),
             std_move!(E5, F5),
             std_move!(E5, F6),
@@ -751,7 +743,7 @@ mod tests {
 
         let mut expected_black_moves: ChessMoveList = smallvec![
             std_move!(D4, D3),
-            en_passant_move!(D4, C3, (Piece::Pawn, Color::White))
+            en_passant_move!(D4, C3, Capture(Piece::Pawn))
         ];
         expected_black_moves.sort();
 

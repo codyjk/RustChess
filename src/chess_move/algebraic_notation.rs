@@ -235,6 +235,7 @@ mod tests {
     use crate::board::castle_rights_bitmask::{
         ALL_CASTLE_RIGHTS, BLACK_KINGSIDE_RIGHTS, BLACK_QUEENSIDE_RIGHTS, WHITE_KINGSIDE_RIGHTS,
     };
+    use crate::chess_move::capture::Capture;
     use crate::{
         castle_kingside, castle_queenside, chess_position, en_passant_move, promotion, std_move,
     };
@@ -294,7 +295,7 @@ mod tests {
         assert_move_has_algebraic_notation!(
             &mut board,
             Color::White,
-            std_move!(D3, E4, (Piece::Pawn, Color::Black)),
+            std_move!(D3, E4, Capture(Piece::Pawn)),
             "dxe4"
         );
     }
@@ -410,13 +411,13 @@ mod tests {
         assert_move_has_algebraic_notation!(
             &mut board,
             Color::White,
-            std_move!(C4, D6, (Piece::Pawn, Color::Black)),
+            std_move!(C4, D6, Capture(Piece::Pawn)),
             "Nxd6"
         );
         assert_move_has_algebraic_notation!(
             &mut board,
             Color::White,
-            std_move!(C4, B2, (Piece::Bishop, Color::Black)),
+            std_move!(C4, B2, Capture(Piece::Bishop)),
             "Nxb2"
         );
     }
@@ -446,13 +447,13 @@ mod tests {
         assert_move_has_algebraic_notation!(
             &mut board,
             Color::Black,
-            std_move!(F8, D7, (Piece::Pawn, Color::White)),
+            std_move!(F8, D7, Capture(Piece::Pawn)),
             "N8xd7"
         );
         assert_move_has_algebraic_notation!(
             &mut board,
             Color::Black,
-            std_move!(F6, D7, (Piece::Pawn, Color::White)),
+            std_move!(F6, D7, Capture(Piece::Pawn)),
             "N6xd7"
         );
     }
@@ -497,14 +498,14 @@ mod tests {
         assert_move_has_algebraic_notation!(
             &mut board,
             Color::Black,
-            en_passant_move!(C4, D3, (Piece::Pawn, Color::White)),
+            en_passant_move!(C4, D3, Capture(Piece::Pawn)),
             "cxd3"
         );
 
         assert_move_has_algebraic_notation!(
             &mut board,
             Color::Black,
-            en_passant_move!(E4, D3, (Piece::Pawn, Color::White)),
+            en_passant_move!(E4, D3, Capture(Piece::Pawn)),
             "exd3"
         );
     }
@@ -573,7 +574,7 @@ mod tests {
         assert_move_has_algebraic_notation!(
             &mut board,
             Color::White,
-            promotion!(C7, D8, Some((Piece::Rook, Color::Black)), Piece::Queen),
+            promotion!(C7, D8, Some(Capture(Piece::Rook)), Piece::Queen),
             "cxd8=Q+"
         );
     }
@@ -614,7 +615,7 @@ mod tests {
         assert_move_has_algebraic_notation!(
             &mut board,
             Color::White,
-            std_move!(D4, E5, (Piece::Pawn, Color::Black)),
+            std_move!(D4, E5, Capture(Piece::Pawn)),
             "dxe5+"
         );
     }

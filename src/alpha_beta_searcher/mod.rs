@@ -244,6 +244,7 @@ mod tests {
     use crate::board::castle_rights_bitmask::ALL_CASTLE_RIGHTS;
     use crate::board::color::Color;
     use crate::board::piece::Piece;
+    use crate::chess_move::capture::Capture;
     use crate::chess_move::standard::StandardChessMove;
     use crate::{chess_position, std_move};
     use common::bitboard::bitboard::Bitboard;
@@ -326,8 +327,8 @@ mod tests {
 
         let expected_moves = [
             std_move!(D2, D8),
-            std_move!(H8, D8, (Piece::Queen, Color::White)),
-            std_move!(D1, D8, (Piece::Rook, Color::Black)),
+            std_move!(H8, D8, Capture(Piece::Queen)),
+            std_move!(D1, D8, Capture(Piece::Rook)),
         ];
         let mut expected_move_iter = expected_moves.iter();
 
@@ -375,8 +376,8 @@ mod tests {
 
         let expected_moves = [
             std_move!(E7, E1),
-            std_move!(A1, E1, (Piece::Queen, Color::Black)),
-            std_move!(E8, E1, (Piece::Rook, Color::White)),
+            std_move!(A1, E1, Capture(Piece::Queen)),
+            std_move!(E8, E1, Capture(Piece::Rook)),
         ];
         let mut expected_move_iter = expected_moves.iter();
 
