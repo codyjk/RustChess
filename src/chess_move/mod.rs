@@ -49,9 +49,9 @@ impl ChessMove {
 
     pub fn captures(&self) -> Option<Capture> {
         match self {
-            ChessMove::Standard(m) => m.capture(),
-            ChessMove::PawnPromotion(m) => m.capture(),
-            ChessMove::EnPassant(m) => Some(m.capture()),
+            ChessMove::Standard(m) => m.captures(),
+            ChessMove::PawnPromotion(m) => m.captures(),
+            ChessMove::EnPassant(m) => Some(m.captures()),
             ChessMove::Castle(_m) => None,
         }
     }

@@ -16,15 +16,15 @@ pub struct EnPassantChessMove {
     to_square: Bitboard,
 
     /// En passant always captures a pawn.
-    capture: Capture,
+    captures: Capture,
 }
 
 impl EnPassantChessMove {
-    pub fn new(from_square: Bitboard, to_square: Bitboard, capture: Capture) -> Self {
+    pub fn new(from_square: Bitboard, to_square: Bitboard, captures: Capture) -> Self {
         Self {
             from_square,
             to_square,
-            capture,
+            captures,
         }
     }
 
@@ -36,10 +36,10 @@ impl EnPassantChessMove {
         self.from_square
     }
 
-    pub fn capture(&self) -> Capture {
+    pub fn captures(&self) -> Capture {
         // TODO(codyjk): If we could decouple `Capture` from Color,
         // this could just return a pawn.
-        self.capture
+        self.captures
     }
 
     pub fn apply(&self, board: &mut Board) -> Result<(), BoardError> {
@@ -59,12 +59,12 @@ impl EnPassantChessMove {
         }
 
         // the captured pawn is "behind" the target square
-        let capture_square = match color {
+        let captures_square = match color {
             Color::White => *to_square >> 8,
             Color::Black => *to_square << 8,
         };
 
-        if board.remove(capture_square).is_none() {
+        if board.remove(captures_square).is_none() {
             return Err(BoardError::EnPassantDidNotResultInCaptureError);
         }
 
@@ -101,7 +101,7 @@ impl EnPassantChessMove {
             .unwrap();
 
         // the captured pawn is "behind" the target square
-        let capture_square = match piece_color {
+        let captures_square = match piece_color {
             Color::White => *to_square >> 8,
             Color::Black => *to_square << 8,
         };
@@ -111,7 +111,7 @@ impl EnPassantChessMove {
         board.decrement_fullmove_clock();
         board.pop_en_passant_target();
         board.pop_castle_rights();
-        board.put(capture_square, Piece::Pawn, piece_color.opposite())?;
+        board.put(captures_square, Piece::Pawn, piece_color.opposite())?;
 
         Ok(())
     }
@@ -136,8 +136,8 @@ impl fmt::Debug for EnPassantChessMove {
 
 #[macro_export]
 macro_rules! en_passant_move {
-    ($from:expr, $to:expr, $capture:expr) => {
-        ChessMove::EnPassant(EnPassantChessMove::new($from, $to, $capture))
+    ($from:expr, $to:expr, $captures:expr) => {
+        ChessMove::EnPassant(EnPassantChessMove::new($from, $to, $captures))
     };
 }
 

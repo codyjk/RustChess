@@ -23,15 +23,15 @@ use super::{pawn_promotion::PawnPromotionChessMove, Capture};
 pub struct StandardChessMove {
     from_square: Bitboard,
     to_square: Bitboard,
-    capture: Option<Capture>,
+    captures: Option<Capture>,
 }
 
 impl StandardChessMove {
-    pub fn new(from_square: Bitboard, to_square: Bitboard, capture: Option<Capture>) -> Self {
+    pub fn new(from_square: Bitboard, to_square: Bitboard, captures: Option<Capture>) -> Self {
         Self {
             from_square,
             to_square,
-            capture,
+            captures,
         }
     }
 
@@ -43,21 +43,21 @@ impl StandardChessMove {
         self.from_square
     }
 
-    pub fn capture(&self) -> Option<Capture> {
-        self.capture
+    pub fn captures(&self) -> Option<Capture> {
+        self.captures
     }
 
     pub fn apply(&self, board: &mut Board) -> Result<(), BoardError> {
         let StandardChessMove {
             from_square,
             to_square,
-            capture: expected_capture,
+            captures: expected_captures,
         } = self;
 
         let (piece_to_move, color) = board
             .remove(*from_square)
             .ok_or(BoardError::FromSquareIsEmptyMoveApplicationError)?;
-        if board.get(*to_square) != *expected_capture {
+        if board.get(*to_square) != *expected_captures {
             return Err(BoardError::UnexpectedCaptureResultError);
         }
         let captured_piece = board.remove(*to_square);
@@ -85,7 +85,7 @@ impl StandardChessMove {
         let StandardChessMove {
             from_square,
             to_square,
-            capture,
+            captures,
         } = self;
 
         // Remove the moved piece.
@@ -94,8 +94,8 @@ impl StandardChessMove {
             .ok_or(BoardError::ToSquareIsEmptyMoveUndoError)?;
 
         // Put the captured piece back.
-        if capture.is_some() {
-            let (piece, color) = capture.unwrap();
+        if captures.is_some() {
+            let (piece, color) = captures.unwrap();
             board.put(*to_square, piece, color).unwrap();
         }
 
@@ -145,7 +145,7 @@ impl StandardChessMove {
         Ok(PawnPromotionChessMove::new(
             self.from_square,
             self.to_square,
-            self.capture,
+            self.captures,
             promote_to_piece,
         ))
     }
@@ -213,7 +213,7 @@ fn get_lost_castle_rights_if_rook_taken(
 
 impl fmt::Display for StandardChessMove {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let capture_msg = match self.capture {
+        let captures_msg = match self.captures {
             Some((piece, color)) => format!(" (captures {})", piece.to_char(color)),
             None => "".to_string(),
         };
@@ -223,7 +223,7 @@ impl fmt::Display for StandardChessMove {
             "move {}{}{}",
             square::to_algebraic(self.from_square).to_lowercase(),
             square::to_algebraic(self.to_square).to_lowercase(),
-            capture_msg
+            captures_msg
         )
     }
 }
@@ -236,8 +236,8 @@ impl fmt::Debug for StandardChessMove {
 
 #[macro_export]
 macro_rules! std_move {
-    ($from:expr, $to:expr, $capture:expr) => {
-        ChessMove::Standard(StandardChessMove::new($from, $to, Some($capture)))
+    ($from:expr, $to:expr, $captures:expr) => {
+        ChessMove::Standard(StandardChessMove::new($from, $to, Some($captures)))
     };
     ($from:expr, $to:expr) => {
         ChessMove::Standard(StandardChessMove::new($from, $to, None))
@@ -246,7 +246,6 @@ macro_rules! std_move {
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
     use crate::{chess_move::ChessMove, chess_position};
 

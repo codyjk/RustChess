@@ -13,7 +13,7 @@ use super::{standard::StandardChessMove, Capture};
 pub struct PawnPromotionChessMove {
     from_square: Bitboard,
     to_square: Bitboard,
-    capture: Option<Capture>,
+    captures: Option<Capture>,
     promote_to_piece: Piece,
 }
 
@@ -21,13 +21,13 @@ impl PawnPromotionChessMove {
     pub fn new(
         from_square: Bitboard,
         to_square: Bitboard,
-        capture: Option<Capture>,
+        captures: Option<Capture>,
         promote_to_piece: Piece,
     ) -> Self {
         Self {
             from_square,
             to_square,
-            capture,
+            captures,
             promote_to_piece,
         }
     }
@@ -40,8 +40,8 @@ impl PawnPromotionChessMove {
         self.from_square
     }
 
-    pub fn capture(&self) -> Option<Capture> {
-        self.capture
+    pub fn captures(&self) -> Option<Capture> {
+        self.captures
     }
 
     pub fn promote_to_piece(&self) -> Piece {
@@ -52,13 +52,13 @@ impl PawnPromotionChessMove {
         let PawnPromotionChessMove {
             from_square,
             to_square,
-            capture: expected_capture,
+            captures: expected_captures,
             promote_to_piece,
         } = self;
 
         // This is a special case. It's like a standard move, but we replace the
         // pawn at the end. So apply the standard move first.
-        let standard_move = StandardChessMove::new(*from_square, *to_square, *expected_capture);
+        let standard_move = StandardChessMove::new(*from_square, *to_square, *expected_captures);
         standard_move.apply(board)?;
 
         // Then, we perform the promotion.
@@ -76,7 +76,7 @@ impl PawnPromotionChessMove {
         let PawnPromotionChessMove {
             from_square,
             to_square,
-            capture: expected_capture,
+            captures: expected_captures,
             promote_to_piece,
         } = self;
 
@@ -89,7 +89,7 @@ impl PawnPromotionChessMove {
         }
 
         // Then, undo the standard move.
-        let standard_move = StandardChessMove::new(*from_square, *to_square, *expected_capture);
+        let standard_move = StandardChessMove::new(*from_square, *to_square, *expected_captures);
         standard_move.undo(board)?;
 
         Ok(())
@@ -98,7 +98,7 @@ impl PawnPromotionChessMove {
 
 impl fmt::Display for PawnPromotionChessMove {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let capture_msg = match self.capture {
+        let captures_msg = match self.captures {
             Some((piece, color)) => format!(" (captures {})", piece.to_char(color)),
             None => "".to_string(),
         };
@@ -108,7 +108,7 @@ impl fmt::Display for PawnPromotionChessMove {
             "promote {}{}{}",
             square::to_algebraic(self.from_square).to_lowercase(),
             square::to_algebraic(self.to_square).to_lowercase(),
-            capture_msg
+            captures_msg
         )
     }
 }
@@ -121,8 +121,8 @@ impl fmt::Debug for PawnPromotionChessMove {
 
 #[macro_export]
 macro_rules! promotion {
-    ($from:expr, $to:expr, $capture:expr, $piece:expr) => {
-        ChessMove::PawnPromotion(PawnPromotionChessMove::new($from, $to, $capture, $piece))
+    ($from:expr, $to:expr, $captures:expr, $piece:expr) => {
+        ChessMove::PawnPromotion(PawnPromotionChessMove::new($from, $to, $captures, $piece))
     };
 }
 
