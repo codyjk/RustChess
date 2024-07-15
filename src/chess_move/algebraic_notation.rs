@@ -619,4 +619,38 @@ mod tests {
             "dxe5+"
         );
     }
+
+    #[test]
+    fn test_algebraic_notation_for_multiple_queen_endgame() {
+        let mut board = chess_position! {
+            .......k
+            QQ......
+            ........
+            ........
+            ........
+            ........
+            ........
+            ........
+        };
+
+        board.set_turn(Color::White);
+        board.lose_castle_rights(ALL_CASTLE_RIGHTS);
+
+        assert_move_has_algebraic_notation!(&mut board, Color::White, std_move!(A7, A8), "Qaa8#");
+
+        assert_move_has_algebraic_notation!(&mut board, Color::White, std_move!(A7, B8), "Qab8#");
+
+        assert_move_has_algebraic_notation!(&mut board, Color::White, std_move!(B7, B8), "Qbb8#");
+
+        assert_move_has_algebraic_notation!(&mut board, Color::White, std_move!(B7, A8), "Qba8#");
+
+        assert_move_has_algebraic_notation!(
+            &mut board,
+            Color::White,
+            std_move!(B7, H7),
+            // The rightmost queen is the only one able to make it to h7, so it
+            // should not be disambiguated (e.g. it is not Qbh7#)
+            "Qh7#"
+        );
+    }
 }
