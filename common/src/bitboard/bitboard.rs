@@ -19,14 +19,6 @@ use crate::bitboard::square::from_rank_file;
 #[derive(Clone, Copy, PartialEq, Debug, PartialOrd, Eq, Ord, Hash)]
 pub struct Bitboard(pub u64);
 
-impl BitAnd for Bitboard {
-    type Output = Self;
-
-    fn bitand(self, rhs: Self) -> Self {
-        Self(self.0 & rhs.0)
-    }
-}
-
 impl Bitboard {
     pub const EMPTY: Self = Self(0x0000000000000000);
     pub const ALL: Self = Self(0xFFFFFFFFFFFFFFFF);
@@ -70,91 +62,89 @@ impl Bitboard {
     }
 }
 
-// TODO(codyjk): Maybe generate these with a macro?
+/// These macros efficiently implement bitwise operations for the Bitboard struct.
+/// They generate the necessary trait implementations for various operations,
+/// reducing code duplication and improving maintainability.
+///
+/// Without macros, we would need to manually implement each trait for every
+/// operation, leading to repetitive and error-prone code. These macros allow
+/// us to define the implementation pattern once and reuse it for multiple
+/// operations, ensuring consistency and reducing the chance of errors.
+macro_rules! impl_bitwise_op {
+    ($trait:ident, $method:ident, $op:tt) => {
+        impl $trait for Bitboard {
+            type Output = Self;
+
+            fn $method(self, rhs: Self) -> Self {
+                Self(self.0 $op rhs.0)
+            }
+        }
+    };
+}
+
+/// This macro implements bitwise assignment operations for the Bitboard struct.
+/// It generates in-place modifications of the Bitboard, which can be more
+/// efficient in certain scenarios by avoiding the creation of new Bitboard instances.
+macro_rules! impl_bitwise_assign_op {
+    ($trait:ident, $method:ident, $op:tt) => {
+        impl $trait for Bitboard {
+            fn $method(&mut self, rhs: Self) {
+                self.0 $op rhs.0;
+            }
+        }
+    };
+}
+
+/// This macro implements shift operations for the Bitboard struct.
+/// It allows for efficient bit shifting, which is crucial for many chess-related
+/// calculations and move generation algorithms.
+macro_rules! impl_shift_op {
+    ($trait:ident, $method:ident, $op:tt) => {
+        impl $trait<usize> for Bitboard {
+            type Output = Self;
+
+            fn $method(self, rhs: usize) -> Self {
+                Self(self.0 $op rhs)
+            }
+        }
+    };
+}
+
+/// This macro implements shift assignment operations for the Bitboard struct.
+/// It generates in-place shift modifications of the Bitboard, which can be more
+/// efficient in certain scenarios by avoiding the creation of new Bitboard instances.
+/// These operations are crucial for various bitboard manipulations in chess algorithms.
+macro_rules! impl_shift_assign_op {
+    ($trait:ident, $method:ident, $op:tt) => {
+        impl $trait<usize> for Bitboard {
+            fn $method(&mut self, rhs: usize) {
+                self.0 $op rhs;
+            }
+        }
+    };
+}
+
+impl_bitwise_op!(BitAnd, bitand, &);
+impl_bitwise_op!(BitOr, bitor, |);
+impl_bitwise_op!(BitXor, bitxor, ^);
+impl_bitwise_op!(Add, add, +);
+impl_bitwise_op!(Sub, sub, -);
+
+impl_bitwise_assign_op!(BitAndAssign, bitand_assign, &=);
+impl_bitwise_assign_op!(BitOrAssign, bitor_assign, |=);
+impl_bitwise_assign_op!(BitXorAssign, bitxor_assign, ^=);
+
+impl_shift_op!(Shl, shl, <<);
+impl_shift_op!(Shr, shr, >>);
+
+impl_shift_assign_op!(ShlAssign, shl_assign, <<=);
+impl_shift_assign_op!(ShrAssign, shr_assign, >>=);
 
 impl Not for Bitboard {
     type Output = Self;
 
     fn not(self) -> Self {
         Self(!self.0)
-    }
-}
-
-impl BitOr for Bitboard {
-    type Output = Self;
-
-    fn bitor(self, rhs: Self) -> Self {
-        Self(self.0 | rhs.0)
-    }
-}
-
-impl BitXor for Bitboard {
-    type Output = Self;
-
-    fn bitxor(self, rhs: Self) -> Self {
-        Self(self.0 ^ rhs.0)
-    }
-}
-
-impl Shl<usize> for Bitboard {
-    type Output = Self;
-
-    fn shl(self, rhs: usize) -> Self {
-        Self(self.0 << rhs)
-    }
-}
-
-impl Shr<usize> for Bitboard {
-    type Output = Self;
-
-    fn shr(self, rhs: usize) -> Self {
-        Self(self.0 >> rhs)
-    }
-}
-
-impl Add for Bitboard {
-    type Output = Self;
-
-    fn add(self, rhs: Self) -> Self {
-        Self(self.0 + rhs.0)
-    }
-}
-
-impl Sub for Bitboard {
-    type Output = Self;
-
-    fn sub(self, rhs: Self) -> Self {
-        Self(self.0 - rhs.0)
-    }
-}
-
-impl BitAndAssign for Bitboard {
-    fn bitand_assign(&mut self, rhs: Self) {
-        self.0 &= rhs.0;
-    }
-}
-
-impl BitOrAssign for Bitboard {
-    fn bitor_assign(&mut self, rhs: Self) {
-        self.0 |= rhs.0;
-    }
-}
-
-impl BitXorAssign for Bitboard {
-    fn bitxor_assign(&mut self, rhs: Self) {
-        self.0 ^= rhs.0;
-    }
-}
-
-impl ShlAssign<usize> for Bitboard {
-    fn shl_assign(&mut self, rhs: usize) {
-        self.0 <<= rhs;
-    }
-}
-
-impl ShrAssign<usize> for Bitboard {
-    fn shr_assign(&mut self, rhs: usize) {
-        self.0 >>= rhs;
     }
 }
 
