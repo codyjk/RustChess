@@ -1,7 +1,7 @@
 [package]
 name = "chess"
-version = "0.1.0"
-authors = ["Cody Joseph Krainock <codykrainock@gmail.com>"]
+version = "1.0.0"
+authors = ["Cody Joseph Krainock <cody@krainock.com>"]
 edition = "2018"
 build = "precompile/src/main.rs"
 
