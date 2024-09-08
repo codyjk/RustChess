@@ -8,6 +8,10 @@ use log::debug;
 
 use crate::random_number_generator::generate_random_u64;
 
+// This blog post does an excellent job of explaining magic bitboards:
+// https://analog-hors.github.io/site/magic-bitboards/
+// The approach here is largely based off of that post.
+
 /// Represents a piece that slides any number of squares on a board - a rook
 /// or a bishop, each of which can move in 4 directions (as repressented by move_offsets).
 /// A queen's moveset is the union of a rook's and a bishop's.
