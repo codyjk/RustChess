@@ -1,8 +1,8 @@
 use chess::board::color::Color;
-use chess::board::Board;
-use chess::game::modes::{computer_vs_computer, play_computer, player_vs_player};
-use chess::move_generator::MoveGenerator;
-use log::debug;
+use chess::game::modes::{
+    computer_vs_computer, play_computer, player_vs_player, run_count_positions,
+    CountPositionsStrategy,
+};
 use structopt::StructOpt;
 
 #[derive(StructOpt, Debug)]
@@ -11,6 +11,8 @@ enum Chess {
     CountPositions {
         #[structopt(short, long, default_value = "4")]
         depth: u8,
+        #[structopt(short, long, default_value = "all")]
+        strategy: CountPositionsStrategy,
     },
     Play {
         #[structopt(short, long, default_value = "4")]
@@ -31,21 +33,9 @@ fn main() {
     let args = Chess::from_args();
 
     match args {
-        Chess::CountPositions { depth } => run_count_positions(depth),
+        Chess::CountPositions { depth, strategy } => run_count_positions(depth, strategy),
         Chess::Play { depth, color } => play_computer(depth, color),
         Chess::Watch { depth } => computer_vs_computer(0, 1000, depth),
         Chess::Pvp => player_vs_player(),
-    }
-}
-
-fn run_count_positions(depth: u8) {
-    let depths = 0..=depth;
-    let mut move_generator = MoveGenerator::new();
-
-    for depth in depths {
-        let mut board = Board::starting_position();
-        let count = move_generator.count_positions(depth, &mut board, Color::White);
-
-        debug!("depth: {}, positions: {}", depth, count);
     }
 }

@@ -18,6 +18,7 @@ use crate::chess_move::ChessMove;
 use common::bitboard::bitboard::Bitboard;
 use common::bitboard::square::*;
 use lru::LruCache;
+use rayon::prelude::*;
 use smallvec::{smallvec, SmallVec};
 use targets::Targets;
 
@@ -83,21 +84,31 @@ impl MoveGenerator {
 
     pub fn count_positions(&mut self, depth: u8, board: &mut Board, color: Color) -> usize {
         let candidates = self.generate_moves(board, color);
-        let mut count = candidates.len();
+        let initial_count = candidates.len();
 
         if depth == 0 {
-            return count;
+            return initial_count;
         }
 
         let next_color = color.opposite();
 
-        for chess_move in candidates.iter() {
-            chess_move.apply(board).unwrap();
-            count += self.count_positions(depth - 1, board, next_color);
-            chess_move.undo(board).unwrap();
-        }
+        // `par_iter` is a rayon primitive that allows for parallel iteration over a collection.
+        let inner_counts = candidates.par_iter().map(|chess_move| {
+            let mut local_board = board.clone();
+            let mut local_move_generator = MoveGenerator::new();
 
-        count
+            chess_move.apply(&mut local_board).unwrap();
+            let local_count = count_positions_inner(
+                depth - 1,
+                &mut local_board,
+                next_color,
+                &mut local_move_generator,
+            );
+            chess_move.undo(&mut local_board).unwrap();
+            local_count
+        });
+
+        initial_count + inner_counts.sum::<usize>()
     }
 
     pub fn get_attack_targets(&mut self, board: &Board, color: Color) -> Bitboard {
@@ -113,6 +124,30 @@ impl MoveGenerator {
 
         attack_targets
     }
+}
+
+fn count_positions_inner(
+    depth: u8,
+    board: &mut Board,
+    color: Color,
+    move_generator: &mut MoveGenerator,
+) -> usize {
+    let candidates = move_generator.generate_moves(board, color);
+    let mut count = candidates.len();
+
+    if depth == 0 {
+        return count;
+    }
+
+    let next_color = color.opposite();
+
+    for chess_move in candidates.iter() {
+        chess_move.apply(board).unwrap();
+        count += count_positions_inner(depth - 1, board, next_color, move_generator);
+        chess_move.undo(board).unwrap();
+    }
+
+    count
 }
 
 /// Generates all valid moves for the given board state and color. The code is

@@ -1,11 +1,14 @@
 use super::{Game, GameEnding};
+use crate::alpha_beta_searcher::{alpha_beta_search, SearchContext};
 use crate::board::color::Color;
 use crate::board::Board;
 use crate::chess_move::algebraic_notation::enumerate_candidate_moves_with_algebraic_notation;
 use crate::chess_move::ChessMove;
 use crate::game::command::{Command, MakeWaterfallMove};
 use crate::input_handler;
+use crate::move_generator::MoveGenerator;
 use common::bitboard::square::from_rank_file;
+use std::str::FromStr;
 use std::thread::sleep;
 use std::time::{Duration, SystemTime};
 use termion::clear;
@@ -154,6 +157,64 @@ pub fn player_vs_player() {
             Err(error) => println!("error: {}", error),
         }
     }
+}
+
+#[derive(Debug)]
+pub enum CountPositionsStrategy {
+    All,
+    AlphaBeta,
+}
+
+impl FromStr for CountPositionsStrategy {
+    type Err = &'static str;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "all" => Ok(CountPositionsStrategy::All),
+            "alpha-beta" => Ok(CountPositionsStrategy::AlphaBeta),
+            _ => Err("invalid strategy; options are: all, alpha-beta"),
+        }
+    }
+}
+
+pub fn run_count_positions(depth: u8, strategy: CountPositionsStrategy) {
+    let depths = 0..=depth;
+    let mut move_generator = MoveGenerator::new();
+
+    let mut total_positions = 0;
+    let mut total_duration = Duration::from_secs(0);
+
+    for depth in depths {
+        let mut board = Board::starting_position();
+
+        let starting_time = SystemTime::now();
+        let count = match strategy {
+            CountPositionsStrategy::All => {
+                move_generator.count_positions(depth, &mut board, Color::White)
+            }
+            CountPositionsStrategy::AlphaBeta => {
+                let mut search_context = SearchContext::new(depth);
+                alpha_beta_search(&mut search_context, &mut board, &mut move_generator).unwrap();
+                search_context.searched_position_count()
+            }
+        };
+        let duration = SystemTime::now().duration_since(starting_time).unwrap();
+        let positions_per_second = count as f64 / duration.as_secs_f64();
+
+        total_positions += count;
+        total_duration += duration;
+
+        println!(
+            "depth: {}, positions: {}, positions per second: {}",
+            depth, count, positions_per_second
+        );
+    }
+
+    println!(
+        "total positions: {}, total duration: {:?}, positions per second: {}",
+        total_positions,
+        total_duration,
+        total_positions as f64 / total_duration.as_secs_f64()
+    );
 }
 
 fn enumerated_candidate_moves(game: &mut Game) -> Vec<(ChessMove, String)> {
