@@ -24,7 +24,8 @@ pub fn parse_player_move_input() -> Result<Box<dyn Command>, InputError> {
     };
 
     let coordinate_re = Regex::new("^([a-h][1-8])([a-h][1-8])$").unwrap();
-    let algebraic_re = Regex::new("^([NBRQK]?[a-h]?[1-8]?x?[a-h][1-8](=[NBRQ])?[+#]?)$").unwrap();
+    let algebraic_re =
+        Regex::new("^([NBRQK]?[a-h]?[1-8]?x?[a-h][1-8](=[NBRQ])?[+#]?|O-O(-O)?)$").unwrap();
 
     if let Some(caps) = coordinate_re.captures(raw) {
         let from_square = caps.get(1).unwrap().as_str();
