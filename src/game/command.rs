@@ -14,8 +14,8 @@ pub trait Command {
 
 /// Represents a command to make a move on the board.
 pub enum MakeMove {
-    /// Represents a move in from-to notation, e.g. "e2e4".
-    Standard {
+    /// Represents a move based on the from and to coordinates, e.g. "e2e4".
+    Coordinate {
         from_square: String,
         to_square: String,
     },
@@ -27,10 +27,10 @@ pub enum MakeMove {
 impl Command for MakeMove {
     fn execute(&self, game: &mut Game) -> CommandResult {
         match self {
-            MakeMove::Standard {
+            MakeMove::Coordinate {
                 from_square,
                 to_square,
-            } => game.apply_chess_move_by_from_to_square(
+            } => game.apply_chess_move_by_from_to_coordinates(
                 square_string_to_bitboard(from_square),
                 square_string_to_bitboard(to_square),
             ),

@@ -61,7 +61,7 @@ impl Game {
         self.move_history.iter().last().cloned()
     }
 
-    pub fn apply_chess_move_by_from_to_square(
+    pub fn apply_chess_move_by_from_to_coordinates(
         &mut self,
         from_square: Bitboard,
         to_square: Bitboard,
@@ -215,7 +215,7 @@ mod tests {
     #[test]
     fn test_score() {
         let mut game = Game::new(0);
-        game.apply_chess_move_by_from_to_square(square::E2, square::E4)
+        game.apply_chess_move_by_from_to_coordinates(square::E2, square::E4)
             .unwrap();
         game.board.toggle_turn();
         assert!(game.check_game_over_for_current_turn().is_none());
@@ -224,16 +224,16 @@ mod tests {
     #[test]
     fn test_checkmate() {
         let mut game = Game::new(0);
-        game.apply_chess_move_by_from_to_square(square::F2, square::F3)
+        game.apply_chess_move_by_from_to_coordinates(square::F2, square::F3)
             .unwrap();
         game.board.toggle_turn();
-        game.apply_chess_move_by_from_to_square(square::E7, square::E6)
+        game.apply_chess_move_by_from_to_coordinates(square::E7, square::E6)
             .unwrap();
         game.board.toggle_turn();
-        game.apply_chess_move_by_from_to_square(square::G2, square::G4)
+        game.apply_chess_move_by_from_to_coordinates(square::G2, square::G4)
             .unwrap();
         game.board.toggle_turn();
-        game.apply_chess_move_by_from_to_square(square::D8, square::H4)
+        game.apply_chess_move_by_from_to_coordinates(square::D8, square::H4)
             .unwrap();
         game.board.toggle_turn();
         println!("Testing board:\n{}", game.board);

@@ -23,13 +23,13 @@ pub fn parse_player_move_input() -> Result<Box<dyn Command>, InputError> {
         }
     };
 
-    let standard_re = Regex::new("^([a-h][1-8])([a-h][1-8])$").unwrap();
+    let coordinate_re = Regex::new("^([a-h][1-8])([a-h][1-8])$").unwrap();
     let algebraic_re = Regex::new("^([NBRQK]?[a-h]?[1-8]?x?[a-h][1-8](=[NBRQ])?[+#]?)$").unwrap();
 
-    if let Some(caps) = standard_re.captures(raw) {
+    if let Some(caps) = coordinate_re.captures(raw) {
         let from_square = caps.get(1).unwrap().as_str();
         let to_square = caps.get(2).unwrap().as_str();
-        let command = MakeMove::Standard {
+        let command = MakeMove::Coordinate {
             from_square: from_square.to_string(),
             to_square: to_square.to_string(),
         };
