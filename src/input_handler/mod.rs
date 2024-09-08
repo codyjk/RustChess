@@ -1,7 +1,6 @@
 use std::io;
 
 use crate::game::command::{Command, MakeMove};
-use common::bitboard::square;
 use regex::Regex;
 use thiserror::Error;
 
@@ -13,9 +12,7 @@ pub enum InputError {
     InvalidInput { input: String },
 }
 
-/// Parses a command from stdin. The command should be in the format of two squares
-/// in algebraic notation, e.g. "e2e4".
-pub fn parse_command() -> Result<Box<dyn Command>, InputError> {
+pub fn parse_player_move_input() -> Result<Box<dyn Command>, InputError> {
     let mut input = String::new();
     let raw = match io::stdin().read_line(&mut input) {
         Ok(_n) => input.trim_start().trim_end(),
@@ -26,20 +23,26 @@ pub fn parse_command() -> Result<Box<dyn Command>, InputError> {
         }
     };
 
-    let re = Regex::new("^([a-h][1-8])([a-h][1-8])$").unwrap();
-    let caps = match re.captures(raw) {
-        Some(captures) => captures,
-        None => {
-            return Err(InputError::InvalidInput {
-                input: raw.to_string(),
-            })
-        }
-    };
+    let standard_re = Regex::new("^([a-h][1-8])([a-h][1-8])$").unwrap();
+    let algebraic_re = Regex::new("^([NBRQK]?[a-h]?[1-8]?x?[a-h][1-8](=[NBRQ])?)$").unwrap();
 
-    let command = MakeMove::new(
-        square::from_algebraic(&caps[1]),
-        square::from_algebraic(&caps[2]),
-    );
+    if let Some(caps) = standard_re.captures(raw) {
+        let from_square = caps.get(1).unwrap().as_str();
+        let to_square = caps.get(2).unwrap().as_str();
+        let command = MakeMove::Standard {
+            from_square: from_square.to_string(),
+            to_square: to_square.to_string(),
+        };
 
-    Ok(Box::new(command))
+        Ok(Box::new(command))
+    } else if let Some(caps) = algebraic_re.captures(raw) {
+        let algebraic = caps.get(1).unwrap().as_str().to_string();
+        let command = MakeMove::Algebraic { algebraic };
+
+        Ok(Box::new(command))
+    } else {
+        Err(InputError::InvalidInput {
+            input: raw.to_string(),
+        })
+    }
 }

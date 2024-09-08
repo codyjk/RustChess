@@ -90,9 +90,9 @@ pub fn to_rank_file(square: Bitboard) -> (u8, u8) {
     (i as u8 / 8, i as u8 % 8)
 }
 
-pub fn from_algebraic(algebraic_coord: &str) -> Bitboard {
+pub fn square_string_to_bitboard(coordinate: &str) -> Bitboard {
     let re = Regex::new("^([a-hA-H]{1})([1-8]{1})$").unwrap();
-    let caps = re.captures(algebraic_coord).unwrap();
+    let caps = re.captures(coordinate).unwrap_or_else(|| panic!("Invalid square string: {}", coordinate));
     let rank_raw = &caps[2];
     let file_raw = &caps[1];
 
@@ -171,10 +171,10 @@ mod tests {
     }
 
     #[test]
-    fn test_from_algebraic() {
-        assert_eq!(A1, from_algebraic("A1"));
-        assert_eq!(A1, from_algebraic("a1"));
-        assert_eq!(E5, from_algebraic("E5"));
+    fn test_square_string_to_bitboard() {
+        assert_eq!(A1, square_string_to_bitboard("A1"));
+        assert_eq!(A1, square_string_to_bitboard("a1"));
+        assert_eq!(E5, square_string_to_bitboard("E5"));
     }
 
     #[test]

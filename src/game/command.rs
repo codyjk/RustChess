@@ -1,4 +1,4 @@
-use common::bitboard::bitboard::Bitboard;
+use common::bitboard::square::square_string_to_bitboard;
 
 use crate::chess_move::ChessMove;
 
@@ -13,23 +13,31 @@ pub trait Command {
 }
 
 /// Represents a command to make a move on the board.
-pub struct MakeMove {
-    from_square: Bitboard,
-    to_square: Bitboard,
-}
+pub enum MakeMove {
+    /// Represents a move in from-to notation, e.g. "e2e4".
+    Standard {
+        from_square: String,
+        to_square: String,
+    },
 
-impl MakeMove {
-    pub fn new(from_square: Bitboard, to_square: Bitboard) -> Self {
-        Self {
-            from_square,
-            to_square,
-        }
-    }
+    /// Represents a move in algebraic notation, e.g. "e4".
+    Algebraic { algebraic: String },
 }
 
 impl Command for MakeMove {
     fn execute(&self, game: &mut Game) -> CommandResult {
-        game.make_move(self.from_square, self.to_square)
+        match self {
+            MakeMove::Standard {
+                from_square,
+                to_square,
+            } => game.apply_chess_move_by_from_to_square(
+                square_string_to_bitboard(from_square),
+                square_string_to_bitboard(to_square),
+            ),
+            MakeMove::Algebraic { algebraic } => {
+                game.apply_chess_move_from_raw_algebraic_notation(algebraic.to_string())
+            }
+        }
     }
 }
 

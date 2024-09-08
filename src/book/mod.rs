@@ -1,4 +1,5 @@
-use common::bitboard::{bitboard::Bitboard, square};
+use common::bitboard::bitboard::Bitboard;
+use common::bitboard::square::square_string_to_bitboard;
 use rustc_hash::FxHashMap;
 
 type BookMove = (Bitboard, Bitboard);
@@ -42,8 +43,8 @@ impl Book {
         for raw_move in moves {
             let raw_from_square: String = raw_move.to_string().chars().take(2).collect();
             let raw_to_square: String = raw_move.to_string().chars().skip(2).take(2).collect();
-            let from_square = square::from_algebraic(&raw_from_square);
-            let to_square = square::from_algebraic(&raw_to_square);
+            let from_square = square_string_to_bitboard(&raw_from_square);
+            let to_square = square_string_to_bitboard(&raw_to_square);
             let book_move = book_move(from_square, to_square);
 
             let next_node = curr_node

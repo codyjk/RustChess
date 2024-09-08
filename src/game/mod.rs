@@ -6,6 +6,7 @@ use crate::board::color::Color;
 use crate::board::error::BoardError;
 use crate::board::Board;
 use crate::book::Book;
+use crate::chess_move::algebraic_notation::enumerate_candidate_moves_with_algebraic_notation;
 use crate::chess_move::ChessMove;
 use crate::evaluate::{self, GameEnding};
 use crate::move_generator::MoveGenerator;
@@ -60,7 +61,7 @@ impl Game {
         self.move_history.iter().last().cloned()
     }
 
-    pub fn make_move(
+    pub fn apply_chess_move_by_from_to_square(
         &mut self,
         from_square: Bitboard,
         to_square: Bitboard,
@@ -71,13 +72,37 @@ impl Game {
             .iter()
             .find(|m| m.from_square() == from_square && m.to_square() == to_square)
             .ok_or(GameError::InvalidMove)?;
+        self.apply_chess_move(chess_move.clone())?;
+        Ok(chess_move.clone())
+    }
+
+    pub fn apply_chess_move(&mut self, chess_move: ChessMove) -> Result<(), GameError> {
         match chess_move.apply(&mut self.board) {
             Ok(_capture) => {
                 self.save_move(chess_move.clone());
-                Ok(chess_move.clone())
+                Ok(())
             }
             Err(error) => Err(GameError::BoardError { error }),
         }
+    }
+
+    pub fn apply_chess_move_from_raw_algebraic_notation(
+        &mut self,
+        algebraic: String,
+    ) -> Result<ChessMove, GameError> {
+        let board = &mut self.board;
+        let current_turn = board.turn();
+        let move_generator = &mut self.move_generator;
+        let enumerated_candidate_moves =
+            enumerate_candidate_moves_with_algebraic_notation(board, current_turn, move_generator);
+        let chess_move = enumerated_candidate_moves
+            .iter()
+            .find(|m| m.1 == algebraic)
+            .ok_or(GameError::InvalidMove)?
+            .0
+            .clone();
+        self.apply_chess_move(chess_move.clone())?;
+        Ok(chess_move)
     }
 
     pub fn make_alpha_beta_best_move(&mut self) -> Result<ChessMove, GameError> {
@@ -190,7 +215,8 @@ mod tests {
     #[test]
     fn test_score() {
         let mut game = Game::new(0);
-        game.make_move(square::E2, square::E4).unwrap();
+        game.apply_chess_move_by_from_to_square(square::E2, square::E4)
+            .unwrap();
         game.board.toggle_turn();
         assert!(game.check_game_over_for_current_turn().is_none());
     }
@@ -198,13 +224,17 @@ mod tests {
     #[test]
     fn test_checkmate() {
         let mut game = Game::new(0);
-        game.make_move(square::F2, square::F3).unwrap();
+        game.apply_chess_move_by_from_to_square(square::F2, square::F3)
+            .unwrap();
         game.board.toggle_turn();
-        game.make_move(square::E7, square::E6).unwrap();
+        game.apply_chess_move_by_from_to_square(square::E7, square::E6)
+            .unwrap();
         game.board.toggle_turn();
-        game.make_move(square::G2, square::G4).unwrap();
+        game.apply_chess_move_by_from_to_square(square::G2, square::G4)
+            .unwrap();
         game.board.toggle_turn();
-        game.make_move(square::D8, square::H4).unwrap();
+        game.apply_chess_move_by_from_to_square(square::D8, square::H4)
+            .unwrap();
         game.board.toggle_turn();
         println!("Testing board:\n{}", game.board);
         matches!(

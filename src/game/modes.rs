@@ -39,7 +39,7 @@ pub fn play_computer(depth: u8, player_color: Color) {
         let enumerated_candidate_moves = enumerated_candidate_moves(game);
 
         let command: Box<dyn Command> = if player_color == game.board.turn() {
-            match input_handler::parse_command() {
+            match input_handler::parse_player_move_input() {
                 Ok(command) => command,
                 Err(msg) => {
                     println!("{}", msg);
@@ -141,7 +141,7 @@ pub fn player_vs_player() {
             _ => (),
         };
 
-        let command = match input_handler::parse_command() {
+        let command = match input_handler::parse_player_move_input() {
             Ok(command) => command,
             Err(msg) => {
                 println!("{}", msg);
@@ -225,7 +225,7 @@ fn enumerated_candidate_moves(game: &mut Game) -> Vec<(ChessMove, String)> {
 }
 
 fn print_board_and_stats(game: &mut Game, enumerated_candidate_moves: Vec<(ChessMove, String)>) {
-    let last_move = match game.last_move() {
+    let last_move_algebraic = match game.last_move() {
         Some(chess_move) => enumerated_candidate_moves
             .iter()
             .find(|(move_, _)| move_ == &chess_move)
@@ -246,7 +246,7 @@ fn print_board_and_stats(game: &mut Game, enumerated_candidate_moves: Vec<(Chess
     println!(
         "{} chose move: {}\n",
         game.board.turn().opposite(),
-        last_move
+        last_move_algebraic
     );
     print_board(&game.board);
     println!("* Turn: {}", game.board.turn());
@@ -259,43 +259,29 @@ fn print_enter_move_prompt() {
     println!("Enter your move:");
 }
 
-/// Prints a board to the console in the following format:
-///   +---+---+---+---+---+---+---+---+
-/// 8 | r | n | b | q | k | b | n | r |
-///   +---+---+---+---+---+---+---+---+
-/// 7 | p | p | p | p | p |   |   | p |
-///   +---+---+---+---+---+---+---+---+
-/// 6 |   |   |   |   |   |   | p |   |
-///   +---+---+---+---+---+---+---+---+
-/// 5 |   |   |   |   |   | p |   | Q |
-///   +---+---+---+---+---+---+---+---+
-/// 4 |   |   |   |   | P |   |   |   |
-///   +---+---+---+---+---+---+---+---+
-/// 3 |   |   |   |   |   |   |   |   |
-///   +---+---+---+---+---+---+---+---+
-/// 2 | P | P | P | P |   | P | P | P |
-///   +---+---+---+---+---+---+---+---+
-/// 1 | R | N | B |   | K | B | N | R |
-///   +---+---+---+---+---+---+---+---+
-///     A   B   C   D   E   F   G   H
 fn print_board(board: &Board) {
     let mut board_str = String::new();
-    board_str.push_str("  +---+---+---+---+---+---+---+---+\n");
+    board_str.push_str("    a   b   c   d   e   f   g   h\n");
+    board_str.push_str("  ┌───┬───┬───┬───┬───┬───┬───┬───┐\n");
     for rank in 0..8 {
         let transposed_rank = 7 - rank;
-        board_str.push_str(&format!("{} |", transposed_rank + 1));
+        board_str.push_str(&format!("{} │", transposed_rank + 1));
         for file in 0..8 {
             let square = from_rank_file(transposed_rank, file);
             let piece = board.get(square);
             let piece_str = match piece {
                 Some((piece, color)) => piece.to_unicode_piece_char(color).to_string(),
-                None => " ".to_string(),
+                None => if (rank + file) % 2 == 0 { " " } else { "·" }.to_string(),
             };
-            board_str.push_str(&format!(" {} |", piece_str));
+            board_str.push_str(&format!(" {} │", piece_str));
         }
-        board_str.push('\n');
-        board_str.push_str("  +---+---+---+---+---+---+---+---+\n");
+        board_str.push_str(&format!(" {}\n", transposed_rank + 1));
+        if rank < 7 {
+            board_str.push_str("  ├───┼───┼───┼───┼───┼───┼───┼───┤\n");
+        } else {
+            board_str.push_str("  └───┴───┴───┴───┴───┴───┴───┴───┘\n");
+        }
     }
-    board_str.push_str("    A   B   C   D   E   F   G   H\n");
+    board_str.push_str("    a   b   c   d   e   f   g   h\n");
     println!("{}", board_str);
 }
