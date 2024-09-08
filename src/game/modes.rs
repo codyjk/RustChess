@@ -11,12 +11,12 @@ use common::bitboard::square::from_rank_file;
 use std::str::FromStr;
 use std::thread::sleep;
 use std::time::{Duration, SystemTime};
-use termion::clear;
+use termion::{clear, cursor};
 
 pub fn play_computer(depth: u8, player_color: Color) {
     let game = &mut Game::new(depth);
 
-    println!("{}", clear::All);
+    print!("{}{}", cursor::Goto(1, 1), clear::All);
     println!("You are {}", player_color);
     print_board(&game.board);
     print_enter_move_prompt();
@@ -54,7 +54,7 @@ pub fn play_computer(depth: u8, player_color: Color) {
         match command.execute(game) {
             Ok(_chess_move) => {
                 let duration = SystemTime::now().duration_since(start_time).unwrap();
-                println!("{}", clear::All);
+                print!("{}{}", cursor::Goto(1, 1), clear::All);
                 game.board.toggle_turn();
 
                 print_board_and_stats(game, enumerated_candidate_moves);
