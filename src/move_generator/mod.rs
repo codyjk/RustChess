@@ -11,10 +11,10 @@ use crate::board::piece::Piece;
 use crate::board::Board;
 use crate::chess_move::capture::Capture;
 use crate::chess_move::castle::CastleChessMove;
+use crate::chess_move::chess_move::ChessMove;
 use crate::chess_move::en_passant::EnPassantChessMove;
 use crate::chess_move::pawn_promotion::PawnPromotionChessMove;
 use crate::chess_move::standard::StandardChessMove;
-use crate::chess_move::ChessMove;
 use common::bitboard::bitboard::Bitboard;
 use common::bitboard::square::*;
 use lru::LruCache;
@@ -375,8 +375,8 @@ fn remove_invalid_moves(
 ) {
     let mut valid_moves = ChessMoveList::new();
 
-    // simulate each chess_move and see if it leaves the player's king in check.
-    // if it does, it's invalid.
+    // Simulate each chess_move and see if it leaves the player's king in check.
+    // If it does, it's invalid.
     for chess_move in candidates.drain(..) {
         chess_move.apply(board).unwrap();
         let king = board.pieces(color).locate(Piece::King);
@@ -394,7 +394,7 @@ fn remove_invalid_moves(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::chess_move::ChessMove;
+    use crate::chess_move::chess_move::ChessMove;
     use crate::{
         castle_kingside, castle_queenside, chess_position, en_passant_move, promotion, std_move,
     };

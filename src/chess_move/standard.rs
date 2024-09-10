@@ -15,7 +15,7 @@ use common::bitboard::{
     square::{self, *},
 };
 
-use super::{pawn_promotion::PawnPromotionChessMove, Capture};
+use super::{capture::Capture, pawn_promotion::PawnPromotionChessMove};
 
 /// Represents a standard chess move. A standard move is a move that does not involve
 /// pawn promotion, en passant, or castling.
@@ -267,7 +267,8 @@ macro_rules! std_move {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{chess_move::ChessMove, chess_position};
+    use crate::chess_move::chess_move::ChessMove;
+    use crate::chess_position;
 
     #[test]
     fn test_apply_chess_move() {

@@ -4,7 +4,7 @@ use common::bitboard::{bitboard::Bitboard, square};
 
 use crate::board::{color::Color, error::BoardError, piece::Piece, Board};
 
-use super::Capture;
+use super::capture::Capture;
 
 /// Represents an en passant chess move.
 #[derive(PartialEq, Clone, Eq, PartialOrd, Ord)]
@@ -140,8 +140,8 @@ macro_rules! en_passant_move {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::chess_move::chess_move::ChessMove;
     use crate::chess_move::standard::StandardChessMove;
-    use crate::chess_move::ChessMove;
     use crate::{chess_position, std_move};
     use common::bitboard::square::*;
 

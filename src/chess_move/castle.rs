@@ -224,8 +224,10 @@ macro_rules! castle_queenside {
 
 #[cfg(test)]
 mod tests {
+    use crate::chess_move::chess_move::ChessMove;
+    use crate::chess_position;
+
     use super::*;
-    use crate::{chess_move::ChessMove, chess_position};
 
     #[test]
     fn test_apply_and_undo_castle_white_kingside() {

@@ -1,5 +1,5 @@
 use crate::board::color::Color;
-use crate::chess_move::ChessMove;
+use crate::chess_move::chess_move::ChessMove;
 use crate::evaluate::GameEnding;
 use crate::game::game::Game;
 use crate::game::stockfish_interface::Stockfish;

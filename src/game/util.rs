@@ -1,5 +1,5 @@
 use crate::board::Board;
-use crate::chess_move::ChessMove;
+use crate::chess_move::chess_move::ChessMove;
 use crate::game::game::Game;
 use common::bitboard::square::from_rank_file;
 

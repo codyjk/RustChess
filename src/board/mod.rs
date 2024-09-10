@@ -242,8 +242,8 @@ mod tests {
 
     use super::*;
     use crate::chess_move::castle::CastleChessMove;
+    use crate::chess_move::chess_move::ChessMove;
     use crate::chess_move::standard::StandardChessMove;
-    use crate::chess_move::ChessMove;
     use common::bitboard::square::*;
 
     #[test]

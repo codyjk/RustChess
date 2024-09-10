@@ -1,6 +1,6 @@
 use common::bitboard::square::square_string_to_bitboard;
 
-use crate::chess_move::ChessMove;
+use crate::chess_move::chess_move::ChessMove;
 
 use super::game::{Game, GameError};
 

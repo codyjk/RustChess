@@ -9,7 +9,7 @@ use crate::{
     move_generator::{ChessMoveList, MoveGenerator},
 };
 
-use super::{castle::CastleChessMove, ChessMove};
+use super::{castle::CastleChessMove, chess_move::ChessMove};
 
 const CAPTURE_CHAR: &str = "x";
 const CASTLE_KINGSIDE_CHARS: &str = "O-O";

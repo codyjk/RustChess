@@ -4,7 +4,8 @@ use common::bitboard::{bitboard::Bitboard, square};
 
 use crate::board::{error::BoardError, piece::Piece, Board};
 
-use super::{standard::StandardChessMove, Capture};
+use super::capture::Capture;
+use super::standard::StandardChessMove;
 
 /// Represents a pawn promotion chess move. The board logic is implemented as
 /// a superset of a standard pawn move, but at the end, the pawn is replaced

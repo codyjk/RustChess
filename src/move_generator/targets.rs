@@ -282,8 +282,8 @@ mod tests {
     use common::bitboard::square::*;
 
     use super::*;
+    use crate::chess_move::chess_move::ChessMove;
     use crate::chess_move::standard::StandardChessMove;
-    use crate::chess_move::ChessMove;
     use crate::{chess_position, std_move};
 
     impl Targets {

@@ -4,7 +4,7 @@ use crate::board::error::BoardError;
 use crate::board::Board;
 use crate::book::Book;
 use crate::chess_move::algebraic_notation::enumerate_candidate_moves_with_algebraic_notation;
-use crate::chess_move::ChessMove;
+use crate::chess_move::chess_move::ChessMove;
 use crate::evaluate::{self, GameEnding};
 use crate::move_generator::MoveGenerator;
 use common::bitboard::bitboard::Bitboard;
@@ -226,8 +226,8 @@ mod tests {
     use super::*;
     use crate::board::castle_rights_bitmask::ALL_CASTLE_RIGHTS;
     use crate::board::piece::Piece;
+    use crate::chess_move::chess_move::ChessMove;
     use crate::chess_move::standard::StandardChessMove;
-    use crate::chess_move::ChessMove;
     use crate::{chess_position, std_move};
     use common::bitboard::square;
 

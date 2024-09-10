@@ -1,6 +1,6 @@
 use crate::board::error::BoardError;
 use crate::board::Board;
-use crate::chess_move::ChessMove;
+use crate::chess_move::chess_move::ChessMove;
 use crate::evaluate;
 use crate::move_generator::MoveGenerator;
 use rustc_hash::FxHashMap;
