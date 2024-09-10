@@ -88,6 +88,23 @@ fn play_game(stockfish: &mut Stockfish, depth: u8) -> (GameResult, Duration, Dur
     let engine_color = Color::random();
 
     loop {
+        if let Some(result) = game.check_game_over_for_current_turn() {
+            return (
+                match result {
+                    GameEnding::Checkmate => {
+                        if game.board().turn() == engine_color {
+                            GameResult::Win
+                        } else {
+                            GameResult::Loss
+                        }
+                    }
+                    _ => GameResult::Draw,
+                },
+                engine_time,
+                stockfish_time,
+            );
+        }
+
         print!("{}{}", clear::All, cursor::Goto(1, 1));
         print_board(game.board());
         println!("Current turn: {}", game.board().turn());
@@ -106,33 +123,11 @@ fn play_game(stockfish: &mut Stockfish, depth: u8) -> (GameResult, Duration, Dur
             stockfish_time += Duration::from_millis(sf_time);
             create_chess_move_from_uci(&sf_move, &game.board())
         };
-        let current_player_str = if game.board().turn() == engine_color {
-            "Engine"
-        } else {
-            "Stockfish"
-        };
 
         game.apply_chess_move(chess_move.clone()).unwrap();
         moves.push(chess_move.to_uci());
-        print_board_and_stats(&mut game, candidate_moves, engine_color);
+        print_board_and_stats(&game, candidate_moves, engine_color);
         game.board_mut().toggle_turn();
-
-        if let Some(result) = game.check_game_over_for_current_turn() {
-            return (
-                match result {
-                    GameEnding::Checkmate => {
-                        if game.board().turn() == Color::Black {
-                            GameResult::Win
-                        } else {
-                            GameResult::Loss
-                        }
-                    }
-                    _ => GameResult::Draw,
-                },
-                engine_time,
-                stockfish_time,
-            );
-        }
     }
 }
 

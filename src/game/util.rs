@@ -5,7 +5,7 @@ use crate::game::game::Game;
 use common::bitboard::square::from_rank_file;
 
 pub fn print_board_and_stats(
-    game: &mut Game,
+    game: &Game,
     enumerated_candidate_moves: Vec<(ChessMove, String)>,
     engine_color: Color,
 ) {
@@ -36,7 +36,6 @@ pub fn print_board_and_stats(
     print_board(game.board());
     println!("* Turn: {}", board.turn());
     println!("* Halfmove clock: {}", board.halfmove_clock());
-    println!("* Score: {}", game.score(board.turn()));
     println!("* Positions searched: {}", searched_position_message);
 }
 
