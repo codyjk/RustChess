@@ -59,7 +59,9 @@ impl EnPassantChessMove {
         };
 
         if board.remove(captures_square).is_none() {
-            return Err(BoardError::EnPassantDidNotResultInCaptureError);
+            return Err(BoardError::EnPassantDidNotResultInCaptureError {
+                chess_move: self.clone(),
+            });
         }
 
         board.reset_halfmove_clock();

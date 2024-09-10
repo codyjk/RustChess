@@ -1,5 +1,7 @@
 use thiserror::Error;
 
+use crate::chess_move::en_passant::EnPassantChessMove;
+
 #[derive(Error, Debug)]
 pub enum BoardError {
     #[error("Cannot put a piece on a square that is already occupied")]
@@ -17,7 +19,7 @@ pub enum BoardError {
     #[error("Cannot undo en passant, the piece is not a pawn")]
     EnPassantNonPawnMoveUndoError,
     #[error("En passant didn't result in a capture")]
-    EnPassantDidNotResultInCaptureError,
+    EnPassantDidNotResultInCaptureError { chess_move: EnPassantChessMove },
     #[error(
         "Invalid castle move, king can only move 2 squares to left or right on its original rank"
     )]
