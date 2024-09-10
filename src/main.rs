@@ -1,8 +1,8 @@
 use chess::board::color::Color;
-use chess::game::modes::{
-    computer_vs_computer, play_computer, player_vs_player, run_count_positions,
-    CountPositionsStrategy,
-};
+use chess::game::computer_vs_computer::computer_vs_computer;
+use chess::game::human_vs_computer::play_computer;
+use chess::game::player_vs_player::player_vs_player;
+use chess::game::position_counter::{run_count_positions, CountPositionsStrategy};
 use structopt::StructOpt;
 
 #[derive(StructOpt, Debug)]

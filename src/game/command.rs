@@ -2,7 +2,7 @@ use common::bitboard::square::square_string_to_bitboard;
 
 use crate::chess_move::ChessMove;
 
-use super::{Game, GameError};
+use super::game::{Game, GameError};
 
 type CommandResult = Result<ChessMove, GameError>;
 
