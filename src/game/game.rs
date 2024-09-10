@@ -125,23 +125,22 @@ impl Game {
         Ok(chess_move)
     }
 
-    pub fn make_alpha_beta_best_move(&mut self) -> Result<ChessMove, GameError> {
-        let best_move = match alpha_beta_search(
+    pub fn select_alpha_beta_best_move(&mut self) -> Result<ChessMove, GameError> {
+        alpha_beta_search(
             &mut self.search_context,
             &mut self.board,
             &mut self.move_generator,
-        ) {
-            Ok(mv) => mv,
-            Err(err) => return Err(GameError::SearchError { error: err }),
-        };
+        )
+        .map_err(|err| GameError::SearchError { error: err })
+    }
 
-        match best_move.apply(&mut self.board) {
-            Ok(_capture) => {
-                self.save_move(best_move.clone());
-                Ok(best_move)
-            }
-            Err(error) => Err(GameError::BoardError { error }),
-        }
+    pub fn make_alpha_beta_best_move(&mut self) -> Result<ChessMove, GameError> {
+        let best_move = self.select_alpha_beta_best_move()?;
+        let result = best_move
+            .apply(&mut self.board)
+            .map_err(|error| GameError::BoardError { error })?;
+        self.save_move(best_move.clone());
+        Ok(best_move)
     }
 
     pub fn make_waterfall_book_then_alpha_beta_move(&mut self) -> Result<ChessMove, GameError> {

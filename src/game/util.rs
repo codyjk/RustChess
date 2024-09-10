@@ -1,8 +1,7 @@
 use crate::board::Board;
 use crate::chess_move::ChessMove;
+use crate::game::game::Game;
 use common::bitboard::square::from_rank_file;
-
-use super::game::Game;
 
 pub fn print_board_and_stats(
     game: &mut Game,
@@ -13,9 +12,8 @@ pub fn print_board_and_stats(
         Some(chess_move) => enumerated_candidate_moves
             .iter()
             .find(|(move_, _)| move_ == &chess_move)
-            .unwrap()
-            .1
-            .clone(),
+            .map(|(_, notation)| notation.clone())
+            .unwrap_or_else(|| "-".to_string()),
         None => "-".to_string(),
     };
     let searched_position_count = game.searched_position_count();

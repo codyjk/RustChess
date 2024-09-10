@@ -3,6 +3,7 @@ use chess::game::computer_vs_computer::computer_vs_computer;
 use chess::game::human_vs_computer::play_computer;
 use chess::game::player_vs_player::player_vs_player;
 use chess::game::position_counter::{run_count_positions, CountPositionsStrategy};
+use chess::game::stockfish_elo::determine_stockfish_elo;
 use structopt::StructOpt;
 
 #[derive(StructOpt, Debug)]
@@ -44,6 +45,16 @@ enum Chess {
         #[structopt(short, long, default_value = "4")]
         depth: u8,
     },
+    #[structopt(
+        name = "determine-stockfish-elo",
+        about = "Determine the ELO rating of the engine by playing against Stockfish."
+    )]
+    DetermineStockfishElo {
+        #[structopt(short, long, default_value = "4")]
+        depth: u8,
+        #[structopt(short, long, default_value = "1000")]
+        starting_elo: u32,
+    },
 }
 
 fn main() {
@@ -56,5 +67,9 @@ fn main() {
         Chess::Play { depth, color } => play_computer(depth, color),
         Chess::Watch { depth } => computer_vs_computer(0, 1000, depth),
         Chess::Pvp => player_vs_player(),
+        Chess::DetermineStockfishElo {
+            depth,
+            starting_elo,
+        } => determine_stockfish_elo(depth, starting_elo),
     }
 }

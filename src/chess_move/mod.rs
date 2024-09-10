@@ -9,6 +9,8 @@ use self::{
     pawn_promotion::PawnPromotionChessMove, standard::StandardChessMove,
 };
 
+use common::bitboard::square::*;
+
 pub mod algebraic_notation;
 pub mod capture;
 pub mod castle;
@@ -16,9 +18,6 @@ pub mod en_passant;
 pub mod pawn_promotion;
 pub mod standard;
 
-/// Represents the different types of chess moves. The lower level structs
-/// in this enum encapsulate the logic for applying the move to, and undoing
-/// the move on, a chess board.
 #[derive(Clone, Eq, PartialOrd, Ord)]
 pub enum ChessMove {
     Standard(StandardChessMove),
@@ -76,6 +75,83 @@ impl ChessMove {
 
         map_ok(result)
     }
+
+    pub fn from_uci(uci: &str) -> Result<Self, String> {
+        use common::bitboard::square::square_string_to_bitboard;
+
+        if uci.len() < 4 || uci.len() > 5 {
+            return Err("Invalid UCI move length".to_string());
+        }
+
+        let from_square = square_string_to_bitboard(&uci[0..2]);
+        let to_square = square_string_to_bitboard(&uci[2..4]);
+
+        if uci.len() == 5 {
+            // Pawn promotion
+            let promotion_piece = match uci.chars().last().unwrap() {
+                'q' => Piece::Queen,
+                'r' => Piece::Rook,
+                'b' => Piece::Bishop,
+                'n' => Piece::Knight,
+                _ => return Err("Invalid promotion piece".to_string()),
+            };
+            Ok(ChessMove::PawnPromotion(PawnPromotionChessMove::new(
+                from_square,
+                to_square,
+                None,
+                promotion_piece,
+            )))
+        } else {
+            // Standard move, en passant, or castling
+            if (from_square == E1 && to_square == G1) || (from_square == E8 && to_square == G8) {
+                Ok(ChessMove::Castle(CastleChessMove::castle_kingside(
+                    if from_square == E1 {
+                        crate::board::color::Color::White
+                    } else {
+                        crate::board::color::Color::Black
+                    },
+                )))
+            } else if (from_square == E1 && to_square == C1)
+                || (from_square == E8 && to_square == C8)
+            {
+                Ok(ChessMove::Castle(CastleChessMove::castle_queenside(
+                    if from_square == E1 {
+                        crate::board::color::Color::White
+                    } else {
+                        crate::board::color::Color::Black
+                    },
+                )))
+            } else {
+                Ok(ChessMove::Standard(StandardChessMove::new(
+                    from_square,
+                    to_square,
+                    None,
+                )))
+            }
+        }
+    }
+
+    pub fn to_uci(&self) -> String {
+        let from = to_algebraic(self.from_square());
+        let to = to_algebraic(self.to_square());
+        match self {
+            ChessMove::PawnPromotion(m) => {
+                format!(
+                    "{}{}{}",
+                    from,
+                    to,
+                    match m.promote_to_piece() {
+                        Piece::Queen => "q",
+                        Piece::Rook => "r",
+                        Piece::Bishop => "b",
+                        Piece::Knight => "n",
+                        _ => panic!("Invalid promotion piece"),
+                    }
+                )
+            }
+            _ => format!("{}{}", from, to),
+        }
+    }
 }
 
 impl fmt::Display for ChessMove {
@@ -114,7 +190,6 @@ impl fmt::Debug for ChessMove {
 
 impl PartialEq for ChessMove {
     fn eq(&self, other: &ChessMove) -> bool {
-        // Call PartialEq on the underlying type if enum is the same
         match (self, other) {
             (ChessMove::Standard(a), ChessMove::Standard(b)) => a == b,
             (ChessMove::PawnPromotion(a), ChessMove::PawnPromotion(b)) => a == b,
