@@ -77,14 +77,20 @@ fn play_game(stockfish: &mut Stockfish, depth: u8) -> (GameResult, Duration, Dur
     let mut engine_time = Duration::new(0, 0);
     let mut stockfish_time = Duration::new(0, 0);
 
+    let engine_color = Color::random();
+
     loop {
         print!("{}{}", clear::All, cursor::Goto(1, 1));
         print_board(game.board());
         println!("Current turn: {}", game.board().turn());
 
         let start_time = Instant::now();
-        let chess_move = if game.board().turn() == Color::White {
-            game.select_alpha_beta_best_move().unwrap()
+        let candidate_moves = game.enumerated_candidate_moves().clone();
+
+        let chess_move = if game.board().turn() == engine_color {
+            let chess_move = game.select_alpha_beta_best_move().unwrap();
+            engine_time += start_time.elapsed();
+            chess_move
         } else {
             let (sf_move, sf_time) = stockfish
                 .get_best_move(&moves.join(" "), TIME_LIMIT)
@@ -92,17 +98,10 @@ fn play_game(stockfish: &mut Stockfish, depth: u8) -> (GameResult, Duration, Dur
             stockfish_time += Duration::from_millis(sf_time);
             ChessMove::from_uci(&sf_move).unwrap()
         };
-        let elapsed_time = start_time.elapsed();
-
-        if game.board().turn() == Color::White {
-            engine_time += elapsed_time;
-        } else {
-            stockfish_time += elapsed_time;
-        }
 
         game.apply_chess_move(chess_move.clone()).unwrap();
         moves.push(chess_move.to_uci());
-        let candidate_moves = game.enumerated_candidate_moves().clone();
+        game.board_mut().toggle_turn();
 
         print_board_and_stats(&mut game, candidate_moves);
 
@@ -122,8 +121,6 @@ fn play_game(stockfish: &mut Stockfish, depth: u8) -> (GameResult, Duration, Dur
                 stockfish_time,
             );
         }
-
-        game.board_mut().toggle_turn();
 
         std::thread::sleep(Duration::from_millis(500)); // Add a small delay to make the game visible
     }

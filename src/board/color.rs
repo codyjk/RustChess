@@ -32,7 +32,7 @@ impl Color {
         }
     }
 
-    fn random() -> Self {
+    pub fn random() -> Self {
         *Self::ALL.choose(&mut rand::thread_rng()).unwrap()
     }
 }
