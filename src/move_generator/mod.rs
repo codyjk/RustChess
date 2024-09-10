@@ -12,9 +12,11 @@ use crate::board::Board;
 use crate::chess_move::capture::Capture;
 use crate::chess_move::castle::CastleChessMove;
 use crate::chess_move::chess_move::ChessMove;
+use crate::chess_move::chess_move_effect::ChessMoveEffect;
 use crate::chess_move::en_passant::EnPassantChessMove;
 use crate::chess_move::pawn_promotion::PawnPromotionChessMove;
 use crate::chess_move::standard::StandardChessMove;
+use crate::evaluate::{player_is_in_check, player_is_in_checkmate};
 use common::bitboard::bitboard::Bitboard;
 use common::bitboard::square::*;
 use lru::LruCache;
@@ -70,27 +72,70 @@ impl MoveGenerator {
         self.hit_count = 0;
     }
 
-    pub fn generate_moves(&mut self, board: &mut Board, color: Color) -> ChessMoveList {
-        let key = (board.current_position_hash(), color as u8);
+    pub fn generate_moves_and_lazily_update_chess_move_effects(
+        &mut self,
+        board: &mut Board,
+        player: Color,
+    ) -> ChessMoveList {
+        let mut moves = self.generate_moves(board, player);
+        self.lazily_update_chess_move_effect_for_checks_and_checkmates(&mut moves, board, player);
+        moves
+    }
+
+    pub fn generate_moves(&mut self, board: &mut Board, player: Color) -> ChessMoveList {
+        let key = (board.current_position_hash(), player as u8);
         if let Some(moves) = self.cache.get(&key) {
             self.hit_count += 1;
             return moves.clone();
         }
 
-        let moves = generate_valid_moves(board, color, &mut self.targets);
+        let moves = generate_valid_moves(board, player, &mut self.targets);
         self.cache.put(key, moves.clone());
         moves
     }
 
-    pub fn count_positions(&mut self, depth: u8, board: &mut Board, color: Color) -> usize {
-        let candidates = self.generate_moves(board, color);
+    fn lazily_update_chess_move_effect_for_checks_and_checkmates(
+        &mut self,
+        moves: &mut ChessMoveList,
+        board: &mut Board,
+        player: Color,
+    ) {
+        let opponent = player.opposite();
+        for chess_move in moves.iter_mut() {
+            self.lazily_calculate_chess_move_effect(chess_move, board, opponent);
+        }
+    }
+
+    fn lazily_calculate_chess_move_effect(
+        &mut self,
+        chess_move: &mut ChessMove,
+        board: &mut Board,
+        player: Color,
+    ) -> ChessMoveEffect {
+        chess_move.apply(board).unwrap();
+        let chess_move_effect = if player_is_in_checkmate(board, self, player) {
+            ChessMoveEffect::Checkmate
+        } else if player_is_in_check(board, self, player) {
+            ChessMoveEffect::Check
+        } else {
+            ChessMoveEffect::None
+        };
+        chess_move.undo(board).unwrap();
+
+        chess_move.set_effect(chess_move_effect);
+
+        chess_move_effect
+    }
+
+    pub fn count_positions(&mut self, depth: u8, board: &mut Board, player: Color) -> usize {
+        let candidates = self.generate_moves(board, player);
         let initial_count = candidates.len();
 
         if depth == 0 {
             return initial_count;
         }
 
-        let next_color = color.opposite();
+        let next_player = player.opposite();
 
         // `par_iter` is a rayon primitive that allows for parallel iteration over a collection.
         let inner_counts = candidates.par_iter().map(|chess_move| {
@@ -101,7 +146,7 @@ impl MoveGenerator {
             let local_count = count_positions_inner(
                 depth - 1,
                 &mut local_board,
-                next_color,
+                next_player,
                 &mut local_move_generator,
             );
             chess_move.undo(&mut local_board).unwrap();
@@ -111,16 +156,17 @@ impl MoveGenerator {
         initial_count + inner_counts.sum::<usize>()
     }
 
-    pub fn get_attack_targets(&mut self, board: &Board, color: Color) -> Bitboard {
+    pub fn get_attack_targets(&mut self, board: &Board, player: Color) -> Bitboard {
         let board_hash = board.current_position_hash();
 
-        if let Some(cached_targets) = self.targets.get_cached_attack(color, board_hash) {
+        if let Some(cached_targets) = self.targets.get_cached_attack(player, board_hash) {
             return cached_targets;
         }
 
-        let attack_targets = self.targets.generate_attack_targets(board, color);
+        let attack_targets = self.targets.generate_attack_targets(board, player);
 
-        self.targets.cache_attack(color, board_hash, attack_targets);
+        self.targets
+            .cache_attack(player, board_hash, attack_targets);
 
         attack_targets
     }
@@ -445,11 +491,13 @@ mod tests {
 
         let mut white_moves = smallvec![];
         generate_pawn_moves(&mut white_moves, &board, Color::White);
+        chess_move_list_with_effect_set_to_none(&mut white_moves);
         white_moves.sort();
         assert_eq!(expected_white_moves, white_moves);
 
         let mut black_moves = smallvec![];
         generate_pawn_moves(&mut black_moves, &board, Color::Black);
+        chess_move_list_with_effect_set_to_none(&mut black_moves);
         black_moves.sort();
         assert_eq!(expected_black_moves, black_moves);
     }
@@ -474,6 +522,7 @@ mod tests {
 
         let mut moves = smallvec![];
         generate_pawn_moves(&mut moves, &board, Color::White);
+        chess_move_list_with_effect_set_to_none(&mut moves);
         moves.sort();
 
         assert_eq!(expected_moves, moves);
@@ -515,11 +564,13 @@ mod tests {
 
         let mut white_moves = smallvec![];
         generate_knight_moves(&mut white_moves, &board, Color::White, &targets);
+        chess_move_list_with_effect_set_to_none(&mut white_moves);
         white_moves.sort();
         assert_eq!(expected_white_moves, white_moves);
 
         let mut black_moves = smallvec![];
         generate_knight_moves(&mut black_moves, &board, Color::Black, &targets);
+        chess_move_list_with_effect_set_to_none(&mut black_moves);
         black_moves.sort();
         assert_eq!(expected_black_moves, black_moves);
     }
@@ -554,6 +605,7 @@ mod tests {
 
         let mut moves = smallvec![];
         generate_sliding_moves(&mut moves, &board, Color::White, &Targets::new());
+        chess_move_list_with_effect_set_to_none(&mut moves);
         moves.sort();
 
         assert_eq!(expected_moves, moves);
@@ -578,6 +630,7 @@ mod tests {
 
         let mut moves = smallvec![];
         generate_sliding_moves(&mut moves, &board, Color::White, &Targets::new());
+        chess_move_list_with_effect_set_to_none(&mut moves);
         moves.sort();
 
         assert_eq!(expected_moves, moves);
@@ -610,6 +663,7 @@ mod tests {
 
         let mut moves = smallvec![];
         generate_sliding_moves(&mut moves, &board, Color::White, &Targets::new());
+        chess_move_list_with_effect_set_to_none(&mut moves);
         moves.sort();
 
         assert_eq!(expected_moves, moves);
@@ -662,6 +716,7 @@ mod tests {
 
         let mut moves = smallvec![];
         generate_sliding_moves(&mut moves, &board, Color::White, &Targets::new());
+        chess_move_list_with_effect_set_to_none(&mut moves);
         moves.sort();
 
         assert_eq!(expected_moves, moves);
@@ -687,6 +742,7 @@ mod tests {
 
         let mut moves = smallvec![];
         generate_king_moves(&mut moves, &board, Color::White, &Targets::new());
+        chess_move_list_with_effect_set_to_none(&mut moves);
         moves.sort();
 
         assert_eq!(expected_moves, moves);
@@ -717,6 +773,7 @@ mod tests {
 
         let mut moves = smallvec![];
         generate_king_moves(&mut moves, &board, Color::White, &Targets::new());
+        chess_move_list_with_effect_set_to_none(&mut moves);
         moves.sort();
 
         assert_eq!(expected_moves, moves);
@@ -749,6 +806,7 @@ mod tests {
 
         let mut moves = smallvec![];
         generate_king_moves(&mut moves, &board, Color::White, &Targets::new());
+        chess_move_list_with_effect_set_to_none(&mut moves);
         moves.sort();
 
         assert_eq!(expected_moves, moves);
@@ -780,6 +838,7 @@ mod tests {
 
         let mut moves = smallvec![];
         generate_pawn_moves(&mut moves, &board, Color::Black);
+        chess_move_list_with_effect_set_to_none(&mut moves);
         moves.sort();
 
         assert_eq!(expected_black_moves, moves);
@@ -815,10 +874,12 @@ mod tests {
 
         let mut white_moves = smallvec![];
         generate_castle_moves(&mut white_moves, &board, Color::White, &mut targets);
+        chess_move_list_with_effect_set_to_none(&mut white_moves);
         white_moves.sort();
 
         let mut black_moves = smallvec![];
         generate_castle_moves(&mut black_moves, &board, Color::Black, &mut targets);
+        chess_move_list_with_effect_set_to_none(&mut black_moves);
         black_moves.sort();
 
         assert_eq!(
@@ -854,9 +915,11 @@ mod tests {
 
         let mut white_moves = smallvec![];
         generate_castle_moves(&mut white_moves, &board, Color::White, &mut targets);
+        chess_move_list_with_effect_set_to_none(&mut white_moves);
 
         let mut black_moves = smallvec![];
         generate_castle_moves(&mut black_moves, &board, Color::Black, &mut targets);
+        chess_move_list_with_effect_set_to_none(&mut black_moves);
 
         assert_eq!(expected_white_moves, white_moves);
         assert_eq!(expected_black_moves, black_moves);
@@ -879,7 +942,18 @@ mod tests {
         let expected_white_moves: ChessMoveList = smallvec![];
         let mut white_moves = smallvec![];
         generate_castle_moves(&mut white_moves, &board, Color::White, &mut Targets::new());
+        chess_move_list_with_effect_set_to_none(&mut white_moves);
 
         assert_eq!(expected_white_moves, white_moves);
+    }
+
+    /// The lower level `move_generator` functions generate chess moves before their
+    /// effect (check, checkmate, etc.) is calculated. At this stage, the effect
+    /// is set to `NotYetCalculated`. This macro sets the effect to `None` for
+    /// all chess moves in a list to simplify testing.
+    fn chess_move_list_with_effect_set_to_none(chess_move_list: &mut ChessMoveList) {
+        for chess_move in chess_move_list.iter_mut() {
+            chess_move.set_effect(ChessMoveEffect::None);
+        }
     }
 }

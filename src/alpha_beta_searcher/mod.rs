@@ -81,7 +81,8 @@ pub fn alpha_beta_search(
 
     let current_player = board.turn();
     let current_player_is_maximizing = current_player.maximize_score();
-    let candidates = move_generator.generate_moves(board, current_player);
+    let candidates =
+        move_generator.generate_moves_and_lazily_update_chess_move_effects(board, current_player);
 
     // First, score each of the candidates. Note: `par_iter` is a rayon
     // primitive that allows for parallel iteration over a collection.
@@ -180,7 +181,9 @@ fn alpha_beta_minimax(
         return Ok(score);
     }
 
-    let candidates = move_generator.generate_moves(board, current_turn);
+    let candidates =
+        move_generator.generate_moves_and_lazily_update_chess_move_effects(board, current_turn);
+
     if candidates.is_empty() {
         let score = evaluate::score(board, move_generator, current_turn, depth);
         trace!(
@@ -270,8 +273,9 @@ mod tests {
     use crate::board::color::Color;
     use crate::board::piece::Piece;
     use crate::chess_move::capture::Capture;
+    use crate::chess_move::chess_move_effect::ChessMoveEffect;
     use crate::chess_move::standard::StandardChessMove;
-    use crate::{chess_position, std_move};
+    use crate::{check_move, checkmate_move, chess_position, std_move};
     use common::bitboard::bitboard::Bitboard;
     use common::bitboard::square::*;
 
@@ -296,7 +300,11 @@ mod tests {
 
         let chess_move =
             alpha_beta_search(&mut search_context, &mut board, &mut move_generator).unwrap();
-        let valid_checkmates = [std_move!(B8, B2), std_move!(B8, A8), std_move!(B8, A7)];
+        let valid_checkmates = [
+            checkmate_move!(std_move!(B8, B2)),
+            checkmate_move!(std_move!(B8, A8)),
+            checkmate_move!(std_move!(B8, A7)),
+        ];
         assert!(
             valid_checkmates.contains(&chess_move),
             "{} does not lead to checkmate",
@@ -326,7 +334,11 @@ mod tests {
         let chess_move =
             alpha_beta_search(&mut search_context, &mut board, &mut move_generator).unwrap();
 
-        let valid_checkmates = [std_move!(B8, B2), std_move!(B8, A8), std_move!(B8, A7)];
+        let valid_checkmates = [
+            checkmate_move!(std_move!(B8, B2)),
+            checkmate_move!(std_move!(B8, A8)),
+            checkmate_move!(std_move!(B8, A7)),
+        ];
         assert!(
             valid_checkmates.contains(&chess_move),
             "{} does not lead to checkmate",
@@ -355,9 +367,9 @@ mod tests {
         println!("Testing board:\n{}", board);
 
         let expected_moves = [
-            std_move!(D2, D8),
+            check_move!(std_move!(D2, D8)),
             std_move!(H8, D8, Capture(Piece::Queen)),
-            std_move!(D1, D8, Capture(Piece::Rook)),
+            checkmate_move!(std_move!(D1, D8, Capture(Piece::Rook))),
         ];
         let mut expected_move_iter = expected_moves.iter();
 
@@ -404,9 +416,9 @@ mod tests {
         println!("Testing board:\n{}", board);
 
         let expected_moves = [
-            std_move!(E7, E1),
+            check_move!(std_move!(E7, E1)),
             std_move!(A1, E1, Capture(Piece::Queen)),
-            std_move!(E8, E1, Capture(Piece::Rook)),
+            checkmate_move!(std_move!(E8, E1, Capture(Piece::Rook))),
         ];
         let mut expected_move_iter = expected_moves.iter();
 

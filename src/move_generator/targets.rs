@@ -279,6 +279,7 @@ pub fn generate_king_targets_table() -> [Bitboard; 64] {
 
 #[cfg(test)]
 mod tests {
+    use crate::chess_move::chess_move_effect::ChessMoveEffect;
     use common::bitboard::square::*;
 
     use super::*;

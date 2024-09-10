@@ -5,6 +5,7 @@ use common::bitboard::{bitboard::Bitboard, square};
 use crate::board::{color::Color, error::BoardError, piece::Piece, Board};
 
 use super::capture::Capture;
+use super::chess_move_effect::ChessMoveEffect;
 
 /// Represents an en passant chess move.
 #[derive(PartialEq, Clone, Eq, PartialOrd, Ord)]
@@ -14,6 +15,8 @@ pub struct EnPassantChessMove {
 
     /// The square the pawn is moving to.
     to_square: Bitboard,
+
+    effect: ChessMoveEffect,
 }
 
 impl EnPassantChessMove {
@@ -21,6 +24,7 @@ impl EnPassantChessMove {
         Self {
             from_square,
             to_square,
+            effect: ChessMoveEffect::NotYetCalculated,
         }
     }
 
@@ -34,6 +38,14 @@ impl EnPassantChessMove {
 
     pub fn captures(&self) -> Capture {
         Capture(Piece::Pawn)
+    }
+
+    pub fn effect(&self) -> ChessMoveEffect {
+        self.effect
+    }
+
+    pub fn set_effect(&mut self, effect: ChessMoveEffect) {
+        self.effect = effect;
     }
 
     pub fn apply(&self, board: &mut Board) -> Result<(), BoardError> {
@@ -115,11 +127,17 @@ impl EnPassantChessMove {
 
 impl fmt::Display for EnPassantChessMove {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let check_or_checkmate_msg = match self.effect() {
+            ChessMoveEffect::Check => "check",
+            ChessMoveEffect::Checkmate => "checkmate",
+            _ => "",
+        };
         write!(
             f,
-            "en passant {} {}",
+            "en passant {} {}{}",
             square::to_algebraic(self.from_square).to_lowercase(),
             square::to_algebraic(self.to_square).to_lowercase(),
+            check_or_checkmate_msg,
         )
     }
 }
@@ -132,9 +150,11 @@ impl fmt::Debug for EnPassantChessMove {
 
 #[macro_export]
 macro_rules! en_passant_move {
-    ($from:expr, $to:expr) => {
-        ChessMove::EnPassant(EnPassantChessMove::new($from, $to))
-    };
+    ($from:expr, $to:expr) => {{
+        let mut chess_move = ChessMove::EnPassant(EnPassantChessMove::new($from, $to));
+        chess_move.set_effect(ChessMoveEffect::None);
+        chess_move
+    }};
 }
 
 #[cfg(test)]

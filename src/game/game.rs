@@ -162,7 +162,7 @@ impl Game {
         let (from_square, to_square) = book_moves[rng];
         let candidates = self
             .move_generator
-            .generate_moves(&mut self.board, current_turn);
+            .generate_moves_and_lazily_update_chess_move_effects(&mut self.board, current_turn);
 
         let maybe_chess_move = candidates
             .iter()
@@ -232,6 +232,7 @@ mod tests {
     use crate::board::castle_rights_bitmask::ALL_CASTLE_RIGHTS;
     use crate::board::piece::Piece;
     use crate::chess_move::chess_move::ChessMove;
+    use crate::chess_move::chess_move_effect::ChessMoveEffect;
     use crate::chess_move::standard::StandardChessMove;
     use crate::{chess_position, std_move};
     use common::bitboard::square;

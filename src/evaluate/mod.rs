@@ -28,10 +28,30 @@ pub enum GameEnding {
 #[inline(always)]
 pub fn current_player_is_in_check(board: &Board, move_generator: &mut MoveGenerator) -> bool {
     let current_player = board.turn();
-    let king = board.pieces(current_player).locate(Piece::King);
-    let attacked_squares = move_generator.get_attack_targets(board, current_player.opposite());
+    player_is_in_check(board, move_generator, current_player)
+}
+
+#[inline(always)]
+pub fn player_is_in_check(
+    board: &Board,
+    move_generator: &mut MoveGenerator,
+    player: Color,
+) -> bool {
+    let king = board.pieces(player).locate(Piece::King);
+    let attacked_squares = move_generator.get_attack_targets(board, player.opposite());
 
     king.overlaps(attacked_squares)
+}
+
+#[inline(always)]
+pub fn player_is_in_checkmate(
+    board: &mut Board,
+    move_generator: &mut MoveGenerator,
+    player: Color,
+) -> bool {
+    let candidates = move_generator.generate_moves(board, player);
+    let check = player_is_in_check(board, move_generator, player);
+    return check && candidates.is_empty();
 }
 
 /// Returns the game ending state if the game has ended, otherwise returns None.
@@ -292,5 +312,65 @@ mod tests {
 
         let black_score = player_material_score(&board, Color::Black);
         assert_eq!(black_score, 150);
+    }
+
+    #[test]
+    fn test_player_is_in_check() {
+        let mut move_generator = MoveGenerator::new();
+        let mut board = chess_position! {
+            .......k
+            .....ppp
+            ........
+            ...b....
+            ........
+            ........
+            .Q......
+            K......q
+        };
+        board.lose_castle_rights(ALL_CASTLE_RIGHTS);
+        board.set_turn(Color::White);
+
+        println!("Testing board:\n{}", board);
+
+        assert!(player_is_in_check(
+            &board,
+            &mut move_generator,
+            Color::White
+        ));
+        assert!(!player_is_in_check(
+            &board,
+            &mut move_generator,
+            Color::Black
+        ));
+    }
+
+    #[test]
+    fn test_player_is_in_checkmate() {
+        let mut move_generator = MoveGenerator::new();
+        let mut board = chess_position! {
+            .......k
+            ........
+            ........
+            ........
+            ........
+            ........
+            PPP.....
+            .K.....r
+        };
+        board.lose_castle_rights(ALL_CASTLE_RIGHTS);
+        board.set_turn(Color::White);
+
+        println!("Testing board:\n{}", board);
+
+        assert!(player_is_in_checkmate(
+            &mut board,
+            &mut move_generator,
+            Color::White
+        ));
+        assert!(!player_is_in_checkmate(
+            &mut board,
+            &mut move_generator,
+            Color::Black
+        ));
     }
 }

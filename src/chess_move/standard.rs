@@ -16,7 +16,9 @@ use common::bitboard::{
 };
 use log::debug;
 
-use super::{capture::Capture, pawn_promotion::PawnPromotionChessMove};
+use super::{
+    capture::Capture, chess_move_effect::ChessMoveEffect, pawn_promotion::PawnPromotionChessMove,
+};
 
 /// Represents a standard chess move. A standard move is a move that does not involve
 /// pawn promotion, en passant, or castling.
@@ -25,6 +27,7 @@ pub struct StandardChessMove {
     from_square: Bitboard,
     to_square: Bitboard,
     captures: Option<Capture>,
+    effect: ChessMoveEffect,
 }
 
 impl StandardChessMove {
@@ -33,6 +36,7 @@ impl StandardChessMove {
             from_square,
             to_square,
             captures,
+            effect: ChessMoveEffect::NotYetCalculated,
         }
     }
 
@@ -48,11 +52,20 @@ impl StandardChessMove {
         self.captures
     }
 
+    pub fn effect(&self) -> ChessMoveEffect {
+        self.effect
+    }
+
+    pub fn set_effect(&mut self, effect: ChessMoveEffect) {
+        self.effect = effect;
+    }
+
     pub fn apply(&self, board: &mut Board) -> Result<(), BoardError> {
         let StandardChessMove {
             from_square,
             to_square,
             captures,
+            ..
         } = self;
 
         let (piece_to_move, color_of_piece_to_move) = board
@@ -105,6 +118,7 @@ impl StandardChessMove {
             from_square,
             to_square,
             captures,
+            ..
         } = self;
 
         // Remove the moved piece.
@@ -243,13 +257,19 @@ impl fmt::Display for StandardChessMove {
             Some(capture) => format!(" (captures {})", capture.0),
             None => "".to_string(),
         };
+        let check_or_checkmate_msg = match self.effect {
+            ChessMoveEffect::Check => " (check)",
+            ChessMoveEffect::Checkmate => " (checkmate)",
+            _ => "",
+        };
 
         write!(
             f,
-            "move {}{}{}",
+            "move {}{}{}{}",
             square::to_algebraic(self.from_square).to_lowercase(),
             square::to_algebraic(self.to_square).to_lowercase(),
-            captures_msg
+            captures_msg,
+            check_or_checkmate_msg
         )
     }
 }
@@ -262,12 +282,17 @@ impl fmt::Debug for StandardChessMove {
 
 #[macro_export]
 macro_rules! std_move {
-    ($from:expr, $to:expr, $captures:expr) => {
-        ChessMove::Standard(StandardChessMove::new($from, $to, Some($captures)))
-    };
-    ($from:expr, $to:expr) => {
-        ChessMove::Standard(StandardChessMove::new($from, $to, None))
-    };
+    ($from:expr, $to:expr, $captures:expr) => {{
+        let mut chess_move =
+            ChessMove::Standard(StandardChessMove::new($from, $to, Some($captures)));
+        chess_move.set_effect(ChessMoveEffect::None);
+        chess_move
+    }};
+    ($from:expr, $to:expr) => {{
+        let mut chess_move = ChessMove::Standard(StandardChessMove::new($from, $to, None));
+        chess_move.set_effect(ChessMoveEffect::None);
+        chess_move
+    }};
 }
 
 #[cfg(test)]

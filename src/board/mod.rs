@@ -238,6 +238,7 @@ impl Board {
 
 #[cfg(test)]
 mod tests {
+    use crate::chess_move::chess_move_effect::ChessMoveEffect;
     use crate::{castle_kingside, std_move};
 
     use super::*;
