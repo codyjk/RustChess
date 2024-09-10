@@ -136,7 +136,7 @@ impl Game {
 
     pub fn make_alpha_beta_best_move(&mut self) -> Result<ChessMove, GameError> {
         let best_move = self.select_alpha_beta_best_move()?;
-        let result = best_move
+        best_move
             .apply(&mut self.board)
             .map_err(|error| GameError::BoardError { error })?;
         self.save_move(best_move.clone());

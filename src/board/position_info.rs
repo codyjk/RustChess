@@ -66,9 +66,7 @@ impl PositionInfo {
     ) {
         let square_num = square.trailing_zeros();
         let piece_hash = ZOBRIST_PIECES_TABLE[piece as usize][square_num as usize][color as usize];
-        let hash_before = self.current_position_hash;
         self.current_position_hash ^= piece_hash;
-        let hash_after = self.current_position_hash;
     }
 
     pub fn update_zobrist_hash_toggle_en_passant_target(&mut self, square: Bitboard) {

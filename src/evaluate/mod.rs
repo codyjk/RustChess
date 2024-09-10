@@ -1,5 +1,4 @@
 use common::bitboard::bitboard::Bitboard;
-use common::bitboard::square::to_algebraic;
 
 use crate::board::color::Color;
 use crate::board::piece::{Piece, ALL_PIECES};
@@ -120,8 +119,6 @@ fn material_score(board: &Board, color: Color) -> i16 {
             let bonus = bonus_table[index_lookup[i]];
 
             material += piece_value + bonus;
-
-            let square_name = to_algebraic(sq);
         }
     }
 

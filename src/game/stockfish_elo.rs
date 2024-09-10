@@ -124,7 +124,7 @@ fn play_game(stockfish: &mut Stockfish, depth: u8) -> (GameResult, Duration, Dur
     }
 }
 
-fn is_elo_determined(wins: usize, losses: usize, total_games: usize) -> bool {
+fn is_elo_determined(wins: usize, _losses: usize, total_games: usize) -> bool {
     total_games >= GAMES_PER_ELO && (wins as f32 / total_games as f32 - 0.5).abs() < 0.1
 }
 
