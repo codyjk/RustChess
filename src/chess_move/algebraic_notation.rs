@@ -5,11 +5,10 @@ use common::bitboard::{
 
 use crate::{
     board::{color::Color, piece::Piece, Board},
-    evaluate::{current_player_is_in_check, game_ending, GameEnding},
     move_generator::{ChessMoveList, MoveGenerator},
 };
 
-use super::{castle::CastleChessMove, chess_move::ChessMove};
+use super::{castle::CastleChessMove, chess_move::ChessMove, chess_move_effect::ChessMoveEffect};
 
 const CAPTURE_CHAR: &str = "x";
 const CASTLE_KINGSIDE_CHARS: &str = "O-O";
@@ -37,13 +36,13 @@ pub fn enumerate_candidate_moves_with_algebraic_notation(
     current_player_color: Color,
     move_generator: &mut MoveGenerator,
 ) -> Vec<(ChessMove, String)> {
-    let candidate_moves = move_generator.generate_moves(board, current_player_color);
+    let candidate_moves = move_generator
+        .generate_moves_and_lazily_update_chess_move_effects(board, current_player_color);
     let mut moves = Vec::new();
 
     candidate_moves.iter().for_each(|chess_move| {
         let algebraic_move =
-            chess_move_to_algebraic_notation(chess_move, board, &candidate_moves, move_generator)
-                .unwrap();
+            chess_move_to_algebraic_notation(chess_move, board, &candidate_moves).unwrap();
         moves.push((chess_move.clone(), algebraic_move));
     });
 
@@ -54,9 +53,8 @@ fn chess_move_to_algebraic_notation(
     chess_move: &ChessMove,
     board: &mut Board,
     candidate_moves: &ChessMoveList,
-    move_generator: &mut MoveGenerator,
 ) -> Result<String, String> {
-    let check_or_checkmate_char = get_check_or_checkmate_char(chess_move, board, move_generator);
+    let check_or_checkmate_char = get_check_or_checkmate_char(chess_move);
     if let ChessMove::Castle(castle_move) = chess_move {
         return Ok(format!(
             "{}{}",
@@ -166,46 +164,12 @@ fn get_disambiguating_chars(
     }
 }
 
-fn get_check_or_checkmate_char<'a>(
-    chess_move: &ChessMove,
-    board: &mut Board,
-    move_generator: &mut MoveGenerator,
-) -> &'a str {
-    if move_puts_opponent_in_checkmate(chess_move, board, move_generator) {
-        CHECKMATE_CHAR
-    } else if move_puts_opponent_in_check(chess_move, board, move_generator) {
-        CHECK_CHAR
-    } else {
-        EMPTY_STRING
+fn get_check_or_checkmate_char<'a>(chess_move: &ChessMove) -> &'a str {
+    match chess_move.effect() {
+        ChessMoveEffect::Check => CHECK_CHAR,
+        ChessMoveEffect::Checkmate => CHECKMATE_CHAR,
+        _ => EMPTY_STRING,
     }
-}
-
-fn move_puts_opponent_in_check(
-    chess_move: &ChessMove,
-    board: &mut Board,
-    move_generator: &mut MoveGenerator,
-) -> bool {
-    chess_move.apply(board).unwrap();
-    board.toggle_turn();
-    let is_check = current_player_is_in_check(board, move_generator);
-    chess_move.undo(board).unwrap();
-    board.toggle_turn();
-
-    is_check
-}
-
-fn move_puts_opponent_in_checkmate(
-    chess_move: &ChessMove,
-    board: &mut Board,
-    move_generator: &mut MoveGenerator,
-) -> bool {
-    chess_move.apply(board).unwrap();
-    board.toggle_turn();
-    let game_ending = game_ending(board, move_generator, board.turn());
-    chess_move.undo(board).unwrap();
-    board.toggle_turn();
-
-    matches!(game_ending, Some(GameEnding::Checkmate))
 }
 
 fn get_capture_char(chess_move: &ChessMove) -> &str {
@@ -237,7 +201,8 @@ mod tests {
     };
     use crate::chess_move::capture::Capture;
     use crate::{
-        castle_kingside, castle_queenside, chess_position, en_passant_move, promotion, std_move,
+        castle_kingside, castle_queenside, check_move, checkmate_move, chess_position,
+        en_passant_move, promotion, std_move,
     };
 
     use super::*;
@@ -248,15 +213,10 @@ mod tests {
 
     macro_rules! assert_move_has_algebraic_notation {
         ($board:expr, $color:expr, $move:expr, $notation:expr) => {
-            let candidate_moves = MoveGenerator::new().generate_moves(&mut $board, $color);
+            let candidate_moves = MoveGenerator::new()
+                .generate_moves_and_lazily_update_chess_move_effects(&mut $board, $color);
             assert_eq!(
-                chess_move_to_algebraic_notation(
-                    &$move,
-                    &mut $board,
-                    &candidate_moves,
-                    &mut MoveGenerator::new()
-                )
-                .unwrap(),
+                chess_move_to_algebraic_notation(&$move, &mut $board, &candidate_moves,).unwrap(),
                 $notation
             );
         };
@@ -364,7 +324,7 @@ mod tests {
         assert_move_has_algebraic_notation!(
             &mut board,
             Color::White,
-            castle_queenside!(Color::White),
+            check_move!(castle_queenside!(Color::White)),
             "O-O-O+"
         );
     }
@@ -385,10 +345,12 @@ mod tests {
             WHITE_KINGSIDE_RIGHTS | BLACK_KINGSIDE_RIGHTS | BLACK_QUEENSIDE_RIGHTS,
         );
 
+        println!("Testing board:\n{}", board);
+
         assert_move_has_algebraic_notation!(
             &mut board,
             Color::White,
-            castle_queenside!(Color::White),
+            checkmate_move!(castle_queenside!(Color::White)),
             "O-O-O#"
         );
     }
@@ -551,7 +513,7 @@ mod tests {
         assert_move_has_algebraic_notation!(
             &mut board,
             Color::White,
-            promotion!(C7, C8, None, Piece::Queen),
+            check_move!(promotion!(C7, C8, None, Piece::Queen)),
             "c8=Q+"
         );
     }
@@ -574,7 +536,7 @@ mod tests {
         assert_move_has_algebraic_notation!(
             &mut board,
             Color::White,
-            promotion!(C7, D8, Some(Capture(Piece::Rook)), Piece::Queen),
+            check_move!(promotion!(C7, D8, Some(Capture(Piece::Rook)), Piece::Queen)),
             "cxd8=Q+"
         );
     }
@@ -594,7 +556,12 @@ mod tests {
         board.set_turn(Color::White);
         board.lose_castle_rights(ALL_CASTLE_RIGHTS);
 
-        assert_move_has_algebraic_notation!(&mut board, Color::White, std_move!(D4, D5), "d5+");
+        assert_move_has_algebraic_notation!(
+            &mut board,
+            Color::White,
+            check_move!(std_move!(D4, D5)),
+            "d5+"
+        );
     }
 
     #[test]
@@ -615,7 +582,7 @@ mod tests {
         assert_move_has_algebraic_notation!(
             &mut board,
             Color::White,
-            std_move!(D4, E5, Capture(Piece::Pawn)),
+            check_move!(std_move!(D4, E5, Capture(Piece::Pawn))),
             "dxe5+"
         );
     }
@@ -636,18 +603,38 @@ mod tests {
         board.set_turn(Color::White);
         board.lose_castle_rights(ALL_CASTLE_RIGHTS);
 
-        assert_move_has_algebraic_notation!(&mut board, Color::White, std_move!(A7, A8), "Qaa8#");
-
-        assert_move_has_algebraic_notation!(&mut board, Color::White, std_move!(A7, B8), "Qab8#");
-
-        assert_move_has_algebraic_notation!(&mut board, Color::White, std_move!(B7, B8), "Qbb8#");
-
-        assert_move_has_algebraic_notation!(&mut board, Color::White, std_move!(B7, A8), "Qba8#");
+        assert_move_has_algebraic_notation!(
+            &mut board,
+            Color::White,
+            checkmate_move!(std_move!(A7, A8)),
+            "Qaa8#"
+        );
 
         assert_move_has_algebraic_notation!(
             &mut board,
             Color::White,
-            std_move!(B7, H7),
+            checkmate_move!(std_move!(A7, B8)),
+            "Qab8#"
+        );
+
+        assert_move_has_algebraic_notation!(
+            &mut board,
+            Color::White,
+            checkmate_move!(std_move!(B7, B8)),
+            "Qbb8#"
+        );
+
+        assert_move_has_algebraic_notation!(
+            &mut board,
+            Color::White,
+            checkmate_move!(std_move!(B7, A8)),
+            "Qba8#"
+        );
+
+        assert_move_has_algebraic_notation!(
+            &mut board,
+            Color::White,
+            checkmate_move!(std_move!(B7, H7)),
             // The rightmost queen is the only one able to make it to h7, so it
             // should not be disambiguated (e.g. it is not Qbh7#)
             "Qh7#"

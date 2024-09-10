@@ -5,6 +5,7 @@ use common::bitboard::{bitboard::Bitboard, square};
 use crate::board::{error::BoardError, piece::Piece, Board};
 
 use super::capture::Capture;
+use super::chess_move_effect::ChessMoveEffect;
 use super::standard::StandardChessMove;
 
 /// Represents a pawn promotion chess move. The board logic is implemented as
@@ -16,6 +17,7 @@ pub struct PawnPromotionChessMove {
     to_square: Bitboard,
     captures: Option<Capture>,
     promote_to_piece: Piece,
+    effect: ChessMoveEffect,
 }
 
 impl PawnPromotionChessMove {
@@ -30,6 +32,7 @@ impl PawnPromotionChessMove {
             to_square,
             captures,
             promote_to_piece,
+            effect: ChessMoveEffect::NotYetCalculated,
         }
     }
 
@@ -45,6 +48,14 @@ impl PawnPromotionChessMove {
         self.captures
     }
 
+    pub fn effect(&self) -> ChessMoveEffect {
+        self.effect
+    }
+
+    pub fn set_effect(&mut self, effect: ChessMoveEffect) {
+        self.effect = effect;
+    }
+
     pub fn promote_to_piece(&self) -> Piece {
         self.promote_to_piece
     }
@@ -55,6 +66,7 @@ impl PawnPromotionChessMove {
             to_square,
             captures: expected_captures,
             promote_to_piece,
+            ..
         } = self;
 
         // This is a special case. It's like a standard move, but we replace the
@@ -79,6 +91,7 @@ impl PawnPromotionChessMove {
             to_square,
             captures: expected_captures,
             promote_to_piece,
+            ..
         } = self;
 
         // Undo the promotion first.
@@ -103,13 +116,19 @@ impl fmt::Display for PawnPromotionChessMove {
             Some(capture) => format!(" (captures {})", capture.0),
             None => "".to_string(),
         };
+        let check_or_checkmate_msg = match self.effect() {
+            ChessMoveEffect::Check => "check",
+            ChessMoveEffect::Checkmate => "checkmate",
+            _ => "",
+        };
 
         write!(
             f,
-            "promote {}{}{}",
+            "promote {}{}{}{}",
             square::to_algebraic(self.from_square).to_lowercase(),
             square::to_algebraic(self.to_square).to_lowercase(),
-            captures_msg
+            captures_msg,
+            check_or_checkmate_msg,
         )
     }
 }
@@ -122,9 +141,12 @@ impl fmt::Debug for PawnPromotionChessMove {
 
 #[macro_export]
 macro_rules! promotion {
-    ($from:expr, $to:expr, $captures:expr, $piece:expr) => {
-        ChessMove::PawnPromotion(PawnPromotionChessMove::new($from, $to, $captures, $piece))
-    };
+    ($from:expr, $to:expr, $captures:expr, $piece:expr) => {{
+        let mut chess_move =
+            ChessMove::PawnPromotion(PawnPromotionChessMove::new($from, $to, $captures, $piece));
+        chess_move.set_effect(ChessMoveEffect::None);
+        chess_move
+    }};
 }
 
 #[cfg(test)]

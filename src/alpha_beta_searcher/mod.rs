@@ -145,14 +145,16 @@ pub fn alpha_beta_search(
     context.reset_stats();
 
     let current_turn = board.turn();
-    let candidates = move_generator.generate_moves(board, current_turn);
+    let candidates =
+        move_generator.generate_moves_and_lazily_update_chess_move_effects(board, current_turn);
 
     if candidates.is_empty() {
         return Err(SearchError::NoAvailableMoves);
     }
 
     // `par_iter` is a rayon primitive that allows for parallel iteration over a collection.
-    let scores: Vec<(ChessMove, i16)> = candidates
+    // Returns list of (move, score) tuples.
+    let mut results: Vec<(ChessMove, i16)> = candidates
         .par_iter()
         .map(|chess_move| {
             let mut local_board = board.clone();
@@ -183,7 +185,6 @@ pub fn alpha_beta_search(
         })
         .collect();
 
-    let mut results = scores;
     results.sort_by(|(_, score_a), (_, score_b)| score_a.partial_cmp(score_b).unwrap());
     results.reverse();
     let (best_move, _) = results.pop().unwrap();
@@ -211,7 +212,8 @@ fn alpha_beta_max(
         return cached_score;
     }
 
-    let candidates = move_generator.generate_moves(board, board.turn());
+    let candidates =
+        move_generator.generate_moves_and_lazily_update_chess_move_effects(board, board.turn());
 
     for chess_move in candidates.iter() {
         trace_push_move(chess_move, depth, context.search_depth);
@@ -271,7 +273,8 @@ fn alpha_beta_min(
         return cached_score;
     }
 
-    let candidates = move_generator.generate_moves(board, board.turn());
+    let candidates =
+        move_generator.generate_moves_and_lazily_update_chess_move_effects(board, board.turn());
 
     for chess_move in candidates.iter() {
         trace_push_move(chess_move, depth, context.search_depth);
@@ -341,8 +344,9 @@ mod tests {
     use crate::board::color::Color;
     use crate::board::piece::Piece;
     use crate::chess_move::capture::Capture;
+    use crate::chess_move::chess_move_effect::ChessMoveEffect;
     use crate::chess_move::standard::StandardChessMove;
-    use crate::{chess_position, std_move};
+    use crate::{check_move, checkmate_move, chess_position, std_move};
     use common::bitboard::bitboard::Bitboard;
     use common::bitboard::square::*;
 
@@ -367,10 +371,14 @@ mod tests {
 
         let chess_move =
             alpha_beta_search(&mut search_context, &mut board, &mut move_generator).unwrap();
-        let valid_checkmates = [std_move!(B8, B2), std_move!(B8, A8), std_move!(B8, A7)];
+        let valid_checkmates = [
+            checkmate_move!(std_move!(B8, B2)),
+            checkmate_move!(std_move!(B8, A8)),
+            checkmate_move!(std_move!(B8, A7)),
+        ];
         assert!(
             valid_checkmates.contains(&chess_move),
-            "{} does not leed to checkmate",
+            "{} does not lead to checkmate",
             chess_move
         );
     }
@@ -397,7 +405,11 @@ mod tests {
         let chess_move =
             alpha_beta_search(&mut search_context, &mut board, &mut move_generator).unwrap();
 
-        let valid_checkmates = [std_move!(B8, B2), std_move!(B8, A8), std_move!(B8, A7)];
+        let valid_checkmates = [
+            checkmate_move!(std_move!(B8, B2)),
+            checkmate_move!(std_move!(B8, A8)),
+            checkmate_move!(std_move!(B8, A7)),
+        ];
         assert!(valid_checkmates.contains(&chess_move));
     }
 
@@ -422,9 +434,9 @@ mod tests {
         println!("Testing board:\n{}", board);
 
         let expected_moves = [
-            std_move!(D2, D8),
+            check_move!(std_move!(D2, D8)),
             std_move!(H8, D8, Capture(Piece::Queen)),
-            std_move!(D1, D8, Capture(Piece::Rook)),
+            checkmate_move!(std_move!(D1, D8, Capture(Piece::Rook))),
         ];
         let mut expected_move_iter = expected_moves.iter();
 
@@ -471,9 +483,9 @@ mod tests {
         println!("Testing board:\n{}", board);
 
         let expected_moves = [
-            std_move!(E7, E1),
+            check_move!(std_move!(E7, E1)),
             std_move!(A1, E1, Capture(Piece::Queen)),
-            std_move!(E8, E1, Capture(Piece::Rook)),
+            checkmate_move!(std_move!(E8, E1, Capture(Piece::Rook))),
         ];
         let mut expected_move_iter = expected_moves.iter();
 

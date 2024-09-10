@@ -45,7 +45,7 @@ impl Stockfish {
         self.send_command(&format!("go movetime {}", time_limit))?;
 
         let start_time = Instant::now();
-        let mut best_move = String::new();
+        let best_move;
 
         loop {
             let line = self.read_line()?;

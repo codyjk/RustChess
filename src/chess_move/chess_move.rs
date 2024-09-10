@@ -8,6 +8,7 @@ use common::bitboard::square::*;
 
 use super::capture::Capture;
 use super::castle::CastleChessMove;
+use super::chess_move_effect::ChessMoveEffect;
 use super::en_passant::EnPassantChessMove;
 use super::pawn_promotion::PawnPromotionChessMove;
 use super::standard::StandardChessMove;
@@ -46,6 +47,25 @@ impl ChessMove {
             ChessMove::EnPassant(m) => Some(m.captures()),
             ChessMove::Castle(_m) => None,
         }
+    }
+
+    pub fn effect(&self) -> ChessMoveEffect {
+        match self {
+            ChessMove::Standard(m) => m.effect(),
+            ChessMove::PawnPromotion(m) => m.effect(),
+            ChessMove::EnPassant(m) => m.effect(),
+            ChessMove::Castle(m) => m.effect(),
+        }
+    }
+
+    pub fn set_effect(&mut self, effect: ChessMoveEffect) -> &Self {
+        match self {
+            ChessMove::Standard(m) => m.set_effect(effect),
+            ChessMove::PawnPromotion(m) => m.set_effect(effect),
+            ChessMove::EnPassant(m) => m.set_effect(effect),
+            ChessMove::Castle(m) => m.set_effect(effect),
+        };
+        self
     }
 
     pub fn apply(&self, board: &mut Board) -> Result<(), BoardError> {
@@ -168,7 +188,17 @@ impl fmt::Display for ChessMove {
             Some(capture) => format!(" capturing {}", capture.0),
             None => "".to_string(),
         };
-        write!(f, "{} {}{}{}", move_type, from_square, to_square, capture)
+        let check_or_checkmate_msg = match self.effect() {
+            ChessMoveEffect::Check => " (check)",
+            ChessMoveEffect::Checkmate => " (checkmate)",
+            ChessMoveEffect::None => "",
+            ChessMoveEffect::NotYetCalculated => " (EFFECT NOT YET CALCULATED)",
+        };
+        write!(
+            f,
+            "{} {}{}{}{}",
+            move_type, from_square, to_square, capture, check_or_checkmate_msg
+        )
     }
 }
 
@@ -192,4 +222,18 @@ impl PartialEq for ChessMove {
             _ => false,
         }
     }
+}
+
+#[macro_export]
+macro_rules! check_move {
+    ($chess_move:expr) => {
+        $chess_move.set_effect(ChessMoveEffect::Check).clone()
+    };
+}
+
+#[macro_export]
+macro_rules! checkmate_move {
+    ($chess_move:expr) => {
+        $chess_move.set_effect(ChessMoveEffect::Checkmate).clone()
+    };
 }

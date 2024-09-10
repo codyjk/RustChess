@@ -13,6 +13,8 @@ use crate::board::{
 use common::bitboard::bitboard::Bitboard;
 use common::bitboard::square::*;
 
+use super::chess_move_effect::ChessMoveEffect;
+
 /// Represents a castle move in chess. This struct encapsulates the logic for applying
 /// and undoing a castle move on a chess board.
 /// The intended entry points for this struct are the `castle_kingside` and `castle_queenside`.
@@ -24,6 +26,8 @@ pub struct CastleChessMove {
 
     /// The square the king is moving to
     to_square: Bitboard,
+
+    effect: ChessMoveEffect,
 }
 
 impl CastleChessMove {
@@ -31,6 +35,7 @@ impl CastleChessMove {
         Self {
             from_square,
             to_square,
+            effect: ChessMoveEffect::NotYetCalculated,
         }
     }
 
@@ -56,10 +61,19 @@ impl CastleChessMove {
         self.from_square
     }
 
+    pub fn effect(&self) -> ChessMoveEffect {
+        self.effect
+    }
+
+    pub fn set_effect(&mut self, effect: ChessMoveEffect) {
+        self.effect = effect;
+    }
+
     pub fn apply(&self, board: &mut Board) -> Result<(), BoardError> {
         let CastleChessMove {
             from_square: king_from,
             to_square: king_to,
+            ..
         } = self;
 
         let kingside = match *king_to {
@@ -129,6 +143,7 @@ impl CastleChessMove {
         let CastleChessMove {
             from_square: king_from,
             to_square: king_to,
+            ..
         } = self;
 
         let kingside = match *king_to {
@@ -193,11 +208,17 @@ impl CastleChessMove {
 
 impl fmt::Display for CastleChessMove {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let check_or_checkmate_msg = match self.effect() {
+            ChessMoveEffect::Check => " (check)",
+            ChessMoveEffect::Checkmate => " (checkmate)",
+            _ => "",
+        };
         write!(
             f,
-            "castle {} {}",
+            "castle {} {}{}",
             to_algebraic(self.from_square).to_lowercase(),
             to_algebraic(self.to_square).to_lowercase(),
+            check_or_checkmate_msg,
         )
     }
 }
@@ -210,16 +231,20 @@ impl fmt::Debug for CastleChessMove {
 
 #[macro_export]
 macro_rules! castle_kingside {
-    ($color:expr) => {
-        ChessMove::Castle(CastleChessMove::castle_kingside($color))
-    };
+    ($color:expr) => {{
+        let mut chess_move = ChessMove::Castle(CastleChessMove::castle_kingside($color));
+        chess_move.set_effect(ChessMoveEffect::None);
+        chess_move
+    }};
 }
 
 #[macro_export]
 macro_rules! castle_queenside {
-    ($color:expr) => {
-        ChessMove::Castle(CastleChessMove::castle_queenside($color))
-    };
+    ($color:expr) => {{
+        let mut chess_move = ChessMove::Castle(CastleChessMove::castle_queenside($color));
+        chess_move.set_effect(ChessMoveEffect::None);
+        chess_move
+    }};
 }
 
 #[cfg(test)]
