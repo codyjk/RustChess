@@ -143,7 +143,9 @@ impl Game {
         Ok(best_move)
     }
 
-    pub fn make_waterfall_book_then_alpha_beta_move(&mut self) -> Result<ChessMove, GameError> {
+    pub fn select_waterfall_book_then_alpha_beta_best_move(
+        &mut self,
+    ) -> Result<ChessMove, GameError> {
         let current_turn = self.board.turn();
         let line = self
             .move_history
@@ -153,7 +155,7 @@ impl Game {
         let book_moves = self.book.get_next_moves(line);
 
         if book_moves.is_empty() {
-            return self.make_alpha_beta_best_move();
+            return self.select_alpha_beta_best_move();
         }
 
         let rng = rand::thread_rng().gen_range(0..book_moves.len());
@@ -166,11 +168,14 @@ impl Game {
             .iter()
             .find(|m| m.from_square() == from_square && m.to_square() == to_square);
 
-        let chess_move = match maybe_chess_move {
-            Some(result) => result,
+        match maybe_chess_move {
+            Some(result) => Ok(result.clone()),
             None => return Err(GameError::InvalidMove),
-        };
+        }
+    }
 
+    pub fn make_waterfall_book_then_alpha_beta_move(&mut self) -> Result<ChessMove, GameError> {
+        let chess_move = self.select_waterfall_book_then_alpha_beta_best_move()?;
         match chess_move.apply(&mut self.board) {
             Ok(_capture) => {
                 self.save_move(chess_move.clone());

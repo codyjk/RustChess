@@ -10,7 +10,7 @@ use crate::chess_move::standard::StandardChessMove;
 use crate::evaluate::GameEnding;
 use crate::game::game::Game;
 use crate::game::stockfish_interface::Stockfish;
-use crate::game::util::{print_board, print_board_and_stats};
+use crate::game::util::print_board_and_stats;
 use common::bitboard::square::*;
 use std::time::{Duration, Instant};
 use termion::{clear, cursor};
@@ -87,15 +87,17 @@ fn play_game(stockfish: &mut Stockfish, depth: u8) -> (GameResult, Duration, Dur
 
     let engine_color = Color::random();
 
+    print!("{}{}", clear::All, cursor::Goto(1, 1));
+
     loop {
         if let Some(result) = game.check_game_over_for_current_turn() {
             return (
                 match result {
                     GameEnding::Checkmate => {
                         if game.board().turn() == engine_color {
-                            GameResult::Win
-                        } else {
                             GameResult::Loss
+                        } else {
+                            GameResult::Win
                         }
                     }
                     _ => GameResult::Draw,
@@ -105,15 +107,13 @@ fn play_game(stockfish: &mut Stockfish, depth: u8) -> (GameResult, Duration, Dur
             );
         }
 
-        print!("{}{}", clear::All, cursor::Goto(1, 1));
-        print_board(game.board());
-        println!("Current turn: {}", game.board().turn());
-
         let start_time = Instant::now();
         let candidate_moves = game.enumerated_candidate_moves().clone();
 
         let chess_move = if game.board().turn() == engine_color {
-            let chess_move = game.select_alpha_beta_best_move().unwrap();
+            let chess_move = game
+                .select_waterfall_book_then_alpha_beta_best_move()
+                .unwrap();
             engine_time += start_time.elapsed();
             chess_move
         } else {
@@ -126,7 +126,26 @@ fn play_game(stockfish: &mut Stockfish, depth: u8) -> (GameResult, Duration, Dur
 
         game.apply_chess_move(chess_move.clone()).unwrap();
         moves.push(chess_move.to_uci());
-        print_board_and_stats(&game, candidate_moves, engine_color);
+
+        print!("{}{}", clear::All, cursor::Goto(1, 1));
+        print_board_and_stats(&mut game, candidate_moves);
+        print!(
+            "Engine is {}, Stockfish is {}\n",
+            engine_color,
+            engine_color.opposite()
+        );
+        println!("* Engine color: {}", engine_color);
+        println!("* Stockfish color: {}", engine_color.opposite());
+        println!("* Current Stockfish ELO: {}", stockfish.get_elo());
+        println!(
+            "* Engine latency: {:.2}ms",
+            engine_time.as_millis() as f32 / TIME_LIMIT as f32
+        );
+        println!(
+            "* Stockfish latency: {:.2}ms",
+            stockfish_time.as_millis() as f32 / TIME_LIMIT as f32
+        );
+
         game.board_mut().toggle_turn();
     }
 }

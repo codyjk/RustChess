@@ -45,8 +45,7 @@ pub fn computer_vs_computer(move_limit: u8, sleep_between_turns_in_ms: u64, dept
             Ok(_chess_move) => {
                 println!("{}", clear::All);
                 game.board_mut().toggle_turn();
-                let color = game.board().turn();
-                print_board_and_stats(&mut game, enumerated_candidate_moves, color);
+                print_board_and_stats(&mut game, enumerated_candidate_moves);
                 game.reset_move_generator_cache_hit_count();
                 continue;
             }

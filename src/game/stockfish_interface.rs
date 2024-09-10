@@ -2,9 +2,12 @@ use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, Command, Stdio};
 use std::time::Instant;
 
+const DEFAULT_ELO: u32 = 1000;
+
 pub struct Stockfish {
     process: Child,
     reader: BufReader<std::process::ChildStdout>,
+    elo: u32,
 }
 
 impl Stockfish {
@@ -16,7 +19,11 @@ impl Stockfish {
 
         let reader = BufReader::new(process.stdout.take().unwrap());
 
-        Ok(Stockfish { process, reader })
+        Ok(Stockfish {
+            process,
+            reader,
+            elo: DEFAULT_ELO,
+        })
     }
 
     pub fn send_command(&mut self, command: &str) -> Result<(), std::io::Error> {
@@ -33,7 +40,12 @@ impl Stockfish {
     pub fn set_elo(&mut self, elo: u32) -> Result<(), std::io::Error> {
         self.send_command(&format!("setoption name UCI_LimitStrength value true"))?;
         self.send_command(&format!("setoption name UCI_Elo value {}", elo))?;
+        self.elo = elo;
         Ok(())
+    }
+
+    pub fn get_elo(&mut self) -> u32 {
+        self.elo
     }
 
     pub fn get_best_move(
