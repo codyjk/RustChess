@@ -121,8 +121,6 @@ fn play_game(stockfish: &mut Stockfish, depth: u8) -> (GameResult, Duration, Dur
                 stockfish_time,
             );
         }
-
-        std::thread::sleep(Duration::from_millis(500)); // Add a small delay to make the game visible
     }
 }
 
