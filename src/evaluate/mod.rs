@@ -1,6 +1,5 @@
 use common::bitboard::bitboard::Bitboard;
 use common::bitboard::square::to_algebraic;
-use log::debug;
 
 use crate::board::color::Color;
 use crate::board::piece::{Piece, ALL_PIECES};
@@ -123,10 +122,6 @@ fn material_score(board: &Board, color: Color) -> i16 {
             material += piece_value + bonus;
 
             let square_name = to_algebraic(sq);
-            debug!(
-                "{} at {} has value {} + bonus {} (total {})",
-                piece, square_name, piece_value, bonus, material
-            );
         }
     }
 

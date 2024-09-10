@@ -1,8 +1,10 @@
+use crate::board::error::BoardError;
 use crate::board::Board;
 use crate::chess_move::ChessMove;
 use crate::evaluate;
 use crate::move_generator::MoveGenerator;
 use rustc_hash::FxHashMap;
+use smallvec::SmallVec;
 use thiserror::Error;
 
 use rayon::prelude::*;
@@ -27,6 +29,76 @@ pub struct SearchContext {
 pub enum SearchError {
     #[error("no available moves")]
     NoAvailableMoves,
+}
+
+use log::Level;
+use std::cell::RefCell;
+use std::thread_local;
+
+thread_local! {
+    static CURRENT_LINE: RefCell<SmallVec<[ChessMove; 10]>> = RefCell::new(SmallVec::new());
+}
+
+struct ThreadLocalCurrentLine;
+
+impl ThreadLocalCurrentLine {
+    #[inline(always)]
+    fn push(chess_move: ChessMove) {
+        if log::log_enabled!(Level::Trace) {
+            CURRENT_LINE.with(|line| line.borrow_mut().push(chess_move));
+        }
+    }
+
+    #[inline(always)]
+    fn pop() {
+        if log::log_enabled!(Level::Trace) {
+            CURRENT_LINE.with(|line| {
+                line.borrow_mut().pop();
+            });
+        }
+    }
+
+    #[inline(always)]
+    fn get() -> Option<SmallVec<[ChessMove; 10]>> {
+        if log::log_enabled!(Level::Trace) {
+            Some(CURRENT_LINE.with(|line| line.borrow().clone()))
+        } else {
+            None
+        }
+    }
+}
+
+use log::{error, trace};
+
+#[inline(always)]
+fn trace_push_move(chess_move: &ChessMove, depth: u8, search_depth: u8) {
+    if log::log_enabled!(Level::Trace) {
+        trace!(
+            "{:indent$}Evaluating move: {} at depth {}",
+            "",
+            chess_move,
+            depth,
+            indent = (search_depth - depth) as usize * 2
+        );
+        ThreadLocalCurrentLine::push(chess_move.clone());
+    }
+}
+
+#[inline(always)]
+fn trace_pop_move() {
+    if log::log_enabled!(Level::Trace) {
+        ThreadLocalCurrentLine::pop();
+    }
+}
+
+#[inline(always)]
+fn trace_error(e: &BoardError) {
+    if log::log_enabled!(Level::Trace) {
+        error!("Error applying move: {:?}", e);
+        if let Some(current_line) = ThreadLocalCurrentLine::get() {
+            error!("Current move history: {:?}", current_line);
+        }
+    }
 }
 
 impl SearchContext {
@@ -88,6 +160,8 @@ pub fn alpha_beta_search(
             let mut local_context = context.clone();
             let search_depth = context.search_depth;
 
+            trace_push_move(chess_move, search_depth, search_depth);
+
             chess_move.apply(&mut local_board).unwrap();
             local_board.toggle_turn();
 
@@ -99,6 +173,8 @@ pub fn alpha_beta_search(
                 i16::MIN,
                 i16::MAX,
             );
+
+            trace_pop_move();
 
             chess_move.undo(&mut local_board).unwrap();
             local_board.toggle_turn();
@@ -138,7 +214,15 @@ fn alpha_beta_max(
     let candidates = move_generator.generate_moves(board, board.turn());
 
     for chess_move in candidates.iter() {
-        chess_move.apply(board).unwrap();
+        trace_push_move(chess_move, depth, context.search_depth);
+
+        chess_move
+            .apply(board)
+            .map_err(|e| {
+                trace_error(&e);
+                e
+            })
+            .unwrap();
         board.toggle_turn();
 
         let score = alpha_beta_min(context, depth - 1, board, move_generator, alpha, beta);
@@ -159,6 +243,8 @@ fn alpha_beta_max(
         if score > alpha {
             alpha = score;
         }
+
+        trace_pop_move();
     }
 
     alpha
@@ -188,7 +274,15 @@ fn alpha_beta_min(
     let candidates = move_generator.generate_moves(board, board.turn());
 
     for chess_move in candidates.iter() {
-        chess_move.apply(board).unwrap();
+        trace_push_move(chess_move, depth, context.search_depth);
+
+        chess_move
+            .apply(board)
+            .map_err(|e| {
+                trace_error(&e);
+                e
+            })
+            .unwrap();
         board.toggle_turn();
 
         let score = alpha_beta_max(context, depth - 1, board, move_generator, alpha, beta);
@@ -209,6 +303,8 @@ fn alpha_beta_min(
         if score < beta {
             beta = score;
         }
+
+        trace_pop_move();
     }
 
     beta

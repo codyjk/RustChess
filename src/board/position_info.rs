@@ -1,5 +1,4 @@
 use common::bitboard::bitboard::Bitboard;
-use log::debug;
 use rustc_hash::FxHashMap;
 
 use super::{color::Color, piece::Piece};
@@ -70,11 +69,6 @@ impl PositionInfo {
         let hash_before = self.current_position_hash;
         self.current_position_hash ^= piece_hash;
         let hash_after = self.current_position_hash;
-
-        debug!(
-            "toggled piece: {:?} at square: {} for color: {} from hash: {} to hash: {} ({})",
-            piece, square, color, hash_before, hash_after, piece_hash
-        );
     }
 
     pub fn update_zobrist_hash_toggle_en_passant_target(&mut self, square: Bitboard) {
