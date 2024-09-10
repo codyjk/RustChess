@@ -1,9 +1,17 @@
 use crate::board::color::Color;
+use crate::board::piece::Piece;
+use crate::board::Board;
+use crate::chess_move::capture::Capture;
+use crate::chess_move::castle::CastleChessMove;
 use crate::chess_move::chess_move::ChessMove;
+use crate::chess_move::en_passant::EnPassantChessMove;
+use crate::chess_move::pawn_promotion::PawnPromotionChessMove;
+use crate::chess_move::standard::StandardChessMove;
 use crate::evaluate::GameEnding;
 use crate::game::game::Game;
 use crate::game::stockfish_interface::Stockfish;
 use crate::game::util::{print_board, print_board_and_stats};
+use common::bitboard::square::*;
 use std::time::{Duration, Instant};
 use termion::{clear, cursor};
 
@@ -96,14 +104,18 @@ fn play_game(stockfish: &mut Stockfish, depth: u8) -> (GameResult, Duration, Dur
                 .get_best_move(&moves.join(" "), TIME_LIMIT)
                 .unwrap();
             stockfish_time += Duration::from_millis(sf_time);
-            ChessMove::from_uci(&sf_move).unwrap()
+            create_chess_move_from_uci(&sf_move, &game.board())
+        };
+        let current_player_str = if game.board().turn() == engine_color {
+            "Engine"
+        } else {
+            "Stockfish"
         };
 
         game.apply_chess_move(chess_move.clone()).unwrap();
         moves.push(chess_move.to_uci());
+        print_board_and_stats(&mut game, candidate_moves, engine_color);
         game.board_mut().toggle_turn();
-
-        print_board_and_stats(&mut game, candidate_moves);
 
         if let Some(result) = game.check_game_over_for_current_turn() {
             return (
@@ -121,6 +133,37 @@ fn play_game(stockfish: &mut Stockfish, depth: u8) -> (GameResult, Duration, Dur
                 stockfish_time,
             );
         }
+    }
+}
+
+fn create_chess_move_from_uci(uci: &str, board: &Board) -> ChessMove {
+    let from = square_string_to_bitboard(&uci[0..2]);
+    let to = square_string_to_bitboard(&uci[2..4]);
+    let promotion = uci.chars().nth(4).map(|c| match c {
+        'q' => Piece::Queen,
+        'r' => Piece::Rook,
+        'b' => Piece::Bishop,
+        'n' => Piece::Knight,
+        _ => panic!("Invalid promotion piece"),
+    });
+
+    let piece = board.get(from).unwrap().0;
+    let capture = board.get(to).map(|(p, _)| Capture(p));
+
+    match (piece, promotion) {
+        (Piece::Pawn, Some(promote_to)) => {
+            ChessMove::PawnPromotion(PawnPromotionChessMove::new(from, to, capture, promote_to))
+        }
+        (Piece::Pawn, None) if to == board.peek_en_passant_target() => {
+            ChessMove::EnPassant(EnPassantChessMove::new(from, to))
+        }
+        (Piece::King, None) if (from, to) == (E1, G1) || (from, to) == (E8, G8) => {
+            ChessMove::Castle(CastleChessMove::castle_kingside(board.turn()))
+        }
+        (Piece::King, None) if (from, to) == (E1, C1) || (from, to) == (E8, C8) => {
+            ChessMove::Castle(CastleChessMove::castle_queenside(board.turn()))
+        }
+        _ => ChessMove::Standard(StandardChessMove::new(from, to, capture)),
     }
 }
 

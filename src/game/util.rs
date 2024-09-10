@@ -1,3 +1,4 @@
+use crate::board::color::Color;
 use crate::board::Board;
 use crate::chess_move::chess_move::ChessMove;
 use crate::game::game::Game;
@@ -6,6 +7,7 @@ use common::bitboard::square::from_rank_file;
 pub fn print_board_and_stats(
     game: &mut Game,
     enumerated_candidate_moves: Vec<(ChessMove, String)>,
+    engine_color: Color,
 ) {
     let board = game.board();
     let last_move_algebraic = match game.last_move() {
@@ -25,11 +27,12 @@ pub fn print_board_and_stats(
             game.search_depth()
         ),
     };
-    println!(
-        "{} chose move: {}\n",
-        game.board().turn().opposite(),
-        last_move_algebraic
-    );
+    let player_string = if board.turn() == engine_color {
+        "Engine"
+    } else {
+        "Stockfish"
+    };
+    println!("{} chose move: {}\n", player_string, last_move_algebraic);
     print_board(game.board());
     println!("* Turn: {}", board.turn());
     println!("* Halfmove clock: {}", board.halfmove_clock());

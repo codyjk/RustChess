@@ -14,6 +14,7 @@ use common::bitboard::{
     bitboard::Bitboard,
     square::{self, *},
 };
+use log::debug;
 
 use super::{capture::Capture, pawn_promotion::PawnPromotionChessMove};
 
@@ -62,6 +63,11 @@ impl StandardChessMove {
         let expected_capture_piece_and_color =
             captures.map(|capture| (capture.0, color_of_piece_to_move.opposite()));
         if captured_piece_and_color != expected_capture_piece_and_color {
+            debug!("captured piece and color: {:?}", captured_piece_and_color);
+            debug!(
+                "expected capture piece and color: {:?}",
+                expected_capture_piece_and_color
+            );
             return Err(BoardError::UnexpectedCaptureResultError);
         }
 

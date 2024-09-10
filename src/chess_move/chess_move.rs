@@ -4,8 +4,6 @@ use common::bitboard::{bitboard::Bitboard, square::to_algebraic};
 
 use crate::board::{error::BoardError, piece::Piece, Board};
 
-use common::bitboard::square::*;
-
 use super::capture::Capture;
 use super::castle::CastleChessMove;
 use super::en_passant::EnPassantChessMove;
@@ -68,61 +66,6 @@ impl ChessMove {
         };
 
         map_ok(result)
-    }
-
-    pub fn from_uci(uci: &str) -> Result<Self, String> {
-        use common::bitboard::square::square_string_to_bitboard;
-
-        if uci.len() < 4 || uci.len() > 5 {
-            return Err("Invalid UCI move length".to_string());
-        }
-
-        let from_square = square_string_to_bitboard(&uci[0..2]);
-        let to_square = square_string_to_bitboard(&uci[2..4]);
-
-        if uci.len() == 5 {
-            // Pawn promotion
-            let promotion_piece = match uci.chars().last().unwrap() {
-                'q' => Piece::Queen,
-                'r' => Piece::Rook,
-                'b' => Piece::Bishop,
-                'n' => Piece::Knight,
-                _ => return Err("Invalid promotion piece".to_string()),
-            };
-            Ok(ChessMove::PawnPromotion(PawnPromotionChessMove::new(
-                from_square,
-                to_square,
-                None,
-                promotion_piece,
-            )))
-        } else {
-            // Standard move, en passant, or castling
-            if (from_square == E1 && to_square == G1) || (from_square == E8 && to_square == G8) {
-                Ok(ChessMove::Castle(CastleChessMove::castle_kingside(
-                    if from_square == E1 {
-                        crate::board::color::Color::White
-                    } else {
-                        crate::board::color::Color::Black
-                    },
-                )))
-            } else if (from_square == E1 && to_square == C1)
-                || (from_square == E8 && to_square == C8)
-            {
-                Ok(ChessMove::Castle(CastleChessMove::castle_queenside(
-                    if from_square == E1 {
-                        crate::board::color::Color::White
-                    } else {
-                        crate::board::color::Color::Black
-                    },
-                )))
-            } else {
-                Ok(ChessMove::Standard(StandardChessMove::new(
-                    from_square,
-                    to_square,
-                    None,
-                )))
-            }
-        }
     }
 
     pub fn to_uci(&self) -> String {
