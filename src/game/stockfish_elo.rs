@@ -109,8 +109,9 @@ fn play_game(stockfish: &mut Stockfish, depth: u8) -> (GameResult, Duration, Dur
 
         let start_time = Instant::now();
         let candidate_moves = game.enumerated_candidate_moves().clone();
+        let current_turn = game.board().turn();
 
-        let chess_move = if game.board().turn() == engine_color {
+        let chess_move = if current_turn == engine_color {
             let chess_move = game
                 .select_waterfall_book_then_alpha_beta_best_move()
                 .unwrap();
@@ -128,7 +129,7 @@ fn play_game(stockfish: &mut Stockfish, depth: u8) -> (GameResult, Duration, Dur
         moves.push(chess_move.to_uci());
 
         print!("{}{}", clear::All, cursor::Goto(1, 1));
-        print_board_and_stats(&mut game, candidate_moves);
+        print_board_and_stats(&mut game, candidate_moves, current_turn);
         print!(
             "Engine is {}, Stockfish is {}\n",
             engine_color,

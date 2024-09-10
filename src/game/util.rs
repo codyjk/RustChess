@@ -1,11 +1,14 @@
+use crate::board::color::Color;
 use crate::board::Board;
 use crate::chess_move::chess_move::ChessMove;
+use crate::evaluate::board_material_score;
 use crate::game::game::Game;
 use common::bitboard::square::from_rank_file;
 
 pub fn print_board_and_stats(
-    game: &mut Game,
+    game: &Game,
     enumerated_candidate_moves: Vec<(ChessMove, String)>,
+    current_turn: Color,
 ) {
     let board = game.board();
     let last_move_algebraic = match game.last_move() {
@@ -27,9 +30,9 @@ pub fn print_board_and_stats(
     };
     print_board(game.board());
     println!("Last move: {}\n", last_move_algebraic);
-    println!("* Turn: {}", board.turn());
+    println!("* Turn: {}", current_turn);
     println!("* Halfmove clock: {}", board.halfmove_clock());
-    println!("* Score: {}", game.score(board.turn().opposite()));
+    println!("* Score: {}", board_material_score(board));
     println!("* Positions searched: {}", searched_position_message);
 }
 

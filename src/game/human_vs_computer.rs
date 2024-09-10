@@ -31,6 +31,7 @@ pub fn play_computer(depth: u8, player_color: Color) {
         // Precalculate the moves and their algebraic notations, so that we
         // can render it after a move is made.
         let enumerated_candidate_moves = game.enumerated_candidate_moves();
+        let current_turn = game.board().turn();
 
         let command: Box<dyn Command> = if player_color == game.board().turn() {
             match input_handler::parse_player_move_input() {
@@ -51,7 +52,7 @@ pub fn play_computer(depth: u8, player_color: Color) {
                 print!("{}{}", cursor::Goto(1, 1), clear::All);
                 game.board_mut().toggle_turn();
 
-                print_board_and_stats(game, enumerated_candidate_moves);
+                print_board_and_stats(game, enumerated_candidate_moves, current_turn);
                 if player_color == game.board().turn() {
                     println!("* Move took: {:?}", duration);
                     print_enter_move_prompt();

@@ -84,15 +84,22 @@ pub fn score(board: &mut Board, move_generator: &mut MoveGenerator, current_turn
         (Some(GameEnding::Stalemate), Color::Black) => WHITE_WINS,
         (Some(GameEnding::Draw), Color::White) => BLACK_WINS,
         (Some(GameEnding::Draw), Color::Black) => WHITE_WINS,
-        _ => material_score(board, Color::White) - material_score(board, Color::Black),
+        _ => board_material_score(board),
     }
+}
+
+#[inline(always)]
+pub fn board_material_score(board: &Board) -> i16 {
+    let white_material = player_material_score(board, Color::White);
+    let black_material = player_material_score(board, Color::Black);
+    white_material - black_material
 }
 
 /// Returns the material score of the board for the given player. The bonus tables
 /// incentivize the placement of pieces on specific parts of the board (e.g.
 /// knights towards the center, bishops on long diagonals, etc.).
 #[inline(always)]
-fn material_score(board: &Board, color: Color) -> i16 {
+fn player_material_score(board: &Board, color: Color) -> i16 {
     let mut material = 0;
     let pieces = board.pieces(color);
 
@@ -160,14 +167,14 @@ mod tests {
     use common::bitboard::square::*;
 
     #[test]
-    fn test_starting_material_score() {
+    fn test_starting_player_material_score() {
         let board = Board::starting_position();
         println!("Testing board:\n{}", board);
 
-        let white_score = material_score(&board, Color::White);
+        let white_score = player_material_score(&board, Color::White);
         assert_eq!(white_score, 23905);
 
-        let black_score = material_score(&board, Color::Black);
+        let black_score = player_material_score(&board, Color::Black);
         assert_eq!(black_score, 23905);
     }
 
@@ -274,10 +281,10 @@ mod tests {
         };
         println!("Testing board:\n{}", board);
 
-        let white_score = material_score(&board, Color::White);
+        let white_score = player_material_score(&board, Color::White);
         assert_eq!(white_score, 150);
 
-        let black_score = material_score(&board, Color::Black);
+        let black_score = player_material_score(&board, Color::Black);
         assert_eq!(black_score, 150);
     }
 }
