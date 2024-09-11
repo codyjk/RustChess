@@ -78,8 +78,8 @@ pub fn score(board: &mut Board, move_generator: &mut MoveGenerator, current_turn
         game_ending(board, move_generator, current_turn),
         current_turn,
     ) {
-        (Some(GameEnding::Checkmate), Color::White) => WHITE_WINS,
-        (Some(GameEnding::Checkmate), Color::Black) => BLACK_WINS,
+        (Some(GameEnding::Checkmate), Color::White) => BLACK_WINS,
+        (Some(GameEnding::Checkmate), Color::Black) => WHITE_WINS,
         (Some(GameEnding::Stalemate), Color::White) => BLACK_WINS,
         (Some(GameEnding::Stalemate), Color::Black) => WHITE_WINS,
         (Some(GameEnding::Draw), Color::White) => BLACK_WINS,
