@@ -186,7 +186,7 @@ impl Game {
     }
 
     pub fn score(&mut self, current_turn: Color) -> i16 {
-        evaluate::score(&mut self.board, &mut self.move_generator, current_turn)
+        evaluate::score(&mut self.board, &mut self.move_generator, current_turn, 0)
     }
 
     pub fn fullmove_clock(&self) -> u8 {

@@ -65,7 +65,12 @@ pub fn game_ending(
 
 /// Returns the score of the board from the perspective of the current player.
 #[inline(always)]
-pub fn score(board: &mut Board, move_generator: &mut MoveGenerator, current_turn: Color) -> i16 {
+pub fn score(
+    board: &mut Board,
+    move_generator: &mut MoveGenerator,
+    current_turn: Color,
+    remaining_depth: u8,
+) -> i16 {
     // Check for position repetition
     if board.max_seen_position_count() == 3 {
         match current_turn {
@@ -74,16 +79,17 @@ pub fn score(board: &mut Board, move_generator: &mut MoveGenerator, current_turn
         }
     }
 
-    match (
-        game_ending(board, move_generator, current_turn),
-        current_turn,
-    ) {
-        (Some(GameEnding::Checkmate), Color::White) => BLACK_WINS,
-        (Some(GameEnding::Checkmate), Color::Black) => WHITE_WINS,
-        (Some(GameEnding::Stalemate), Color::White) => BLACK_WINS,
-        (Some(GameEnding::Stalemate), Color::Black) => WHITE_WINS,
-        (Some(GameEnding::Draw), Color::White) => BLACK_WINS,
-        (Some(GameEnding::Draw), Color::Black) => WHITE_WINS,
+    match game_ending(board, move_generator, current_turn) {
+        Some(GameEnding::Checkmate) => {
+            if current_turn == Color::White {
+                // Black wins, but sooner is better for Black
+                BLACK_WINS - remaining_depth as i16
+            } else {
+                // White wins, but sooner is better for White
+                WHITE_WINS + remaining_depth as i16
+            }
+        }
+        Some(GameEnding::Stalemate) | Some(GameEnding::Draw) => 0,
         _ => board_material_score(board),
     }
 }

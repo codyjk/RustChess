@@ -158,19 +158,26 @@ fn alpha_beta_minimax(
 
     let current_turn = board.turn();
     if depth == 0 {
-        let score = evaluate::score(board, move_generator, current_turn);
+        let score = evaluate::score(board, move_generator, current_turn, depth);
         trace!(
-            "{}alpha_beta_minimax returning score: {} for depth: {}",
+            "{}alpha_beta_minimax returning score (terminal depth): {} for depth: {}",
             "  ".repeat((context.search_depth() - depth) as usize),
             score,
             depth
         );
-        return Ok(evaluate::score(board, move_generator, current_turn));
+        return Ok(score);
     }
 
     let candidates = move_generator.generate_moves(board, current_turn);
     if candidates.is_empty() {
-        return Ok(evaluate::score(board, move_generator, current_turn));
+        let score = evaluate::score(board, move_generator, current_turn, depth);
+        trace!(
+            "{}alpha_beta_minimax returning score (no moves): {} for depth: {}",
+            "  ".repeat((context.search_depth() - depth) as usize),
+            score,
+            depth
+        );
+        return Ok(score);
     }
 
     if maximizing_player {
@@ -261,7 +268,6 @@ mod tests {
     use common::bitboard::square::*;
 
     #[test]
-    #[ignore = "Alpha-beta tests are slow. Use `cargo test -- --ignored` to run them."]
     fn test_find_mate_in_1_white() {
         let mut search_context = SearchContext::new(4);
         let mut move_generator = MoveGenerator::new();
@@ -291,7 +297,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Alpha-beta tests are slow. Use `cargo test -- --ignored` to run them."]
     fn test_find_mate_in_1_black() {
         let mut search_context = SearchContext::new(4);
         let mut move_generator = MoveGenerator::new();
@@ -322,7 +327,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Alpha-beta tests are slow. Use `cargo test -- --ignored` to run them."]
     fn test_find_back_rank_mate_in_2_white() {
         let mut search_context = SearchContext::new(4);
         let mut move_generator = MoveGenerator::new();
@@ -372,7 +376,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Alpha-beta tests are slow. Use `cargo test -- --ignored` to run them."]
     fn test_find_back_rank_mate_in_2_black() {
         let mut search_context = SearchContext::new(4);
         let mut move_generator = MoveGenerator::new();
