@@ -130,11 +130,6 @@ fn play_game(stockfish: &mut Stockfish, depth: u8) -> (GameResult, Duration, Dur
 
         print!("{}{}", clear::All, cursor::Goto(1, 1));
         print_board_and_stats(&mut game, candidate_moves, current_turn);
-        print!(
-            "Engine is {}, Stockfish is {}\n",
-            engine_color,
-            engine_color.opposite()
-        );
         println!("* Engine color: {}", engine_color);
         println!("* Stockfish color: {}", engine_color.opposite());
         println!("* Current Stockfish ELO: {}", stockfish.get_elo());

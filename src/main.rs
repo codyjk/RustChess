@@ -47,7 +47,7 @@ enum Chess {
     },
     #[structopt(
         name = "determine-stockfish-elo",
-        about = "Determine the ELO rating of the engine by playing against Stockfish."
+        about = "Determine the ELO rating of the engine at a given `--depth` (default: 4) and `--starting-elo` (default: 1000). The engine will increment the Stockfish ELO until it plateaus at a 50% win rate, at which point the rating is reported."
     )]
     DetermineStockfishElo {
         #[structopt(short, long, default_value = "4")]

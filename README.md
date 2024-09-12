@@ -28,16 +28,18 @@ FLAGS:
     -V, --version    Prints version information
 
 SUBCOMMANDS:
-    count-positions    Count the number of possible positions for a given `--depth` (default: 4), and reports the
-                       time it took to do so. By default, this searches all possible positions. The routine can be
-                       run with alpha-beta pruning by selecting `--strategy alpha-beta`.
-    help               Prints this message or the help of the given subcommand(s)
-    play               Play a game against the computer, which will search for the best move using alpha-beta
-                       pruning at the given `--depth` (default: 4). Your starting color will be chosen at random
-                       unless you specify with `--color`.
-    pvp                Play a game against another human on this local machine.
-    watch              Watch the computer play against itself at the given `--depth` (default: 4).
-
+    count-positions            Count the number of possible positions for a given `--depth` (default: 4), and
+                               reports the time it took to do so. By default, this searches all possible positions.
+                               The routine can be run with alpha-beta pruning by selecting `--strategy alpha-beta`.
+    determine-stockfish-elo    Determine the ELO rating of the engine at a given `--depth` (default: 4) and
+                               `--starting-elo` (default: 1000). The engine will increment the Stockfish ELO until
+                               it plateaus at a 50% win rate, at which point the rating is reported.
+    help                       Prints this message or the help of the given subcommand(s)
+    play                       Play a game against the computer, which will search for the best move using alpha-
+                               beta pruning at the given `--depth` (default: 4). Your starting color will be
+                               chosen at random unless you specify with `--color`.
+    pvp                        Play a game against another human on this local machine.
+    watch                      Watch the computer play against itself at the given `--depth` (default: 4).
 ```
 
 ## Performance
@@ -45,7 +47,7 @@ SUBCOMMANDS:
 On an M1 MacBook Pro, the engine plateaus at around 45 million positions per second.
 
 ```console
-❯ chess count-positions --depth 6
+$ chess count-positions --depth 6
 depth: 0, positions: 20, positions per second: 344827.5862068965
 depth: 1, positions: 420, positions per second: 36910.09754811495
 depth: 2, positions: 9322, positions per second: 924159.8096559928
