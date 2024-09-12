@@ -142,6 +142,17 @@ fn alpha_beta_minimax(
     beta: i16,
     maximizing_player: bool,
 ) -> Result<i16, SearchError> {
+    let search_node = (board.current_position_hash(), alpha, beta);
+    if let Some(score) = check_cache(context, search_node) {
+        trace!(
+            "{}alpha_beta_minimax returning cached score: {} for depth: {}",
+            "  ".repeat((context.search_depth() - depth) as usize),
+            score,
+            depth
+        );
+        return Ok(score);
+    }
+
     trace!(
         "{}alpha_beta_minimax(depth: {}, alpha: {}, beta: {}, maximizing_player: {})",
         "  ".repeat((context.search_depth() - depth) as usize),
@@ -165,6 +176,7 @@ fn alpha_beta_minimax(
             score,
             depth
         );
+        set_cache(context, search_node, score);
         return Ok(score);
     }
 
@@ -177,6 +189,7 @@ fn alpha_beta_minimax(
             score,
             depth
         );
+        set_cache(context, search_node, score);
         return Ok(score);
     }
 
@@ -207,6 +220,7 @@ fn alpha_beta_minimax(
                 break;
             }
         }
+        set_cache(context, search_node, value);
         Ok(value)
     } else {
         let mut value = std::i16::MAX;
@@ -227,23 +241,17 @@ fn alpha_beta_minimax(
                 break;
             }
         }
+        set_cache(context, search_node, value);
         Ok(value)
     }
 }
 
-fn set_cache(context: &mut SearchContext, position_hash: u64, alpha: i16, beta: i16, score: i16) {
-    let search_node = (position_hash, alpha, beta);
+fn set_cache(context: &mut SearchContext, search_node: SearchNode, score: i16) {
     let mut cache = context.search_result_cache.write().unwrap();
     cache.insert(search_node, score);
 }
 
-fn check_cache(
-    context: &mut SearchContext,
-    position_hash: u64,
-    alpha: i16,
-    beta: i16,
-) -> Option<i16> {
-    let search_node = (position_hash, alpha, beta);
+fn check_cache(context: &mut SearchContext, search_node: SearchNode) -> Option<i16> {
     let cache = context.search_result_cache.read().unwrap();
     match cache.get(&search_node) {
         Some(&prev_best_score) => {
