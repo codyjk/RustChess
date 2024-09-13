@@ -10,8 +10,12 @@ use rayon::prelude::*;
 use std::cmp::{max, min};
 use std::sync::{Arc, RwLock};
 
+use self::prioritize_chess_moves::sort_chess_moves;
+
 type SearchNode = (u64, i16, i16); // position_hash, alpha, beta
 type SearchResult = i16; // best_score
+
+mod prioritize_chess_moves;
 
 /// Represents the state and control of a search for the best move in a chess position.
 /// The search is implemented using alpha-beta minimax search, and uses `rayon`
@@ -81,8 +85,9 @@ pub fn alpha_beta_search(
 
     let current_player = board.turn();
     let current_player_is_maximizing = current_player.maximize_score();
-    let candidates =
+    let mut candidates =
         move_generator.generate_moves_and_lazily_update_chess_move_effects(board, current_player);
+    sort_chess_moves(&mut candidates, &board);
 
     // First, score each of the candidates. Note: `par_iter` is a rayon
     // primitive that allows for parallel iteration over a collection.
@@ -181,8 +186,9 @@ fn alpha_beta_minimax(
         return Ok(score);
     }
 
-    let candidates =
+    let mut candidates =
         move_generator.generate_moves_and_lazily_update_chess_move_effects(board, current_turn);
+    sort_chess_moves(&mut candidates, &board);
 
     if candidates.is_empty() {
         let score = evaluate::score(board, move_generator, current_turn, depth);

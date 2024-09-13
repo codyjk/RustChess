@@ -49,7 +49,7 @@ impl Default for MoveGenerator {
         Self {
             targets: Targets::default(),
             // Potentially a lot of memory, but helpful for high depths
-            cache: LruCache::new(NonZeroUsize::new(100_000).unwrap()),
+            cache: LruCache::new(NonZeroUsize::new(100_000_000).unwrap()),
             hit_count: 0,
         }
     }
