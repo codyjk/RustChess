@@ -209,6 +209,10 @@ impl Game {
         self.search_context.search_depth()
     }
 
+    pub fn alpha_beta_score(&self) -> Option<i16> {
+        self.search_context.last_score()
+    }
+
     pub fn move_generator_cache_hit_count(&self) -> usize {
         self.move_generator.cache_hit_count()
     }

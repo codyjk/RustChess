@@ -28,11 +28,15 @@ pub fn print_board_and_stats(
             game.search_depth()
         ),
     };
+    let alpha_beta_score = match game.alpha_beta_score() {
+        Some(score) => format!("{}", score),
+        None => "-".to_string(),
+    };
     print_board(game.board());
     println!("Last move: {}\n", last_move_algebraic);
     println!("* Turn: {}", current_turn);
     println!("* Halfmove clock: {}", board.halfmove_clock());
-    println!("* Score: {}", board_material_score(board));
+    println!("* Score: {}", alpha_beta_score);
     println!("* Positions searched: {}", searched_position_message);
 }
 

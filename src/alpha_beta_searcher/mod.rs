@@ -27,6 +27,7 @@ pub struct SearchContext {
     searched_position_count: Arc<RwLock<usize>>,
     cache_hit_count: Arc<RwLock<usize>>,
     termination_count: Arc<RwLock<usize>>,
+    last_score: Option<i16>,
 }
 
 #[derive(Error, Debug)]
@@ -45,6 +46,7 @@ impl SearchContext {
             searched_position_count: Arc::new(RwLock::new(0)),
             cache_hit_count: Arc::new(RwLock::new(0)),
             termination_count: Arc::new(RwLock::new(0)),
+            last_score: None,
         }
     }
 
@@ -68,6 +70,10 @@ impl SearchContext {
 
     pub fn search_depth(&self) -> u8 {
         self.search_depth
+    }
+
+    pub fn last_score(&self) -> Option<i16> {
+        self.last_score
     }
 }
 
@@ -134,8 +140,12 @@ pub fn alpha_beta_search(
         scored_moves
     );
 
-    let result = scored_moves.pop().unwrap().1;
-    debug!("Alpha-beta search returning best move: {:?}", result);
+    let (score, result) = scored_moves.pop().unwrap();
+    context.last_score = Some(score);
+    debug!(
+        "Alpha-beta search returning best move: {:?} (score: {})",
+        result, score
+    );
     Ok(result)
 }
 
