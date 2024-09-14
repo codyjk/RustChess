@@ -44,6 +44,8 @@ SUBCOMMANDS:
 
 ## Performance
 
+### Throughput
+
 On an M1 MacBook Pro, the engine plateaus at around 45 million positions per second.
 
 ```console
@@ -76,21 +78,21 @@ total positions: 28358635, total duration: 29.973702s, positions per second: 946
 
 These figures vary by hardware. To achieve the best performance, make sure to use the release build, which leverages [compiler optimizations](./Cargo.toml#L28-L33):
 
-```shell
-cargo install --path .
+### Gameplay
+
+To measure the engine's performance in actual gameplay, use the `determine-stockfish-elo` subcommand. This will increment the Stockfish ELO until it plateaus at a 50% win rate, at which point the rating is reported.
+
+```sh
+chess determine-stockfish-elo --depth 6 --starting-elo 2000
 ```
 
-Or, if not ready to install:
-
-```shell
-cargo build --release
-```
+At alpha-beta search depth 6, you can observe the engine winning against Stockfish playing at a 2000 ELO.
 
 ## Implementation details
 
 There are numerous optimizations used to increase the engine's performance. This list is not exhaustive, but should give you a sense of the techniques used:
 * The board state is represented as a [64 bit integer](common/src/bitboard/bitboard.rs). This enables the engine to leverage the CPU's bitwise operations to quickly calculate moves, attacks, and other common board state changes.
-* [Alpha-beta pruning](https://en.wikipedia.org/wiki/Alpha–beta_pruning) is used to quickly eliminate branches of the [search tree](src/alpha_beta_searcher/mod.rs) that are unlikely to lead to a winning position.
+* [Alpha-beta pruning](https://en.wikipedia.org/wiki/Alpha–beta_pruning) is used to quickly eliminate branches of the [search tree](src/alpha_beta_searcher/mod.rs) that are unlikely to lead to a winning position. The move order is sorted in an attempt to prioritize the "best" moves first, so that worse moves come later in the search and are therefore pruned (and not searched entirely), reducing the search space/time.
 * The [Zobrist hashing](./precompile/src/zobrist/mod.rs) tables are generated at compile time using the [precompile](./precompile/src/main.rs) build script. This hashing approach enables quick incremental hashing of the board state so that various computations can be cached (e.g. move generation) by the engine during gameplay.
 * Macros are used throughout the codebase to improve the developer experience. See below for one example.
 
