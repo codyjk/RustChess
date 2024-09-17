@@ -2,7 +2,7 @@ use crate::alpha_beta_searcher::{alpha_beta_search, SearchContext, SearchError};
 use crate::board::color::Color;
 use crate::board::error::BoardError;
 use crate::board::Board;
-use crate::book::Book;
+use crate::book::{Book, BookMove};
 use crate::chess_move::algebraic_notation::enumerate_candidate_moves_with_algebraic_notation;
 use crate::chess_move::chess_move::ChessMove;
 use crate::evaluate::{self, GameEnding};
@@ -39,7 +39,7 @@ impl Game {
         Self {
             board,
             move_history: Vec::new(),
-            book: Book::new(),
+            book: Book::default(),
             move_generator: MoveGenerator::new(),
             search_context: SearchContext::new(search_depth),
         }
@@ -147,19 +147,18 @@ impl Game {
         &mut self,
     ) -> Result<ChessMove, GameError> {
         let current_turn = self.board.turn();
-        let line = self
-            .move_history
-            .iter()
-            .map(|m| (m.from_square(), m.to_square()))
-            .collect();
-        let book_moves = self.book.get_next_moves(line);
+        let line = self.get_book_line();
+        let candidate_book_moves = self.book.get_next_moves(line);
 
-        if book_moves.is_empty() {
+        if candidate_book_moves.is_empty() {
             return self.select_alpha_beta_best_move();
         }
 
-        let rng = rand::thread_rng().gen_range(0..book_moves.len());
-        let (from_square, to_square) = book_moves[rng];
+        let rng = rand::thread_rng().gen_range(0..candidate_book_moves.len());
+        let (book_move, _line_name) = &candidate_book_moves[rng];
+        let from_square = book_move.from_square();
+        let to_square = book_move.to_square();
+
         let candidates = self
             .move_generator
             .generate_moves_and_lazily_update_chess_move_effects(&mut self.board, current_turn);
@@ -227,6 +226,18 @@ impl Game {
 
     pub fn last_move(&self) -> Option<ChessMove> {
         self.move_history.last().cloned()
+    }
+
+    pub fn get_book_line_name(&self) -> Option<String> {
+        let line = self.get_book_line();
+        self.book.get_line(line)
+    }
+
+    fn get_book_line(&self) -> Vec<BookMove> {
+        self.move_history
+            .iter()
+            .map(|m| BookMove::new(m.from_square(), m.to_square()))
+            .collect()
     }
 }
 

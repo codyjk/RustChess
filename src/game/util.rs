@@ -1,7 +1,6 @@
 use crate::board::color::Color;
 use crate::board::Board;
 use crate::chess_move::chess_move::ChessMove;
-use crate::evaluate::board_material_score;
 use crate::game::game::Game;
 use common::bitboard::square::from_rank_file;
 
@@ -21,7 +20,14 @@ pub fn print_board_and_stats(
     };
     let searched_position_count = game.searched_position_count();
     let searched_position_message = match searched_position_count {
-        0 => "0 (book move)".to_string(),
+        0 => {
+            let line_name = game.get_book_line_name();
+            format!(
+                "{} (book move: {})",
+                searched_position_count,
+                line_name.unwrap_or_else(|| "-".to_string())
+            )
+        }
         _ => format!(
             "{} (depth {})",
             searched_position_count,
