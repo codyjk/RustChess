@@ -60,6 +60,12 @@ impl Bitboard {
     pub fn popcnt(&self) -> u32 {
         self.0.count_ones()
     }
+
+    pub fn pop_lsb(&mut self) -> Self {
+        let lsb = self.0.trailing_zeros();
+        self.0 &= !(1 << lsb);
+        Bitboard(1 << lsb)
+    }
 }
 
 /// These macros efficiently implement bitwise operations for the Bitboard struct.

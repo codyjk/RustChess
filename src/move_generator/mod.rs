@@ -324,14 +324,11 @@ fn expand_piece_targets(
     color: Color,
     piece_targets: PieceTargetList,
 ) {
-    // TODO(codyjk): Do we need to loop over every square?
     for (piece, target_squares) in piece_targets {
         let piece_sq = assert_square(piece);
-        for &target in &ORDERED_SQUARES {
-            if !target_squares.overlaps(target) {
-                continue;
-            }
-
+        let mut targets = target_squares;
+        while !targets.is_empty() {
+            let target = targets.pop_lsb();
             let capture = board.pieces(color.opposite()).get(target).map(Capture);
 
             let standard_move = StandardChessMove::new(piece_sq, target, capture);
