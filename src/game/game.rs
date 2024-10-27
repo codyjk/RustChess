@@ -53,14 +53,6 @@ impl Game {
         &mut self.board
     }
 
-    pub fn move_generator(&self) -> &MoveGenerator {
-        &self.move_generator
-    }
-
-    pub fn move_generator_mut(&mut self) -> &mut MoveGenerator {
-        &mut self.move_generator
-    }
-
     pub fn enumerated_candidate_moves(&mut self) -> Vec<(ChessMove, String)> {
         let board = &mut self.board;
         let current_turn = board.turn();
