@@ -3,6 +3,8 @@ use std::io;
 use std::str::FromStr;
 use thiserror::Error;
 
+pub mod fen;
+
 #[derive(Error, Debug)]
 pub enum InputError {
     #[error("io error: {error:?}")]

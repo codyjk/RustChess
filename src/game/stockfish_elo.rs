@@ -82,6 +82,7 @@ pub fn determine_stockfish_elo(depth: u8, starting_elo: u32) {
 fn play_game(stockfish: &mut Stockfish, depth: u8) -> (GameResult, Duration, Duration) {
     let mut engine = Engine::with_config(EngineConfig {
         search_depth: depth,
+        starting_position: Board::default(),
     });
     let mut moves = Vec::new();
     let mut engine_time = Duration::new(0, 0);

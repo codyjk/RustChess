@@ -13,8 +13,12 @@ use common::bitboard::bitboard::Bitboard;
 use error::BoardError;
 use piece::Piece;
 use piece_set::PieceSet;
+use std::str::FromStr;
 
-use crate::chess_position;
+use crate::{
+    chess_position,
+    input_handler::fen::{parse_fen, FenParseError},
+};
 
 use self::{
     castle_rights_bitmask::CastleRightsBitmask, move_info::MoveInfo, position_info::PositionInfo,
@@ -229,6 +233,14 @@ impl Board {
 
     pub fn current_position_hash(&self) -> u64 {
         self.position_info.current_position_hash()
+    }
+}
+
+impl FromStr for Board {
+    type Err = FenParseError;
+
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        parse_fen(input)
     }
 }
 
