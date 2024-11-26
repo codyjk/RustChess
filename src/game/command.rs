@@ -2,14 +2,14 @@ use common::bitboard::square::square_string_to_bitboard;
 
 use crate::chess_move::chess_move::ChessMove;
 
-use super::game::{Game, GameError};
+use super::engine::{Engine, EngineError};
 
-type CommandResult = Result<ChessMove, GameError>;
+type CommandResult = Result<ChessMove, EngineError>;
 
-/// Represents a command that can be executed on a game. This separates the parsing
+/// Represents a command that can be executed on a engine. This separates the parsing
 /// of the command from the execution of the command itself.
 pub trait Command {
-    fn execute(&self, game: &mut Game) -> CommandResult;
+    fn execute(&self, engine: &mut Engine) -> CommandResult;
 }
 
 /// Represents a command to make a move on the board.
@@ -25,18 +25,16 @@ pub enum MakeMove {
 }
 
 impl Command for MakeMove {
-    fn execute(&self, game: &mut Game) -> CommandResult {
+    fn execute(&self, engine: &mut Engine) -> CommandResult {
         match self {
             MakeMove::Coordinate {
                 from_square,
                 to_square,
-            } => game.apply_chess_move_by_from_to_coordinates(
+            } => engine.make_move_by_squares(
                 square_string_to_bitboard(from_square),
                 square_string_to_bitboard(to_square),
             ),
-            MakeMove::Algebraic { algebraic } => {
-                game.apply_chess_move_from_raw_algebraic_notation(algebraic.to_string())
-            }
+            MakeMove::Algebraic { algebraic } => engine.make_move_algebraic(algebraic.to_string()),
         }
     }
 }
@@ -48,7 +46,7 @@ impl Command for MakeMove {
 pub struct MakeWaterfallMove {}
 
 impl Command for MakeWaterfallMove {
-    fn execute(&self, game: &mut Game) -> CommandResult {
-        game.make_waterfall_book_then_alpha_beta_move()
+    fn execute(&self, engine: &mut Engine) -> CommandResult {
+        engine.make_best_move()
     }
 }

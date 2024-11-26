@@ -1,15 +1,15 @@
 use crate::evaluate::GameEnding;
 use crate::input_handler;
 
-use super::game::Game;
+use super::engine::Engine;
 
 pub fn player_vs_player() {
-    let mut game = Game::new(0);
+    let mut engine = Engine::new();
     loop {
-        println!("turn: {}", game.board().turn());
-        println!("{}", game.board());
+        println!("turn: {}", engine.board().turn());
+        println!("{}", engine.board());
 
-        match game.check_game_over_for_current_turn() {
+        match engine.check_game_over() {
             Some(GameEnding::Checkmate) => {
                 println!("checkmate!");
                 break;
@@ -33,9 +33,9 @@ pub fn player_vs_player() {
             }
         };
 
-        match command.execute(&mut game) {
+        match command.execute(&mut engine) {
             Ok(_chess_move) => {
-                game.board_mut().toggle_turn();
+                engine.board_mut().toggle_turn();
                 continue;
             }
             Err(error) => println!("error: {}", error),

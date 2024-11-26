@@ -1,16 +1,18 @@
 use crate::board::color::Color;
 use crate::board::Board;
 use crate::chess_move::chess_move::ChessMove;
-use crate::game::game::Game;
 use common::bitboard::square::from_rank_file;
 
+use super::engine::Engine;
+
 pub fn print_board_and_stats(
-    game: &Game,
+    engine: &Engine,
     enumerated_candidate_moves: Vec<(ChessMove, String)>,
     current_turn: Color,
 ) {
-    let board = game.board();
-    let last_move_algebraic = match game.last_move() {
+    let board = engine.board();
+    let search_stats = engine.get_search_stats();
+    let last_move_algebraic = match engine.last_move() {
         Some(chess_move) => enumerated_candidate_moves
             .iter()
             .find(|(move_, _)| move_ == &chess_move)
@@ -18,27 +20,23 @@ pub fn print_board_and_stats(
             .unwrap_or_else(|| "-".to_string()),
         None => "-".to_string(),
     };
-    let searched_position_count = game.searched_position_count();
+    let searched_position_count = search_stats.positions_searched;
     let searched_position_message = match searched_position_count {
         0 => {
-            let line_name = game.get_book_line_name();
+            let line_name = engine.get_book_line_name();
             format!(
                 "{} (book move: {})",
                 searched_position_count,
                 line_name.unwrap_or_else(|| "-".to_string())
             )
         }
-        _ => format!(
-            "{} (depth {})",
-            searched_position_count,
-            game.search_depth()
-        ),
+        _ => format!("{} (depth {})", searched_position_count, search_stats.depth,),
     };
-    let alpha_beta_score = match game.alpha_beta_score() {
+    let alpha_beta_score = match search_stats.last_score {
         Some(score) => format!("{}", score),
         None => "-".to_string(),
     };
-    print_board(game.board());
+    print_board(engine.board());
     println!("Last move: {}\n", last_move_algebraic);
     println!("* Turn: {}", current_turn);
     println!("* Halfmove clock: {}", board.halfmove_clock());
