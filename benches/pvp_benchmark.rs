@@ -1,14 +1,13 @@
-use chess::game::modes;
-
+use chess::game::computer_vs_computer::computer_vs_computer;
 use criterion::{criterion_group, criterion_main, Criterion};
 
 fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("computer vs computer (depth 3)", |b| {
-        b.iter(|| modes::computer_vs_computer(25, 0, 3))
+        b.iter(|| computer_vs_computer(25, 0, 3))
     });
 
     c.bench_function("computer vs computer (depth 4)", |b| {
-        b.iter(|| modes::computer_vs_computer(10, 0, 4))
+        b.iter(|| computer_vs_computer(10, 0, 4))
     });
 }
 
