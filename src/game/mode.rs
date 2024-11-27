@@ -1,7 +1,7 @@
 use crate::board::color::Color;
 use crate::chess_move::chess_move::ChessMove;
+use crate::game::display::GameDisplay;
 use crate::game::engine::Engine;
-use crate::game::ui::GameUI;
 use crate::input_handler::{parse_move_input, MoveInput};
 use std::time::Duration;
 
@@ -9,7 +9,7 @@ pub trait GameMode {
     fn get_move(&self, current_turn: Color) -> Option<MoveInput>;
     fn render(
         &self,
-        ui: &mut GameUI,
+        ui: &mut GameDisplay,
         engine: &Engine,
         current_turn: Color,
         last_move: Option<(&ChessMove, &str)>,
@@ -39,7 +39,7 @@ impl GameMode for HumanVsComputer {
 
     fn render(
         &self,
-        ui: &mut GameUI,
+        ui: &mut GameDisplay,
         engine: &Engine,
         current_turn: Color,
         last_move: Option<(&ChessMove, &str)>,
@@ -77,7 +77,7 @@ impl GameMode for ComputerVsComputer {
 
     fn render(
         &self,
-        ui: &mut GameUI,
+        ui: &mut GameDisplay,
         engine: &Engine,
         current_turn: Color,
         last_move: Option<(&ChessMove, &str)>,
@@ -112,7 +112,7 @@ impl GameMode for HumanVsHuman {
 
     fn render(
         &self,
-        ui: &mut GameUI,
+        ui: &mut GameDisplay,
         engine: &Engine,
         current_turn: Color,
         last_move: Option<(&ChessMove, &str)>,

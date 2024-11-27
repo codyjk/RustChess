@@ -4,11 +4,11 @@ use common::bitboard::square::from_rank_file;
 use std::fmt::Write;
 use termion::{clear, cursor};
 
-pub struct GameUI {
+pub struct GameDisplay {
     buffer: String,
 }
 
-impl GameUI {
+impl GameDisplay {
     pub fn new() -> Self {
         Self {
             buffer: String::with_capacity(2048),

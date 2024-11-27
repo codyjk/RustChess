@@ -1,9 +1,9 @@
 use std::time::Duration;
 
 use chess::board::color::Color;
-use chess::game::game_loop::GameLoop;
-use chess::game::game_mode::{ComputerVsComputer, HumanVsComputer, HumanVsHuman};
+use chess::game::mode::{ComputerVsComputer, HumanVsComputer, HumanVsHuman};
 use chess::game::position_counter::{run_count_positions, CountPositionsStrategy};
+use chess::game::r#loop::GameLoop;
 use chess::game::stockfish_elo::determine_stockfish_elo;
 use structopt::StructOpt;
 

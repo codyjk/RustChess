@@ -1,12 +1,12 @@
 use crate::evaluate::GameEnding;
+use crate::game::display::GameDisplay;
 use crate::game::engine::{Engine, EngineConfig};
-use crate::game::ui::GameUI;
 
-use super::game_mode::GameMode;
+use super::mode::GameMode;
 
 pub struct GameLoop<T: GameMode> {
     engine: Engine,
-    ui: GameUI,
+    ui: GameDisplay,
     mode: T,
 }
 
@@ -19,7 +19,7 @@ impl<T: GameMode> GameLoop<T> {
 
         Self {
             engine,
-            ui: GameUI::new(),
+            ui: GameDisplay::new(),
             mode,
         }
     }

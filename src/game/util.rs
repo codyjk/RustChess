@@ -1,13 +1,13 @@
 use crate::{board::color::Color, chess_move::chess_move::ChessMove};
 
-use super::{engine::Engine, ui::GameUI};
+use super::{display::GameDisplay, engine::Engine};
 
 pub fn print_board_and_stats(
     engine: &Engine,
     moves: Vec<(ChessMove, String)>,
     current_turn: Color,
 ) {
-    let mut ui = GameUI::new();
+    let mut ui = GameDisplay::new();
 
     let last_move = engine.last_move().and_then(|mv| {
         moves
