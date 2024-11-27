@@ -15,15 +15,17 @@ use common::bitboard::square::square_string_to_bitboard;
 use thiserror::Error;
 
 /// Core engine state and configuration
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct EngineConfig {
     pub search_depth: u8,
+    pub starting_position: Board,
 }
 
 impl Default for EngineConfig {
     fn default() -> Self {
         Self {
             search_depth: 4, // Default search depth
+            starting_position: Board::default(),
         }
     }
 }
@@ -38,8 +40,14 @@ pub struct GameState {
 
 impl Default for GameState {
     fn default() -> Self {
+        Self::new(Board::default())
+    }
+}
+
+impl GameState {
+    fn new(starting_position: Board) -> Self {
         Self {
-            board: Board::default(),
+            board: starting_position,
             move_history: Vec::new(),
             last_score: None,
         }
@@ -71,7 +79,7 @@ impl Engine {
 
     pub fn with_config(config: EngineConfig) -> Self {
         Self {
-            state: GameState::default(),
+            state: GameState::new(config.starting_position),
             book: Book::default(),
             move_generator: MoveGenerator::new(),
             search_context: SearchContext::new(config.search_depth),
@@ -277,9 +285,7 @@ mod tests {
 
     #[test]
     fn test_find_mate_in_1_white() {
-        let mut engine = Engine::with_config(EngineConfig { search_depth: 4 });
-
-        engine.state.board = chess_position! {
+        let mut starting_position = chess_position! {
             .Q......
             ........
             ........
@@ -289,8 +295,13 @@ mod tests {
             k.K.....
             ........
         };
-        engine.state.board.set_turn(Color::White);
-        engine.state.board.lose_castle_rights(ALL_CASTLE_RIGHTS);
+        starting_position.set_turn(Color::White);
+        starting_position.lose_castle_rights(ALL_CASTLE_RIGHTS);
+
+        let mut engine = Engine::with_config(EngineConfig {
+            search_depth: 4,
+            starting_position,
+        });
 
         let chess_move = engine.get_best_move().unwrap();
         let valid_checkmates = [
