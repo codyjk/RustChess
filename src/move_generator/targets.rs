@@ -354,7 +354,7 @@ mod tests {
     #[test]
     pub fn test_generate_attack_targets_2() {
         let mut targets = Targets::new();
-        let mut board = Board::starting_position();
+        let mut board = Board::default();
         let moves = [
             std_move!(E2, E4),
             std_move!(F7, F5),

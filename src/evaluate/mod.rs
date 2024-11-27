@@ -194,7 +194,7 @@ mod tests {
 
     #[test]
     fn test_starting_player_material_score() {
-        let board = Board::starting_position();
+        let board = Board::default();
         println!("Testing board:\n{}", board);
 
         let white_score = player_material_score(&board, Color::White);
@@ -288,8 +288,8 @@ mod tests {
     }
 
     #[test]
-    fn test_starting_position_is_not_endgame() {
-        let board = Board::starting_position();
+    fn test_default_is_not_endgame() {
+        let board = Board::default();
         assert!(!is_endgame(&board));
     }
 

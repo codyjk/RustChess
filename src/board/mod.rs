@@ -34,29 +34,6 @@ pub struct Board {
 
 impl Default for Board {
     fn default() -> Self {
-        Self {
-            white: PieceSet::new(),
-            black: PieceSet::new(),
-            turn: Color::White,
-            move_info: MoveInfo::new(),
-            position_info: PositionInfo::new(),
-        }
-    }
-}
-
-impl Board {
-    pub fn new() -> Self {
-        Default::default()
-    }
-
-    pub fn pieces(&self, color: Color) -> &PieceSet {
-        match color {
-            Color::White => &self.white,
-            Color::Black => &self.black,
-        }
-    }
-
-    pub fn starting_position() -> Self {
         chess_position! {
             rnbqkbnr
             pppppppp
@@ -66,6 +43,25 @@ impl Board {
             ........
             PPPPPPPP
             RNBQKBNR
+        }
+    }
+}
+
+impl Board {
+    pub fn new() -> Self {
+        Self {
+            white: PieceSet::new(),
+            black: PieceSet::new(),
+            turn: Color::White,
+            move_info: MoveInfo::new(),
+            position_info: PositionInfo::new(),
+        }
+    }
+
+    pub fn pieces(&self, color: Color) -> &PieceSet {
+        match color {
+            Color::White => &self.white,
+            Color::Black => &self.black,
         }
     }
 
@@ -249,8 +245,8 @@ mod tests {
 
     #[test]
     fn test_zobrist_hashing_is_equal_for_transpositions() {
-        let mut board1 = Board::starting_position();
-        let mut board2 = Board::starting_position();
+        let mut board1 = Board::default();
+        let mut board2 = Board::default();
         let initial_hash_1 = board1.current_position_hash();
         let initial_hash_2 = board2.current_position_hash();
         assert_eq!(initial_hash_1, initial_hash_2);

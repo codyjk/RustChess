@@ -303,7 +303,7 @@ mod tests {
 
     #[test]
     fn test_apply_chess_move() {
-        let mut board = Board::starting_position();
+        let mut board = Board::default();
         println!("Testing board:\n{}", board);
 
         // using a queens gambit accepted opening to test basic chess move application
@@ -329,7 +329,7 @@ mod tests {
 
     #[test]
     fn test_undo_pawn_move() {
-        let mut board = Board::starting_position();
+        let mut board = Board::default();
         let original_board = format!("{}", board);
         println!("Testing board:\n{}", board);
 
@@ -345,7 +345,7 @@ mod tests {
 
     #[test]
     fn test_undo_knight_move() {
-        let mut board = Board::starting_position();
+        let mut board = Board::default();
         let original_board = format!("{}", board);
         println!("Testing board:\n{}", board);
 

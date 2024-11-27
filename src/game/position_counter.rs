@@ -31,7 +31,7 @@ pub fn run_count_positions(depth: u8, strategy: CountPositionsStrategy) {
     let mut total_duration = Duration::from_secs(0);
 
     for depth in depths {
-        let mut board = Board::starting_position();
+        let mut board = Board::default();
 
         let starting_time = SystemTime::now();
         let count = match strategy {

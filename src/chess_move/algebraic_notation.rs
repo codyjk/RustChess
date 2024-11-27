@@ -217,7 +217,7 @@ mod tests {
 
     #[test]
     fn test_algebraic_notation_for_basic_moves() {
-        let mut board = Board::starting_position();
+        let mut board = Board::default();
         board.set_turn(Color::White);
 
         assert_move_has_algebraic_notation!(board, Color::White, std_move!(E2, E4), "e4");

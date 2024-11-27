@@ -39,7 +39,7 @@ pub struct GameState {
 impl Default for GameState {
     fn default() -> Self {
         Self {
-            board: Board::starting_position(),
+            board: Board::default(),
             move_history: Vec::new(),
             last_score: None,
         }
