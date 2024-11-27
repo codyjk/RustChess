@@ -11,14 +11,9 @@ pub struct GameLoop<T: GameMode> {
 }
 
 impl<T: GameMode> GameLoop<T> {
-    pub fn new(mode: T, depth: Option<u8>) -> Self {
-        let engine = match depth {
-            Some(d) => Engine::with_config(EngineConfig { search_depth: d }),
-            None => Engine::new(),
-        };
-
+    pub fn new(mode: T, config: EngineConfig) -> Self {
         Self {
-            engine,
+            engine: Engine::with_config(config),
             ui: GameDisplay::new(),
             mode,
         }

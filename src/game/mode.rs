@@ -22,8 +22,9 @@ pub struct HumanVsComputer {
 }
 
 pub struct ComputerVsComputer {
-    pub depth: u8,
-    pub delay: Option<Duration>,
+    /// The engine can calculate moves very quickly, so adding a slight delay
+    /// between moves makes the game easier to observe.
+    pub delay_between_moves: Option<Duration>,
 }
 
 pub struct HumanVsHuman;
@@ -101,7 +102,7 @@ impl GameMode for ComputerVsComputer {
     }
 
     fn frame_delay(&self) -> Option<Duration> {
-        self.delay
+        self.delay_between_moves
     }
 }
 

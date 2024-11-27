@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use chess::board::color::Color;
+use chess::game::engine::EngineConfig;
 use chess::game::mode::{ComputerVsComputer, HumanVsComputer, HumanVsHuman};
 use chess::game::position_counter::{run_count_positions, CountPositionsStrategy};
 use chess::game::r#loop::GameLoop;
@@ -66,20 +67,26 @@ fn main() {
     match args {
         Chess::Play { depth, color } => {
             let mode = HumanVsComputer { human_color: color };
-            let mut game = GameLoop::new(mode, Some(depth));
+            let config = EngineConfig {
+                search_depth: depth,
+            };
+            let mut game = GameLoop::new(mode, config);
             game.run();
         }
         Chess::Watch { depth } => {
             let mode = ComputerVsComputer {
-                depth,
-                delay: Some(Duration::from_millis(1000)),
+                delay_between_moves: Some(Duration::from_millis(1000)),
             };
-            let mut game = GameLoop::new(mode, Some(depth));
+            let config = EngineConfig {
+                search_depth: depth,
+            };
+            let mut game = GameLoop::new(mode, config);
             game.run();
         }
         Chess::Pvp => {
             let mode = HumanVsHuman;
-            let mut game = GameLoop::new(mode, None);
+            let config = EngineConfig { search_depth: 0 };
+            let mut game = GameLoop::new(mode, config);
             game.run();
         }
         Chess::CountPositions { depth, strategy } => run_count_positions(depth, strategy),
