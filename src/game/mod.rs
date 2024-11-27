@@ -1,7 +1,6 @@
-pub mod computer_vs_computer;
 pub mod engine;
-pub mod human_vs_computer;
-pub mod player_vs_player;
+pub mod game_loop;
+pub mod game_mode;
 pub mod position_counter;
 pub mod stockfish_elo;
 mod stockfish_interface;

@@ -1,7 +1,8 @@
+use std::time::Duration;
+
 use chess::board::color::Color;
-use chess::game::computer_vs_computer::computer_vs_computer;
-use chess::game::human_vs_computer::play_computer;
-use chess::game::player_vs_player::player_vs_player;
+use chess::game::game_loop::GameLoop;
+use chess::game::game_mode::{ComputerVsComputer, HumanVsComputer, HumanVsHuman};
 use chess::game::position_counter::{run_count_positions, CountPositionsStrategy};
 use chess::game::stockfish_elo::determine_stockfish_elo;
 use structopt::StructOpt;
@@ -63,10 +64,25 @@ fn main() {
     let args = Chess::from_args();
 
     match args {
+        Chess::Play { depth, color } => {
+            let mode = HumanVsComputer { human_color: color };
+            let mut game = GameLoop::new(mode, Some(depth));
+            game.run();
+        }
+        Chess::Watch { depth } => {
+            let mode = ComputerVsComputer {
+                depth,
+                delay: Some(Duration::from_millis(1000)),
+            };
+            let mut game = GameLoop::new(mode, Some(depth));
+            game.run();
+        }
+        Chess::Pvp => {
+            let mode = HumanVsHuman;
+            let mut game = GameLoop::new(mode, None);
+            game.run();
+        }
         Chess::CountPositions { depth, strategy } => run_count_positions(depth, strategy),
-        Chess::Play { depth, color } => play_computer(depth, color),
-        Chess::Watch { depth } => computer_vs_computer(0, 1000, depth),
-        Chess::Pvp => player_vs_player(),
         Chess::DetermineStockfishElo {
             depth,
             starting_elo,
