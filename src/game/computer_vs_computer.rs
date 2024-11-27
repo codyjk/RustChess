@@ -1,19 +1,15 @@
-use std::thread::sleep;
-use std::time::Duration;
-
-use termion::clear;
-
 use crate::evaluate::GameEnding;
 use crate::game::engine::{Engine, EngineConfig};
-use crate::game::util::print_board_and_stats;
+use crate::game::ui::GameUI;
 use crate::input_handler::MoveInput;
+use std::thread::sleep;
+use std::time::Duration;
 
 pub fn computer_vs_computer(move_limit: u8, sleep_between_turns_in_ms: u64, depth: u8) {
     let engine = &mut Engine::with_config(EngineConfig {
         search_depth: depth,
     });
-
-    println!("{}", clear::All);
+    let mut ui = GameUI::new();
 
     loop {
         sleep(Duration::from_millis(sleep_between_turns_in_ms));
@@ -35,11 +31,25 @@ pub fn computer_vs_computer(move_limit: u8, sleep_between_turns_in_ms: u64, dept
         let current_turn = engine.board().turn();
 
         match engine.make_move_from_input(MoveInput::UseEngine) {
-            Ok(_) => {
-                println!("{}", clear::All);
-                print_board_and_stats(engine, valid_moves, current_turn);
+            Ok(chess_move) => {
+                let last_move = valid_moves
+                    .iter()
+                    .find(|(mv, _)| mv == &chess_move)
+                    .map(|(mv, notation)| (mv, notation.as_str()));
+
+                let stats = format!(
+                    "* Score: {}\n* Positions searched: {}\n* Search depth: {}",
+                    engine
+                        .get_search_stats()
+                        .last_score
+                        .map_or("-".to_string(), |s| s.to_string()),
+                    engine.get_search_stats().positions_searched,
+                    engine.get_search_stats().depth
+                );
+
                 engine.board_mut().toggle_turn();
                 engine.clear_cache();
+                ui.render_game_state(engine.board(), current_turn, last_move, Some(&stats));
             }
             Err(error) => {
                 println!("error: {}", error);

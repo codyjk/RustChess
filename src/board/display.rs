@@ -1,63 +1,13 @@
-use common::bitboard::square::from_rank_file;
+use crate::game::ui::GameUI;
 
-use super::color::Color;
-use super::piece::Piece;
 use super::Board;
 use std::fmt;
 
-const EMPTY_CELL: char = '.';
-
 impl fmt::Display for Board {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut rows: Vec<String> = vec![];
-
-        for rank in (0..8).rev() {
-            let mut cells: Vec<String> = vec![];
-            for file in 0..8 {
-                let sq = from_rank_file(rank, file);
-                let cell = match self.get(sq) {
-                    Some((piece, color)) => get_piece_char(piece, color),
-                    None => EMPTY_CELL,
-                };
-                cells.push(cell.to_string());
-            }
-            rows.push(cells.join("").to_string());
-        }
-        write!(f, "{}", rows.join("\n"))
-    }
-}
-
-fn get_piece_char(piece: Piece, color: Color) -> char {
-    match (piece, color, cfg!(test)) {
-        // In the test environment, we want the printed board to match
-        // what is passed in to the `chess_position!` macro, to make it easy
-        // to copy-paste the expected board state into the test.
-        (Piece::Bishop, Color::Black, true) => 'b',
-        (Piece::Bishop, Color::White, true) => 'B',
-        (Piece::King, Color::Black, true) => 'k',
-        (Piece::King, Color::White, true) => 'K',
-        (Piece::Knight, Color::Black, true) => 'n',
-        (Piece::Knight, Color::White, true) => 'N',
-        (Piece::Pawn, Color::Black, true) => 'p',
-        (Piece::Pawn, Color::White, true) => 'P',
-        (Piece::Queen, Color::Black, true) => 'q',
-        (Piece::Queen, Color::White, true) => 'Q',
-        (Piece::Rook, Color::Black, true) => 'r',
-        (Piece::Rook, Color::White, true) => 'R',
-        // In the actual game, we want to use unicode characters to represent
-        // the pieces, making it easier to visually distinguish them.
-        (Piece::Bishop, Color::Black, false) => '♗',
-        (Piece::Bishop, Color::White, false) => '♝',
-        (Piece::King, Color::Black, false) => '♔',
-        (Piece::King, Color::White, false) => '♚',
-        (Piece::Knight, Color::Black, false) => '♘',
-        (Piece::Knight, Color::White, false) => '♞',
-        (Piece::Pawn, Color::Black, false) => '♙',
-        (Piece::Pawn, Color::White, false) => '♟',
-        (Piece::Queen, Color::Black, false) => '♕',
-        (Piece::Queen, Color::White, false) => '♛',
-        (Piece::Rook, Color::Black, false) => '♖',
-        (Piece::Rook, Color::White, false) => '♜',
+        let mut ui = GameUI::new();
+        ui.render_game_state(self, self.turn(), None, None);
+        write!(f, "{}", ui.buffer())
     }
 }
 
