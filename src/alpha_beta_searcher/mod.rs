@@ -9,6 +9,7 @@ use thiserror::Error;
 use rayon::prelude::*;
 use std::cmp::{max, min};
 use std::sync::{Arc, RwLock};
+use std::time::{Duration, Instant};
 
 use self::prioritize_chess_moves::sort_chess_moves;
 
@@ -28,6 +29,7 @@ pub struct SearchContext {
     cache_hit_count: Arc<RwLock<usize>>,
     termination_count: Arc<RwLock<usize>>,
     last_score: Option<i16>,
+    last_search_duration: Option<Duration>,
 }
 
 #[derive(Error, Debug)]
@@ -47,10 +49,13 @@ impl SearchContext {
             cache_hit_count: Arc::new(RwLock::new(0)),
             termination_count: Arc::new(RwLock::new(0)),
             last_score: None,
+            last_search_duration: None,
         }
     }
 
     pub fn reset_stats(&mut self) {
+        self.last_score = None;
+        self.last_search_duration = None;
         *self.searched_position_count.write().unwrap() = 0;
         *self.cache_hit_count.write().unwrap() = 0;
         *self.termination_count.write().unwrap() = 0;
@@ -75,6 +80,10 @@ impl SearchContext {
     pub fn last_score(&self) -> Option<i16> {
         self.last_score
     }
+
+    pub fn last_search_duration(&self) -> Option<Duration> {
+        self.last_search_duration
+    }
 }
 
 pub fn alpha_beta_search(
@@ -89,6 +98,7 @@ pub fn alpha_beta_search(
         return Err(SearchError::DepthTooLow);
     }
 
+    let start = Instant::now();
     let current_player = board.turn();
     let current_player_is_maximizing = current_player.maximize_score();
     let mut candidates =
@@ -142,6 +152,7 @@ pub fn alpha_beta_search(
 
     let (score, result) = scored_moves.pop().unwrap();
     context.last_score = Some(score);
+    context.last_search_duration = Some(start.elapsed());
     debug!(
         "Alpha-beta search returning best move: {:?} (score: {})",
         result, score

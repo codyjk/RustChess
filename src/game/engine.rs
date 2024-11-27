@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use crate::alpha_beta_searcher::{alpha_beta_search, SearchContext, SearchError};
 use crate::board::color::Color;
 use crate::board::error::BoardError;
@@ -165,6 +167,7 @@ impl Engine {
             terminations: self.search_context.termination_count(),
             depth: self.search_context.search_depth(),
             last_score: self.state.last_score,
+            last_search_duration: self.search_context.last_search_duration(),
         }
     }
 
@@ -257,6 +260,7 @@ pub struct SearchStats {
     pub terminations: usize,
     pub depth: u8,
     pub last_score: Option<i16>,
+    pub last_search_duration: Option<Duration>,
 }
 
 // Tests
