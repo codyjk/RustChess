@@ -6,8 +6,10 @@ use crate::book::{Book, BookMove};
 use crate::chess_move::algebraic_notation::enumerate_candidate_moves_with_algebraic_notation;
 use crate::chess_move::chess_move::ChessMove;
 use crate::evaluate::{self, GameEnding};
+use crate::input_handler::MoveInput;
 use crate::move_generator::MoveGenerator;
 use common::bitboard::bitboard::Bitboard;
+use common::bitboard::square::square_string_to_bitboard;
 use thiserror::Error;
 
 /// Core engine state and configuration
@@ -186,6 +188,18 @@ impl Engine {
 
     pub fn clear_cache(&mut self) {
         self.move_generator.reset_cache_hit_count();
+    }
+
+    pub fn make_move_from_input(&mut self, input: MoveInput) -> Result<ChessMove, EngineError> {
+        match input {
+            MoveInput::Coordinate { from, to } => {
+                let from_square = square_string_to_bitboard(&from);
+                let to_square = square_string_to_bitboard(&to);
+                self.make_move_by_squares(from_square, to_square)
+            }
+            MoveInput::Algebraic { notation } => self.make_move_algebraic(notation),
+            MoveInput::UseEngine => self.make_best_move(),
+        }
     }
 
     // Private helper methods

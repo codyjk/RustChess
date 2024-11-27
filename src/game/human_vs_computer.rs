@@ -1,9 +1,8 @@
 use crate::board::color::Color;
 use crate::evaluate::GameEnding;
-use crate::game::command::{Command, MakeWaterfallMove};
 use crate::game::engine::{Engine, EngineConfig};
 use crate::game::util::{print_board, print_board_and_stats, print_enter_move_prompt};
-use crate::input_handler;
+use crate::input_handler::{parse_move_input, MoveInput};
 use std::time::SystemTime;
 use termion::{clear, cursor};
 
@@ -18,38 +17,33 @@ pub fn play_computer(depth: u8, player_color: Color) {
     print_enter_move_prompt();
 
     loop {
-        match engine.check_game_over() {
-            Some(GameEnding::Checkmate) => {
-                println!("checkmate!");
-                break;
+        if let Some(ending) = engine.check_game_over() {
+            match ending {
+                GameEnding::Checkmate => println!("checkmate!"),
+                GameEnding::Stalemate => println!("stalemate!"),
+                _ => (),
             }
-            Some(GameEnding::Stalemate) => {
-                println!("stalemate!");
-                break;
-            }
-            _ => (),
-        };
+            break;
+        }
 
-        // Precalculate the moves and their algebraic notations, so that we
-        // can render it after a move is made.
         let valid_moves = engine.get_valid_moves();
         let current_turn = engine.board().turn();
 
-        let command: Box<dyn Command> = if player_color == engine.board().turn() {
-            match input_handler::parse_player_move_input() {
-                Ok(command) => command,
+        let input = if player_color == engine.board().turn() {
+            match parse_move_input() {
+                Ok(input) => input,
                 Err(msg) => {
                     println!("{}", msg);
                     continue;
                 }
             }
         } else {
-            Box::<MakeWaterfallMove>::default()
+            MoveInput::UseEngine
         };
 
         let start_time = SystemTime::now();
-        match command.execute(engine) {
-            Ok(_chess_move) => {
+        match engine.make_move_from_input(input) {
+            Ok(_) => {
                 let duration = SystemTime::now().duration_since(start_time).unwrap();
                 print!("{}{}", cursor::Goto(1, 1), clear::All);
                 engine.board_mut().toggle_turn();
@@ -59,7 +53,6 @@ pub fn play_computer(depth: u8, player_color: Color) {
                     println!("* Move took: {:?}", duration);
                     print_enter_move_prompt();
                 }
-                continue;
             }
             Err(error) => println!("error: {}", error),
         }

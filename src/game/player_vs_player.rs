@@ -1,5 +1,5 @@
 use crate::evaluate::GameEnding;
-use crate::input_handler;
+use crate::input_handler::parse_move_input;
 
 use super::engine::Engine;
 
@@ -9,36 +9,23 @@ pub fn player_vs_player() {
         println!("turn: {}", engine.board().turn());
         println!("{}", engine.board());
 
-        match engine.check_game_over() {
-            Some(GameEnding::Checkmate) => {
-                println!("checkmate!");
-                break;
+        if let Some(ending) = engine.check_game_over() {
+            match ending {
+                GameEnding::Checkmate => println!("Checkmate!"),
+                GameEnding::Stalemate => println!("Stalemate!"),
+                GameEnding::Draw => println!("Draw!"),
             }
-            Some(GameEnding::Stalemate) => {
-                println!("stalemate!");
-                break;
-            }
-            Some(GameEnding::Draw) => {
-                println!("draw!");
-                break;
-            }
-            _ => (),
-        };
+            break;
+        }
 
-        let command = match input_handler::parse_player_move_input() {
-            Ok(command) => command,
-            Err(msg) => {
-                println!("{}", msg);
-                continue;
-            }
-        };
-
-        match command.execute(&mut engine) {
-            Ok(_chess_move) => {
-                engine.board_mut().toggle_turn();
-                continue;
-            }
-            Err(error) => println!("error: {}", error),
+        match parse_move_input() {
+            Ok(input) => match engine.make_move_from_input(input) {
+                Ok(_) => {
+                    engine.board_mut().toggle_turn();
+                }
+                Err(error) => println!("error: {}", error),
+            },
+            Err(msg) => println!("{}", msg),
         }
     }
 }

@@ -1,4 +1,3 @@
-pub mod command;
 pub mod computer_vs_computer;
 pub mod engine;
 pub mod human_vs_computer;
