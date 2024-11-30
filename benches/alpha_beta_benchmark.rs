@@ -1,52 +1,95 @@
-use chess::alpha_beta_searcher::{alpha_beta_search, SearchContext};
-use chess::board::castle_rights_bitmask::ALL_CASTLE_RIGHTS;
-use chess::board::color::Color;
-use chess::board::piece::Piece;
-use chess::board::Board;
-use chess::chess_position;
-use chess::evaluate::{self, GameEnding};
-use chess::move_generator::MoveGenerator;
-
+// benches/alpha_beta_history_benchmark.rs
+use chess::{
+    alpha_beta_searcher::{alpha_beta_search, SearchContext},
+    board::{castle_rights_bitmask::ALL_CASTLE_RIGHTS, color::Color, piece::Piece, Board},
+    chess_position,
+    move_generator::MoveGenerator,
+};
 use common::bitboard::bitboard::Bitboard;
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 
-fn criterion_benchmark(c: &mut Criterion) {
-    c.bench_function("alpha beta mate in 2", |b| {
-        b.iter(find_alpha_beta_mate_in_2)
-    });
+fn benchmark_positions() -> Vec<(String, Board)> {
+    vec![
+        // Position that tests tactical play
+        (
+            "tactical".to_string(),
+            chess_position! {
+                ....r..k
+                ....q...
+                ........
+                ........
+                ........
+                ........
+                .....PPP
+                R.....K.
+            },
+        ),
+        // Position that tests quiet positional play
+        (
+            "positional".to_string(),
+            chess_position! {
+                ........
+                pp...ppp
+                ....p...
+                ...p....
+                ...P....
+                ........
+                PPP..PPP
+                ........
+            },
+        ),
+        // Complex middlegame position
+        (
+            "middlegame".to_string(),
+            chess_position! {
+                r..q.rk.
+                ppp..ppp
+                ..n.....
+                ....p...
+                ....P...
+                ........
+                PPP..PPP
+                R..Q.RK.
+            },
+        ),
+    ]
 }
 
-criterion_group!(benches, criterion_benchmark);
+fn alpha_beta_benchmark(c: &mut Criterion) {
+    let mut group = c.benchmark_group("Alpha-Beta Search");
+
+    // Test different search depths
+    for depth in [4, 5, 6] {
+        // Test each position
+        for (name, mut initial_board) in benchmark_positions() {
+            initial_board.lose_castle_rights(ALL_CASTLE_RIGHTS);
+            group.bench_with_input(
+                BenchmarkId::new(format!("{}_depth_{}", name, depth), depth),
+                &depth,
+                |b, &depth| {
+                    b.iter_batched(
+                        || {
+                            // Setup for each iteration
+                            let board = initial_board.clone();
+                            let move_gen = MoveGenerator::new();
+                            let context = SearchContext::new(depth);
+                            (board, move_gen, context)
+                        },
+                        |(mut board, mut move_gen, mut context)| {
+                            // The actual search
+                            black_box(
+                                alpha_beta_search(&mut context, &mut board, &mut move_gen).unwrap(),
+                            )
+                        },
+                        criterion::BatchSize::LargeInput,
+                    )
+                },
+            );
+        }
+    }
+
+    group.finish();
+}
+
+criterion_group!(benches, alpha_beta_benchmark);
 criterion_main!(benches);
-
-fn find_alpha_beta_mate_in_2() {
-    let mut search_context = SearchContext::new(2);
-    let mut move_generator = MoveGenerator::new();
-    let mut board = chess_position! {
-        ....r..k
-        ....q...
-        ........
-        ........
-        ........
-        ........
-        .....PPP
-        R.....K.
-    };
-    board.set_turn(Color::Black);
-    board.lose_castle_rights(ALL_CASTLE_RIGHTS);
-
-    let move1 = alpha_beta_search(&mut search_context, &mut board, &mut move_generator).unwrap();
-    move1.apply(&mut board).unwrap();
-    board.toggle_turn();
-    let move2 = alpha_beta_search(&mut search_context, &mut board, &mut move_generator).unwrap();
-    move2.apply(&mut board).unwrap();
-    board.toggle_turn();
-    let move3 = alpha_beta_search(&mut search_context, &mut board, &mut move_generator).unwrap();
-    move3.apply(&mut board).unwrap();
-    let current_turn = board.toggle_turn();
-
-    matches!(
-        evaluate::game_ending(&mut board, &mut move_generator, current_turn),
-        Some(GameEnding::Checkmate)
-    );
-}
