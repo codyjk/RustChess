@@ -81,7 +81,7 @@ impl Engine {
         Self {
             state: GameState::new(config.starting_position),
             book: Book::default(),
-            move_generator: MoveGenerator::new(),
+            move_generator: MoveGenerator::default(),
             search_context: SearchContext::new(config.search_depth),
         }
     }
@@ -171,8 +171,6 @@ impl Engine {
     pub fn get_search_stats(&self) -> SearchStats {
         SearchStats {
             positions_searched: self.search_context.searched_position_count(),
-            cache_hits: self.search_context.cache_hit_count(),
-            terminations: self.search_context.termination_count(),
             depth: self.search_context.search_depth(),
             last_score: self.state.last_score,
             last_search_duration: self.search_context.last_search_duration(),
@@ -264,8 +262,6 @@ impl Engine {
 #[derive(Debug, Clone)]
 pub struct SearchStats {
     pub positions_searched: usize,
-    pub cache_hits: usize,
-    pub terminations: usize,
     pub depth: u8,
     pub last_score: Option<i16>,
     pub last_search_duration: Option<Duration>,

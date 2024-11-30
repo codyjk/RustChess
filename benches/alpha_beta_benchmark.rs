@@ -71,7 +71,7 @@ fn alpha_beta_benchmark(c: &mut Criterion) {
                         || {
                             // Setup for each iteration
                             let board = initial_board.clone();
-                            let move_gen = MoveGenerator::new();
+                            let move_gen = MoveGenerator::default();
                             let context = SearchContext::new(depth);
                             (board, move_gen, context)
                         },

@@ -206,7 +206,7 @@ mod tests {
 
     macro_rules! assert_move_has_algebraic_notation {
         ($board:expr, $color:expr, $move:expr, $notation:expr) => {
-            let candidate_moves = MoveGenerator::new()
+            let candidate_moves = MoveGenerator::default()
                 .generate_moves_and_lazily_update_chess_move_effects(&mut $board, $color);
             assert_eq!(
                 chess_move_to_algebraic_notation(&$move, &mut $board, &candidate_moves,).unwrap(),

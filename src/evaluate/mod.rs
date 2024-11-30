@@ -220,7 +220,7 @@ mod tests {
         board.lose_castle_rights(ALL_CASTLE_RIGHTS);
         println!("Testing board:\n{}", board);
 
-        let ending = game_ending(&mut board, &mut MoveGenerator::new(), Color::Black);
+        let ending = game_ending(&mut board, &mut MoveGenerator::default(), Color::Black);
         matches!(ending, Some(GameEnding::Stalemate));
     }
 
@@ -240,7 +240,7 @@ mod tests {
         board.lose_castle_rights(ALL_CASTLE_RIGHTS);
         println!("Testing board:\n{}", board);
 
-        let ending = game_ending(&mut board, &mut MoveGenerator::new(), Color::Black);
+        let ending = game_ending(&mut board, &mut MoveGenerator::default(), Color::Black);
         matches!(ending, Some(GameEnding::Checkmate));
     }
 
@@ -316,7 +316,7 @@ mod tests {
 
     #[test]
     fn test_player_is_in_check() {
-        let mut move_generator = MoveGenerator::new();
+        let mut move_generator = MoveGenerator::default();
         let mut board = chess_position! {
             .......k
             .....ppp
@@ -346,7 +346,7 @@ mod tests {
 
     #[test]
     fn test_player_is_in_checkmate() {
-        let mut move_generator = MoveGenerator::new();
+        let mut move_generator = MoveGenerator::default();
         let mut board = chess_position! {
             .......k
             ........

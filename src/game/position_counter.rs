@@ -25,7 +25,7 @@ impl FromStr for CountPositionsStrategy {
 
 pub fn run_count_positions(depth: u8, strategy: CountPositionsStrategy) {
     let depths = 1..=depth;
-    let mut move_generator = MoveGenerator::new();
+    let mut move_generator = MoveGenerator::default();
 
     let mut total_positions = 0;
     let mut total_duration = Duration::from_secs(0);

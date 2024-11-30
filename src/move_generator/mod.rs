@@ -44,20 +44,27 @@ pub struct MoveGenerator {
     hit_count: usize,
 }
 
+const DEFAULT_MOVE_GENERATOR_CACHE_SIZE_MB: usize = 64;
+
 impl Default for MoveGenerator {
     fn default() -> Self {
-        Self {
-            targets: Targets::default(),
-            // Potentially a lot of memory, but helpful for high depths
-            cache: LruCache::new(NonZeroUsize::new(1_000_000).unwrap()),
-            hit_count: 0,
-        }
+        Self::new(DEFAULT_MOVE_GENERATOR_CACHE_SIZE_MB)
     }
 }
 
 impl MoveGenerator {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(cache_size_mb: usize) -> Self {
+        // Calculate number of entries that will fit in size_mb megabytes
+        // Each entry uses ~800 bytes (key: 9 bytes + ChessMoveList: 32 * 24 bytes + overhead)
+        let entry_size = 800;
+        let num_entries = (cache_size_mb * 1024 * 1024) / entry_size;
+
+        Self {
+            targets: Targets::default(),
+            // Potentially a lot of memory, but helpful for high depths
+            cache: LruCache::new(NonZeroUsize::new(num_entries).unwrap()),
+            hit_count: 0,
+        }
     }
 
     pub fn cache_hit_count(&self) -> usize {
@@ -140,7 +147,7 @@ impl MoveGenerator {
         // `par_iter` is a rayon primitive that allows for parallel iteration over a collection.
         let inner_counts = candidates.par_iter().map(|chess_move| {
             let mut local_board = board.clone();
-            let mut local_move_generator = MoveGenerator::new();
+            let mut local_move_generator = MoveGenerator::default();
 
             chess_move.apply(&mut local_board).unwrap();
             let local_count = count_positions_inner(
