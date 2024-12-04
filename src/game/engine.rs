@@ -195,10 +195,6 @@ impl Engine {
         Ok(())
     }
 
-    pub fn clear_cache(&mut self) {
-        self.move_generator.reset_cache_hit_count();
-    }
-
     pub fn make_move_from_input(&mut self, input: MoveInput) -> Result<ChessMove, EngineError> {
         match input {
             MoveInput::Coordinate { from, to } => {

@@ -1,8 +1,6 @@
 mod magic_table;
 mod targets;
 
-use std::num::NonZeroUsize;
-
 use crate::board::castle_rights_bitmask::{
     BLACK_KINGSIDE_RIGHTS, BLACK_QUEENSIDE_RIGHTS, WHITE_KINGSIDE_RIGHTS, WHITE_QUEENSIDE_RIGHTS,
 };
@@ -19,7 +17,6 @@ use crate::chess_move::standard::StandardChessMove;
 use crate::evaluate::{player_is_in_check, player_is_in_checkmate};
 use common::bitboard::bitboard::Bitboard;
 use common::bitboard::square::*;
-use lru::LruCache;
 use rayon::prelude::*;
 use smallvec::{smallvec, SmallVec};
 use targets::Targets;
@@ -35,52 +32,26 @@ pub const PAWN_PROMOTIONS: [Piece; 4] = [Piece::Queen, Piece::Rook, Piece::Bisho
 pub type ChessMoveList = SmallVec<[ChessMove; 32]>;
 
 /// Implements a move generation algorithm that generates all possible moves for
-/// a given board state. The algorithm is optimized to cache the results of
-/// previous move generation calls to avoid redundant work.
+/// a given board state.
 pub struct MoveGenerator {
     targets: Targets,
-    // (board, color) -> moves
-    cache: LruCache<(u64, u8), ChessMoveList>,
-    hit_count: usize,
 }
-
-const DEFAULT_MOVE_GENERATOR_CACHE_SIZE_MB: usize = 64;
 
 impl Default for MoveGenerator {
     fn default() -> Self {
-        Self::new(DEFAULT_MOVE_GENERATOR_CACHE_SIZE_MB)
+        Self::new()
     }
 }
 
 impl MoveGenerator {
-    pub fn new(cache_size_mb: usize) -> Self {
-        // Calculate number of entries that will fit in size_mb megabytes
-        // Each entry uses ~800 bytes (key: 9 bytes + ChessMoveList: 32 * 24 bytes + overhead)
-        let entry_size = 800;
-        let num_entries = (cache_size_mb * 1024 * 1024) / entry_size;
-
+    pub fn new() -> Self {
         Self {
             targets: Targets::default(),
-            // Potentially a lot of memory, but helpful for high depths
-            cache: LruCache::new(NonZeroUsize::new(num_entries).unwrap()),
-            hit_count: 0,
         }
     }
 
-    pub fn cache_hit_count(&self) -> usize {
-        self.hit_count
-    }
-
-    pub fn cache_entry_count(&self) -> usize {
-        self.cache.len()
-    }
-
-    pub fn reset_cache_hit_count(&mut self) {
-        self.hit_count = 0;
-    }
-
     pub fn generate_moves_and_lazily_update_chess_move_effects(
-        &mut self,
+        &self,
         board: &mut Board,
         player: Color,
     ) -> ChessMoveList {
@@ -89,20 +60,12 @@ impl MoveGenerator {
         moves
     }
 
-    pub fn generate_moves(&mut self, board: &mut Board, player: Color) -> ChessMoveList {
-        let key = (board.current_position_hash(), player as u8);
-        if let Some(moves) = self.cache.get(&key) {
-            self.hit_count += 1;
-            return moves.clone();
-        }
-
-        let moves = generate_valid_moves(board, player, &mut self.targets);
-        self.cache.put(key, moves.clone());
-        moves
+    pub fn generate_moves(&self, board: &mut Board, player: Color) -> ChessMoveList {
+        generate_valid_moves(board, player, &self.targets)
     }
 
     fn lazily_update_chess_move_effect_for_checks_and_checkmates(
-        &mut self,
+        &self,
         moves: &mut ChessMoveList,
         board: &mut Board,
         player: Color,
@@ -114,7 +77,7 @@ impl MoveGenerator {
     }
 
     fn lazily_calculate_chess_move_effect(
-        &mut self,
+        &self,
         chess_move: &mut ChessMove,
         board: &mut Board,
         player: Color,
@@ -134,7 +97,7 @@ impl MoveGenerator {
         chess_move_effect
     }
 
-    pub fn count_positions(&mut self, depth: u8, board: &mut Board, player: Color) -> usize {
+    pub fn count_positions(&self, depth: u8, board: &mut Board, player: Color) -> usize {
         let candidates = self.generate_moves(board, player);
         let initial_count = candidates.len();
 
@@ -163,19 +126,8 @@ impl MoveGenerator {
         initial_count + inner_counts.sum::<usize>()
     }
 
-    pub fn get_attack_targets(&mut self, board: &Board, player: Color) -> Bitboard {
-        let board_hash = board.current_position_hash();
-
-        if let Some(cached_targets) = self.targets.get_cached_attack(player, board_hash) {
-            return cached_targets;
-        }
-
-        let attack_targets = self.targets.generate_attack_targets(board, player);
-
-        self.targets
-            .cache_attack(player, board_hash, attack_targets);
-
-        attack_targets
+    pub fn get_attack_targets(&self, board: &Board, player: Color) -> Bitboard {
+        self.targets.generate_attack_targets(board, player)
     }
 }
 
@@ -183,7 +135,7 @@ fn count_positions_inner(
     depth: u8,
     board: &mut Board,
     color: Color,
-    move_generator: &mut MoveGenerator,
+    move_generator: &MoveGenerator,
 ) -> usize {
     let candidates = move_generator.generate_moves(board, color);
     let mut count = candidates.len();
@@ -205,7 +157,7 @@ fn count_positions_inner(
 
 /// Generates all valid moves for the given board state and color. The code is
 /// implemented in such a way that copying of lists of moves is minimized.
-fn generate_valid_moves(board: &mut Board, color: Color, targets: &mut Targets) -> ChessMoveList {
+fn generate_valid_moves(board: &mut Board, color: Color, targets: &Targets) -> ChessMoveList {
     let mut moves = ChessMoveList::new();
 
     generate_knight_moves(&mut moves, board, color, targets);
@@ -354,7 +306,7 @@ fn generate_castle_moves(
     moves: &mut ChessMoveList,
     board: &Board,
     color: Color,
-    targets: &mut Targets,
+    targets: &Targets,
 ) {
     let attacked_squares = targets.generate_attack_targets(board, color.opposite());
 
@@ -421,7 +373,7 @@ fn remove_invalid_moves(
     candidates: &mut ChessMoveList,
     board: &mut Board,
     color: Color,
-    targets: &mut Targets,
+    targets: &Targets,
 ) {
     let mut valid_moves = ChessMoveList::new();
 
@@ -945,7 +897,7 @@ mod tests {
 
         let expected_white_moves: ChessMoveList = smallvec![];
         let mut white_moves = smallvec![];
-        generate_castle_moves(&mut white_moves, &board, Color::White, &mut Targets::new());
+        generate_castle_moves(&mut white_moves, &board, Color::White, &Targets::new());
         chess_move_list_with_effect_set_to_none(&mut white_moves);
 
         assert_eq!(expected_white_moves, white_moves);

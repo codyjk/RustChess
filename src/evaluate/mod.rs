@@ -26,17 +26,13 @@ pub enum GameEnding {
 }
 
 #[inline(always)]
-pub fn current_player_is_in_check(board: &Board, move_generator: &mut MoveGenerator) -> bool {
+pub fn current_player_is_in_check(board: &Board, move_generator: &MoveGenerator) -> bool {
     let current_player = board.turn();
     player_is_in_check(board, move_generator, current_player)
 }
 
 #[inline(always)]
-pub fn player_is_in_check(
-    board: &Board,
-    move_generator: &mut MoveGenerator,
-    player: Color,
-) -> bool {
+pub fn player_is_in_check(board: &Board, move_generator: &MoveGenerator, player: Color) -> bool {
     let king = board.pieces(player).locate(Piece::King);
     let attacked_squares = move_generator.get_attack_targets(board, player.opposite());
 
@@ -46,7 +42,7 @@ pub fn player_is_in_check(
 #[inline(always)]
 pub fn player_is_in_checkmate(
     board: &mut Board,
-    move_generator: &mut MoveGenerator,
+    move_generator: &MoveGenerator,
     player: Color,
 ) -> bool {
     let candidates = move_generator.generate_moves(board, player);
@@ -58,7 +54,7 @@ pub fn player_is_in_checkmate(
 #[inline(always)]
 pub fn game_ending(
     board: &mut Board,
-    move_generator: &mut MoveGenerator,
+    move_generator: &MoveGenerator,
     current_turn: Color,
 ) -> Option<GameEnding> {
     if board.max_seen_position_count() == 3 {
@@ -87,7 +83,7 @@ pub fn game_ending(
 #[inline(always)]
 pub fn score(
     board: &mut Board,
-    move_generator: &mut MoveGenerator,
+    move_generator: &MoveGenerator,
     current_turn: Color,
     remaining_depth: u8,
 ) -> i16 {
@@ -220,7 +216,7 @@ mod tests {
         board.lose_castle_rights(ALL_CASTLE_RIGHTS);
         println!("Testing board:\n{}", board);
 
-        let ending = game_ending(&mut board, &mut MoveGenerator::default(), Color::Black);
+        let ending = game_ending(&mut board, &MoveGenerator::default(), Color::Black);
         matches!(ending, Some(GameEnding::Stalemate));
     }
 
@@ -240,7 +236,7 @@ mod tests {
         board.lose_castle_rights(ALL_CASTLE_RIGHTS);
         println!("Testing board:\n{}", board);
 
-        let ending = game_ending(&mut board, &mut MoveGenerator::default(), Color::Black);
+        let ending = game_ending(&mut board, &MoveGenerator::default(), Color::Black);
         matches!(ending, Some(GameEnding::Checkmate));
     }
 

@@ -27,7 +27,7 @@ const EMPTY_STRING: &str = "";
 pub fn enumerate_candidate_moves_with_algebraic_notation(
     board: &mut Board,
     current_player_color: Color,
-    move_generator: &mut MoveGenerator,
+    move_generator: &MoveGenerator,
 ) -> Vec<(ChessMove, String)> {
     let candidate_moves = move_generator
         .generate_moves_and_lazily_update_chess_move_effects(board, current_player_color);

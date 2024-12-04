@@ -3,7 +3,6 @@ use crate::board::piece::Piece;
 use crate::board::Board;
 use common::bitboard::bitboard::Bitboard;
 use common::bitboard::square::ORDERED_SQUARES;
-use rustc_hash::FxHashMap;
 use smallvec::{smallvec, SmallVec};
 
 use super::magic_table::MagicTable;
@@ -22,8 +21,6 @@ pub struct Targets {
     kings: [Bitboard; 64],
     knights: [Bitboard; 64],
     magic_table: MagicTable,
-    // (color, board_hash) -> attack_targets
-    attacks_cache: FxHashMap<(u8, u64), Bitboard>,
 }
 
 impl Default for Targets {
@@ -34,13 +31,12 @@ impl Default for Targets {
             kings: generate_king_targets_table(),
             knights: generate_knight_targets_table(),
             magic_table,
-            attacks_cache: FxHashMap::default(),
         }
     }
 }
 
 impl Targets {
-    pub fn generate_attack_targets(&mut self, board: &Board, color: Color) -> Bitboard {
+    pub fn generate_attack_targets(&self, board: &Board, color: Color) -> Bitboard {
         let mut piece_targets: PieceTargetList = smallvec![];
         let mut attack_targets = Bitboard::EMPTY;
 
@@ -117,25 +113,6 @@ impl Targets {
             let target_squares = targets_including_own_pieces
                 ^ (board.pieces(color).occupied() & targets_including_own_pieces);
             piece_targets.push((square, target_squares));
-        }
-    }
-
-    pub fn get_cached_attack(&self, color: Color, board_hash: u64) -> Option<Bitboard> {
-        self.attacks_cache.get(&(color as u8, board_hash)).copied()
-    }
-
-    pub fn cache_attack(
-        &mut self,
-        color: Color,
-        board_hash: u64,
-        attack_targets: Bitboard,
-    ) -> Bitboard {
-        match self
-            .attacks_cache
-            .insert((color as u8, board_hash), attack_targets)
-        {
-            Some(old_targets) => old_targets,
-            None => attack_targets,
         }
     }
 
@@ -295,7 +272,7 @@ mod tests {
 
     #[test]
     fn test_generate_attack_targets_1() {
-        let mut targets = Targets::new();
+        let targets = Targets::new();
         let board = chess_position! {
             ........
             ........
@@ -353,7 +330,7 @@ mod tests {
 
     #[test]
     pub fn test_generate_attack_targets_2() {
-        let mut targets = Targets::new();
+        let targets = Targets::new();
         let mut board = Board::default();
         let moves = [
             std_move!(E2, E4),

@@ -59,7 +59,7 @@ fn alpha_beta_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("Alpha-Beta Search");
 
     // Test different search depths
-    for depth in [4, 5, 6] {
+    for depth in [4, 5] {
         // Test each position
         for (name, mut initial_board) in benchmark_positions() {
             initial_board.lose_castle_rights(ALL_CASTLE_RIGHTS);

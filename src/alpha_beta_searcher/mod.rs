@@ -74,7 +74,7 @@ impl SearchContext {
 pub fn alpha_beta_search(
     context: &mut SearchContext,
     board: &mut Board,
-    move_generator: &mut MoveGenerator,
+    move_generator: &MoveGenerator,
 ) -> Result<ChessMove, SearchError> {
     debug!("alpha-beta search depth: {}", context.search_depth());
     let depth = context.search_depth();
@@ -111,7 +111,6 @@ pub fn alpha_beta_search(
     // Score moves in parallel
     let scored_moves = candidates.par_iter().map(|chess_move| {
         let mut local_board = board.clone();
-        let mut local_move_generator = MoveGenerator::default();
 
         chess_move.apply(&mut local_board).unwrap();
         local_board.toggle_turn();
@@ -119,7 +118,7 @@ pub fn alpha_beta_search(
         let score = alpha_beta_minimax(
             context,
             &mut local_board,
-            &mut local_move_generator,
+            move_generator,
             depth - 1,
             i16::MIN,
             i16::MAX,
@@ -157,7 +156,7 @@ pub fn alpha_beta_search(
 fn alpha_beta_minimax(
     context: &SearchContext,
     board: &mut Board,
-    move_generator: &mut MoveGenerator,
+    move_generator: &MoveGenerator,
     depth: u8,
     mut alpha: i16,
     mut beta: i16,
