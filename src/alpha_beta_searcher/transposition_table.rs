@@ -28,11 +28,19 @@ pub enum BoundType {
     Upper,
 }
 
+const DEFAULT_TT_SIZE_MB: usize = 64;
+
 pub struct TranspositionTable {
     // LruCache automatically maintains a fixed-size cache with least-recently-used eviction
     table: RwLock<LruCache<u64, TTEntry>>,
     // Track how often we successfully use cached results
     hits: AtomicUsize,
+}
+
+impl Default for TranspositionTable {
+    fn default() -> Self {
+        Self::new(DEFAULT_TT_SIZE_MB)
+    }
 }
 
 impl TranspositionTable {

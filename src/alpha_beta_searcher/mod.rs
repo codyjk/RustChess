@@ -16,8 +16,6 @@ use self::transposition_table::{BoundType, TranspositionTable};
 mod prioritize_chess_moves;
 mod transposition_table;
 
-const DEFAULT_TT_SIZE_MB: usize = 64;
-
 pub struct SearchContext {
     search_depth: u8,
     searched_position_count: AtomicUsize,
@@ -41,7 +39,7 @@ impl SearchContext {
             searched_position_count: AtomicUsize::new(0),
             last_score: None,
             last_search_duration: None,
-            transposition_table: TranspositionTable::new(DEFAULT_TT_SIZE_MB),
+            transposition_table: TranspositionTable::default(),
         }
     }
 
