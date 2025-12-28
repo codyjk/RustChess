@@ -80,23 +80,9 @@ fn split_fen_fields(fen: &str) -> FenResult<FenFields> {
 
 /// Maps a FEN piece character to its corresponding piece type and color
 fn parse_piece_char(c: char) -> FenResult<(Piece, Color)> {
-    match c {
-        'P' => Ok((Piece::Pawn, Color::White)),
-        'N' => Ok((Piece::Knight, Color::White)),
-        'B' => Ok((Piece::Bishop, Color::White)),
-        'R' => Ok((Piece::Rook, Color::White)),
-        'Q' => Ok((Piece::Queen, Color::White)),
-        'K' => Ok((Piece::King, Color::White)),
-        'p' => Ok((Piece::Pawn, Color::Black)),
-        'n' => Ok((Piece::Knight, Color::Black)),
-        'b' => Ok((Piece::Bishop, Color::Black)),
-        'r' => Ok((Piece::Rook, Color::Black)),
-        'q' => Ok((Piece::Queen, Color::Black)),
-        'k' => Ok((Piece::King, Color::Black)),
-        _ => Err(FenParseError::InvalidPieceCharacter {
-            invalid_character: c,
-        }),
-    }
+    Piece::from_fen_char(c).ok_or_else(|| FenParseError::InvalidPieceCharacter {
+        invalid_character: c,
+    })
 }
 
 /// Parses the piece placement section of the FEN string

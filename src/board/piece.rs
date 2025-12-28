@@ -111,6 +111,27 @@ impl Piece {
     pub fn to_algebraic_str(&self) -> &str {
         ALGEBRAIC_PIECE_STRS[*self as usize]
     }
+
+    pub fn from_fen_char(c: char) -> Option<(Piece, Color)> {
+        Self::from_char(c)
+    }
+
+    pub fn to_fen_char(&self, color: Color) -> char {
+        match (self, color) {
+            (Piece::Pawn, Color::White) => 'P',
+            (Piece::Knight, Color::White) => 'N',
+            (Piece::Bishop, Color::White) => 'B',
+            (Piece::Rook, Color::White) => 'R',
+            (Piece::Queen, Color::White) => 'Q',
+            (Piece::King, Color::White) => 'K',
+            (Piece::Pawn, Color::Black) => 'p',
+            (Piece::Knight, Color::Black) => 'n',
+            (Piece::Bishop, Color::Black) => 'b',
+            (Piece::Rook, Color::Black) => 'r',
+            (Piece::Queen, Color::Black) => 'q',
+            (Piece::King, Color::Black) => 'k',
+        }
+    }
 }
 
 pub const ALL_PIECES: [Piece; 6] = [
