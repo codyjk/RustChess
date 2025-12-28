@@ -27,7 +27,7 @@ pub struct CastleChessMove {
     /// The square the king is moving to
     to_square: Bitboard,
 
-    effect: ChessMoveEffect,
+    effect: Option<ChessMoveEffect>,
 }
 
 impl CastleChessMove {
@@ -35,7 +35,7 @@ impl CastleChessMove {
         Self {
             from_square,
             to_square,
-            effect: ChessMoveEffect::NotYetCalculated,
+            effect: None,
         }
     }
 
@@ -61,12 +61,12 @@ impl CastleChessMove {
         self.from_square
     }
 
-    pub fn effect(&self) -> ChessMoveEffect {
+    pub fn effect(&self) -> Option<ChessMoveEffect> {
         self.effect
     }
 
     pub fn set_effect(&mut self, effect: ChessMoveEffect) {
-        self.effect = effect;
+        self.effect = Some(effect);
     }
 
     /// Returns castle details: (color, is_kingside, rook_from, rook_to)
@@ -192,8 +192,8 @@ impl CastleChessMove {
 impl fmt::Display for CastleChessMove {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let check_or_checkmate_msg = match self.effect() {
-            ChessMoveEffect::Check => " (check)",
-            ChessMoveEffect::Checkmate => " (checkmate)",
+            Some(ChessMoveEffect::Check) => " (check)",
+            Some(ChessMoveEffect::Checkmate) => " (checkmate)",
             _ => "",
         };
         write!(

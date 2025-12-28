@@ -17,7 +17,7 @@ pub struct PawnPromotionChessMove {
     to_square: Bitboard,
     captures: Option<Capture>,
     promote_to_piece: Piece,
-    effect: ChessMoveEffect,
+    effect: Option<ChessMoveEffect>,
 }
 
 impl PawnPromotionChessMove {
@@ -32,7 +32,7 @@ impl PawnPromotionChessMove {
             to_square,
             captures,
             promote_to_piece,
-            effect: ChessMoveEffect::NotYetCalculated,
+            effect: None,
         }
     }
 
@@ -48,12 +48,12 @@ impl PawnPromotionChessMove {
         self.captures
     }
 
-    pub fn effect(&self) -> ChessMoveEffect {
+    pub fn effect(&self) -> Option<ChessMoveEffect> {
         self.effect
     }
 
     pub fn set_effect(&mut self, effect: ChessMoveEffect) {
-        self.effect = effect;
+        self.effect = Some(effect);
     }
 
     pub fn promote_to_piece(&self) -> Piece {
@@ -117,8 +117,8 @@ impl fmt::Display for PawnPromotionChessMove {
             None => "".to_string(),
         };
         let check_or_checkmate_msg = match self.effect() {
-            ChessMoveEffect::Check => "check",
-            ChessMoveEffect::Checkmate => "checkmate",
+            Some(ChessMoveEffect::Check) => "check",
+            Some(ChessMoveEffect::Checkmate) => "checkmate",
             _ => "",
         };
 

@@ -904,9 +904,8 @@ mod tests {
     }
 
     /// The lower level `move_generator` functions generate chess moves before their
-    /// effect (check, checkmate, etc.) is calculated. At this stage, the effect
-    /// is set to `NotYetCalculated`. This macro sets the effect to `None` for
-    /// all chess moves in a list to simplify testing.
+    /// effect (check, checkmate, etc.) is calculated. This helper sets the effect
+    /// to `None` for all chess moves in a list to simplify testing.
     fn chess_move_list_with_effect_set_to_none(chess_move_list: &mut ChessMoveList) {
         for chess_move in chess_move_list.iter_mut() {
             chess_move.set_effect(ChessMoveEffect::None);

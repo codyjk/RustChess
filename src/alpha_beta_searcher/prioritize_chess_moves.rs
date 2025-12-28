@@ -37,8 +37,8 @@ fn compare_moves(a: &ChessMove, b: &ChessMove, board: &Board) -> std::cmp::Order
 
 fn effect_priority(chess_move: &ChessMove) -> u8 {
     match chess_move.effect() {
-        ChessMoveEffect::Checkmate => 0,
-        ChessMoveEffect::Check => 1,
+        Some(ChessMoveEffect::Checkmate) => 0,
+        Some(ChessMoveEffect::Check) => 1,
         _ => 2,
     }
 }
@@ -134,8 +134,8 @@ mod tests {
         println!("after sort: {:?}", moves);
 
         // Check if the moves are in the correct order
-        assert_eq!(moves[0].effect(), ChessMoveEffect::Checkmate);
-        assert_eq!(moves[1].effect(), ChessMoveEffect::Check);
+        assert_eq!(moves[0].effect(), Some(ChessMoveEffect::Checkmate));
+        assert_eq!(moves[1].effect(), Some(ChessMoveEffect::Check));
         assert!(moves[2].captures().is_some());
         assert!(matches!(moves[3], ChessMove::EnPassant(_)));
         assert!(matches!(moves[4], ChessMove::PawnPromotion(_)));
@@ -200,8 +200,8 @@ mod tests {
         println!("after sort: {:?}", moves);
 
         // Checks should come before captures, but order within checks and captures should be preserved
-        assert_eq!(moves[0].effect(), ChessMoveEffect::Check);
-        assert_eq!(moves[1].effect(), ChessMoveEffect::Check);
+        assert_eq!(moves[0].effect(), Some(ChessMoveEffect::Check));
+        assert_eq!(moves[1].effect(), Some(ChessMoveEffect::Check));
         assert!(moves[2].captures().is_some());
         assert!(moves[3].captures().is_some());
         assert_eq!(

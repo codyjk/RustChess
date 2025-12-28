@@ -159,8 +159,8 @@ fn get_disambiguating_chars(
 
 fn get_check_or_checkmate_char<'a>(chess_move: &ChessMove) -> &'a str {
     match chess_move.effect() {
-        ChessMoveEffect::Check => CHECK_CHAR,
-        ChessMoveEffect::Checkmate => CHECKMATE_CHAR,
+        Some(ChessMoveEffect::Check) => CHECK_CHAR,
+        Some(ChessMoveEffect::Checkmate) => CHECKMATE_CHAR,
         _ => EMPTY_STRING,
     }
 }

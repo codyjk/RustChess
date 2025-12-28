@@ -47,7 +47,7 @@ impl ChessMove {
         }
     }
 
-    pub fn effect(&self) -> ChessMoveEffect {
+    pub fn effect(&self) -> Option<ChessMoveEffect> {
         match self {
             ChessMove::Standard(m) => m.effect(),
             ChessMove::PawnPromotion(m) => m.effect(),
@@ -132,10 +132,9 @@ impl fmt::Display for ChessMove {
             None => "".to_string(),
         };
         let check_or_checkmate_msg = match self.effect() {
-            ChessMoveEffect::Check => " (check)",
-            ChessMoveEffect::Checkmate => " (checkmate)",
-            ChessMoveEffect::None => "",
-            ChessMoveEffect::NotYetCalculated => " (EFFECT NOT YET CALCULATED)",
+            Some(ChessMoveEffect::Check) => " (check)",
+            Some(ChessMoveEffect::Checkmate) => " (checkmate)",
+            Some(ChessMoveEffect::None) | None => "",
         };
         write!(
             f,

@@ -3,5 +3,4 @@ pub enum ChessMoveEffect {
     None,
     Check,
     Checkmate,
-    NotYetCalculated,
 }

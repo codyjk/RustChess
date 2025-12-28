@@ -27,7 +27,7 @@ pub struct StandardChessMove {
     from_square: Bitboard,
     to_square: Bitboard,
     captures: Option<Capture>,
-    effect: ChessMoveEffect,
+    effect: Option<ChessMoveEffect>,
 }
 
 impl StandardChessMove {
@@ -36,7 +36,7 @@ impl StandardChessMove {
             from_square,
             to_square,
             captures,
-            effect: ChessMoveEffect::NotYetCalculated,
+            effect: None,
         }
     }
 
@@ -52,12 +52,12 @@ impl StandardChessMove {
         self.captures
     }
 
-    pub fn effect(&self) -> ChessMoveEffect {
+    pub fn effect(&self) -> Option<ChessMoveEffect> {
         self.effect
     }
 
     pub fn set_effect(&mut self, effect: ChessMoveEffect) {
-        self.effect = effect;
+        self.effect = Some(effect);
     }
 
     pub fn apply(&self, board: &mut Board) -> Result<(), BoardError> {
@@ -258,8 +258,8 @@ impl fmt::Display for StandardChessMove {
             None => "".to_string(),
         };
         let check_or_checkmate_msg = match self.effect {
-            ChessMoveEffect::Check => " (check)",
-            ChessMoveEffect::Checkmate => " (checkmate)",
+            Some(ChessMoveEffect::Check) => " (check)",
+            Some(ChessMoveEffect::Checkmate) => " (checkmate)",
             _ => "",
         };
 
