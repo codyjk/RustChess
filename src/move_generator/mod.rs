@@ -486,7 +486,7 @@ mod tests {
 
     #[test]
     fn test_generate_knight_moves() {
-        let targets = Targets::new();
+        let targets = Targets::default();
         let board = chess_position! {
             ........
             ........
@@ -560,7 +560,7 @@ mod tests {
         expected_moves.sort();
 
         let mut moves = smallvec![];
-        generate_sliding_moves(&mut moves, &board, Color::White, &Targets::new());
+        generate_sliding_moves(&mut moves, &board, Color::White, &Targets::default());
         chess_move_list_with_effect_set_to_none(&mut moves);
         moves.sort();
 
@@ -585,7 +585,7 @@ mod tests {
         expected_moves.sort();
 
         let mut moves = smallvec![];
-        generate_sliding_moves(&mut moves, &board, Color::White, &Targets::new());
+        generate_sliding_moves(&mut moves, &board, Color::White, &Targets::default());
         chess_move_list_with_effect_set_to_none(&mut moves);
         moves.sort();
 
@@ -618,7 +618,7 @@ mod tests {
         expected_moves.sort();
 
         let mut moves = smallvec![];
-        generate_sliding_moves(&mut moves, &board, Color::White, &Targets::new());
+        generate_sliding_moves(&mut moves, &board, Color::White, &Targets::default());
         chess_move_list_with_effect_set_to_none(&mut moves);
         moves.sort();
 
@@ -671,7 +671,7 @@ mod tests {
         expected_moves.sort();
 
         let mut moves = smallvec![];
-        generate_sliding_moves(&mut moves, &board, Color::White, &Targets::new());
+        generate_sliding_moves(&mut moves, &board, Color::White, &Targets::default());
         chess_move_list_with_effect_set_to_none(&mut moves);
         moves.sort();
 
@@ -697,7 +697,7 @@ mod tests {
         expected_moves.sort();
 
         let mut moves = smallvec![];
-        generate_king_moves(&mut moves, &board, Color::White, &Targets::new());
+        generate_king_moves(&mut moves, &board, Color::White, &Targets::default());
         chess_move_list_with_effect_set_to_none(&mut moves);
         moves.sort();
 
@@ -728,7 +728,7 @@ mod tests {
         expected_moves.sort();
 
         let mut moves = smallvec![];
-        generate_king_moves(&mut moves, &board, Color::White, &Targets::new());
+        generate_king_moves(&mut moves, &board, Color::White, &Targets::default());
         chess_move_list_with_effect_set_to_none(&mut moves);
         moves.sort();
 
@@ -761,7 +761,7 @@ mod tests {
         expected_moves.sort();
 
         let mut moves = smallvec![];
-        generate_king_moves(&mut moves, &board, Color::White, &Targets::new());
+        generate_king_moves(&mut moves, &board, Color::White, &Targets::default());
         chess_move_list_with_effect_set_to_none(&mut moves);
         moves.sort();
 
@@ -826,7 +826,7 @@ mod tests {
         ];
         expected_black_moves.sort();
 
-        let mut targets = Targets::new();
+        let mut targets = Targets::default();
 
         let mut white_moves = smallvec![];
         generate_castle_moves(&mut white_moves, &board, Color::White, &mut targets);
@@ -866,7 +866,7 @@ mod tests {
         let expected_white_moves: ChessMoveList = smallvec![castle_kingside!(Color::White)];
         let expected_black_moves: ChessMoveList = smallvec![castle_queenside!(Color::Black)];
 
-        let mut targets = Targets::new();
+        let mut targets = Targets::default();
         targets.generate_attack_targets(&board, Color::Black);
 
         let mut white_moves = smallvec![];
@@ -897,7 +897,7 @@ mod tests {
 
         let expected_white_moves: ChessMoveList = smallvec![];
         let mut white_moves = smallvec![];
-        generate_castle_moves(&mut white_moves, &board, Color::White, &Targets::new());
+        generate_castle_moves(&mut white_moves, &board, Color::White, &Targets::default());
         chess_move_list_with_effect_set_to_none(&mut white_moves);
 
         assert_eq!(expected_white_moves, white_moves);

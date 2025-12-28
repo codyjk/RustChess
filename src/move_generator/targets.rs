@@ -264,15 +264,9 @@ mod tests {
     use crate::chess_move::standard::StandardChessMove;
     use crate::{chess_position, std_move};
 
-    impl Targets {
-        pub fn new() -> Self {
-            Default::default()
-        }
-    }
-
     #[test]
     fn test_generate_attack_targets_1() {
-        let targets = Targets::new();
+        let targets = Targets::default();
         let board = chess_position! {
             ........
             ........
@@ -330,7 +324,7 @@ mod tests {
 
     #[test]
     pub fn test_generate_attack_targets_2() {
-        let targets = Targets::new();
+        let targets = Targets::default();
         let mut board = Board::default();
         let moves = [
             std_move!(E2, E4),
