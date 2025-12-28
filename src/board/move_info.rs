@@ -1,4 +1,4 @@
-use common::bitboard::bitboard::Bitboard;
+use common::bitboard::Square;
 
 use super::castle_rights_bitmask::{CastleRightsBitmask, ALL_CASTLE_RIGHTS};
 
@@ -6,7 +6,7 @@ use super::castle_rights_bitmask::{CastleRightsBitmask, ALL_CASTLE_RIGHTS};
 /// including en passant targets, castle rights, and position clocks.
 #[derive(Clone)]
 pub struct MoveInfo {
-    en_passant_target_stack: Vec<Bitboard>,
+    en_passant_target_stack: Vec<Option<Square>>,
     castle_rights_stack: Vec<CastleRightsBitmask>,
     halfmove_clock_stack: Vec<u8>,
     fullmove_clock: u8,
@@ -15,7 +15,7 @@ pub struct MoveInfo {
 impl Default for MoveInfo {
     fn default() -> Self {
         Self {
-            en_passant_target_stack: vec![Bitboard::EMPTY],
+            en_passant_target_stack: vec![None],
             castle_rights_stack: vec![ALL_CASTLE_RIGHTS],
             halfmove_clock_stack: vec![0],
             fullmove_clock: 1,
@@ -30,16 +30,16 @@ impl MoveInfo {
 
     // En passant state management
 
-    pub fn push_en_passant_target(&mut self, target_square: Bitboard) -> Bitboard {
+    pub fn push_en_passant_target(&mut self, target_square: Option<Square>) -> Option<Square> {
         self.en_passant_target_stack.push(target_square);
         target_square
     }
 
-    pub fn peek_en_passant_target(&self) -> Bitboard {
+    pub fn peek_en_passant_target(&self) -> Option<Square> {
         *self.en_passant_target_stack.last().unwrap()
     }
 
-    pub fn pop_en_passant_target(&mut self) -> Bitboard {
+    pub fn pop_en_passant_target(&mut self) -> Option<Square> {
         self.en_passant_target_stack.pop().unwrap()
     }
 

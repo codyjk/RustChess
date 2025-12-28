@@ -1,24 +1,23 @@
 use std::fmt::{Display, Formatter};
 
-use common::bitboard::bitboard::Bitboard;
-use common::bitboard::square::{square_string_to_bitboard, to_algebraic};
+use common::bitboard::Square;
 use rustc_hash::FxHashMap;
 
 include!(concat!(env!("OUT_DIR"), "/opening_book.rs"));
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct BookMove(Bitboard, Bitboard);
+pub struct BookMove(Square, Square);
 
 impl BookMove {
-    pub fn new(from: Bitboard, to: Bitboard) -> Self {
+    pub fn new(from: Square, to: Square) -> Self {
         BookMove(from, to)
     }
 
-    pub fn from_square(&self) -> Bitboard {
+    pub fn from_square(&self) -> Square {
         self.0
     }
 
-    pub fn to_square(&self) -> Bitboard {
+    pub fn to_square(&self) -> Square {
         self.1
     }
 }
@@ -70,8 +69,10 @@ impl Book {
         for (i, raw_move) in moves.clone().enumerate() {
             let raw_from_square: String = raw_move.chars().take(2).collect();
             let raw_to_square: String = raw_move.chars().skip(2).take(2).collect();
-            let from_square = square_string_to_bitboard(&raw_from_square);
-            let to_square = square_string_to_bitboard(&raw_to_square);
+            let from_square = Square::from_algebraic(&raw_from_square)
+                .unwrap_or_else(|| panic!("Invalid square: {}", raw_from_square));
+            let to_square = Square::from_algebraic(&raw_to_square)
+                .unwrap_or_else(|| panic!("Invalid square: {}", raw_to_square));
             let book_move = BookMove::new(from_square, to_square);
 
             let next_node = curr_node
@@ -143,6 +144,6 @@ impl Display for BookNode {
 
 impl Display for BookMove {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}{}", to_algebraic(self.0), to_algebraic(self.1))
+        write!(f, "{}{}", self.0.to_algebraic(), self.1.to_algebraic())
     }
 }

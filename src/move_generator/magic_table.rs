@@ -1,6 +1,6 @@
 use common::bitboard::{
     bitboard::Bitboard,
-    square::{from_rank_file, to_rank_file, ORDERED_SQUARES},
+    square::{Square, ORDERED_SQUARES},
 };
 
 include!(concat!(env!("OUT_DIR"), "/magic_table.rs"));
@@ -43,13 +43,13 @@ impl MagicTable {
         Default::default()
     }
 
-    pub fn get_rook_targets(&self, square: Bitboard, blockers: Bitboard) -> Bitboard {
-        let magic = &ROOK_MAGICS[square.trailing_zeros() as usize];
+    pub fn get_rook_targets(&self, square: Square, blockers: Bitboard) -> Bitboard {
+        let magic = &ROOK_MAGICS[square.index() as usize];
         self.rook_table[magic_index(magic, blockers)]
     }
 
-    pub fn get_bishop_targets(&self, square: Bitboard, blockers: Bitboard) -> Bitboard {
-        let magic = &BISHOP_MAGICS[square.trailing_zeros() as usize];
+    pub fn get_bishop_targets(&self, square: Square, blockers: Bitboard) -> Bitboard {
+        let magic = &BISHOP_MAGICS[square.index() as usize];
         self.bishop_table[magic_index(magic, blockers)]
     }
 }
@@ -61,12 +61,13 @@ fn make_table(
 ) -> Vec<Bitboard> {
     let mut table = vec![Bitboard::EMPTY; table_size];
     for &square in &ORDERED_SQUARES {
-        let magic_entry = &magics[square.trailing_zeros() as usize];
+        let square_bb = square.to_bitboard();
+        let magic_entry = &magics[square.index() as usize];
         let mask = Bitboard(magic_entry.mask);
 
         let mut blockers = Bitboard::EMPTY;
         loop {
-            let moves = slider_moves(slider_deltas, square, blockers);
+            let moves = slider_moves(slider_deltas, square_bb, blockers);
             table[magic_index(magic_entry, blockers)] = moves;
 
             // Carry-Rippler trick that enumerates all subsets of the mask, getting us all blockers.
@@ -97,15 +98,15 @@ fn slider_moves(slider_deltas: &[(i8, i8)], square: Bitboard, blockers: Bitboard
 }
 
 fn try_offset(square: Bitboard, d_rank: i8, d_file: i8) -> Option<Bitboard> {
-    let rank_file_u8 = to_rank_file(square);
-    let rank = rank_file_u8.0 as i8;
-    let file = rank_file_u8.1 as i8;
+    let sq = square.to_square();
+    let rank = sq.rank() as i8;
+    let file = sq.file() as i8;
     let new_rank = rank.wrapping_add(d_rank);
     let new_file = file.wrapping_add(d_file);
     if !(0..8).contains(&new_rank) || !(0..8).contains(&new_file) {
         None
     } else {
-        Some(from_rank_file(new_rank as u8, new_file as u8))
+        Some(Square::from_rank_file(new_rank as u8, new_file as u8).to_bitboard())
     }
 }
 
@@ -118,7 +119,7 @@ fn magic_index(entry: &MagicEntry, blockers: Bitboard) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use common::bitboard::square::*;
+    use common::bitboard::*;
 
     use crate::{
         board::{color::Color, piece::Piece, Board},

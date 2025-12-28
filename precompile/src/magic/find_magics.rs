@@ -1,8 +1,8 @@
 use std::fs::File;
 use std::io::{BufWriter, Write};
 
-use common::bitboard::square::{from_rank_file, to_rank_file};
 use common::bitboard::bitboard::Bitboard;
+use common::bitboard::square::Square;
 
 use log::debug;
 
@@ -54,15 +54,15 @@ impl SlidingPiece {
 }
 
 fn try_offset(square: Bitboard, d_rank: i8, d_file: i8) -> Option<Bitboard> {
-    let rank_file_u8 = to_rank_file(square);
-    let rank = rank_file_u8.0 as i8;
-    let file = rank_file_u8.1 as i8;
+    let sq = square.to_square();
+    let rank = sq.rank() as i8;
+    let file = sq.file() as i8;
     let new_rank = rank.wrapping_add(d_rank);
     let new_file = file.wrapping_add(d_file);
     if !(0..8).contains(&new_rank) || !(0..8).contains(&new_file) {
         None
     } else {
-        Some(from_rank_file(new_rank as u8, new_file as u8))
+        Some(Square::from_rank_file(new_rank as u8, new_file as u8).to_bitboard())
     }
 }
 

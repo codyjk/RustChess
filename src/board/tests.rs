@@ -5,7 +5,7 @@ use super::*;
 use crate::chess_move::castle::CastleChessMove;
 use crate::chess_move::chess_move::ChessMove;
 use crate::chess_move::standard::StandardChessMove;
-use common::bitboard::square::*;
+use common::bitboard::*;
 
 #[test]
 fn test_zobrist_hashing_is_equal_for_transpositions() {

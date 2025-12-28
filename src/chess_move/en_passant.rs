@@ -1,6 +1,6 @@
 use core::fmt;
 
-use common::bitboard::{bitboard::Bitboard, square};
+use common::bitboard::Square;
 
 use crate::board::{color::Color, error::BoardError, piece::Piece, Board};
 
@@ -12,16 +12,16 @@ use super::traits::ChessMoveType;
 #[derive(PartialEq, Clone, Eq, PartialOrd, Ord)]
 pub struct EnPassantChessMove {
     /// The square the pawn is moving from.
-    from_square: Bitboard,
+    from_square: Square,
 
     /// The square the pawn is moving to.
-    to_square: Bitboard,
+    to_square: Square,
 
     effect: Option<ChessMoveEffect>,
 }
 
 impl EnPassantChessMove {
-    pub fn new(from_square: Bitboard, to_square: Bitboard) -> Self {
+    pub fn new(from_square: Square, to_square: Square) -> Self {
         Self {
             from_square,
             to_square,
@@ -29,11 +29,11 @@ impl EnPassantChessMove {
         }
     }
 
-    pub fn to_square(&self) -> Bitboard {
+    pub fn to_square(&self) -> Square {
         self.to_square
     }
 
-    pub fn from_square(&self) -> Bitboard {
+    pub fn from_square(&self) -> Square {
         self.from_square
     }
 
@@ -47,6 +47,15 @@ impl EnPassantChessMove {
 
     pub fn set_effect(&mut self, effect: ChessMoveEffect) {
         self.effect = Some(effect);
+    }
+
+    fn captures_square(&self, color: Color) -> Square {
+        let to_bb = self.to_square.to_bitboard();
+        let captures_bb = match color {
+            Color::White => to_bb >> 8,
+            Color::Black => to_bb << 8,
+        };
+        captures_bb.to_square()
     }
 
     #[must_use = "move application may fail"]
@@ -67,10 +76,7 @@ impl EnPassantChessMove {
         }
 
         // the captured pawn is "behind" the target square
-        let captures_square = match color {
-            Color::White => *to_square >> 8,
-            Color::Black => *to_square << 8,
-        };
+        let captures_square = self.captures_square(color);
 
         if board.remove(captures_square).is_none() {
             return Err(BoardError::EnPassantDidNotResultInCaptureError {
@@ -80,7 +86,7 @@ impl EnPassantChessMove {
 
         board.reset_halfmove_clock();
         board.increment_fullmove_clock();
-        board.push_en_passant_target(Bitboard::EMPTY);
+        board.push_en_passant_target(None);
         board.preserve_castle_rights();
         board.put(*to_square, piece_to_move, color)?;
 
@@ -112,10 +118,7 @@ impl EnPassantChessMove {
             .unwrap();
 
         // the captured pawn is "behind" the target square
-        let captures_square = match piece_color {
-            Color::White => *to_square >> 8,
-            Color::Black => *to_square << 8,
-        };
+        let captures_square = self.captures_square(piece_color);
 
         // Revert the board state.
         board.pop_halfmove_clock();
@@ -129,11 +132,11 @@ impl EnPassantChessMove {
 }
 
 impl ChessMoveType for EnPassantChessMove {
-    fn from_square(&self) -> Bitboard {
+    fn from_square(&self) -> Square {
         self.from_square
     }
 
-    fn to_square(&self) -> Bitboard {
+    fn to_square(&self) -> Square {
         self.to_square
     }
 
@@ -164,8 +167,8 @@ impl fmt::Display for EnPassantChessMove {
         write!(
             f,
             "en passant {} {}{}",
-            square::to_algebraic(self.from_square).to_lowercase(),
-            square::to_algebraic(self.to_square).to_lowercase(),
+            self.from_square.to_algebraic(),
+            self.to_square.to_algebraic(),
             check_or_checkmate_msg,
         )
     }
@@ -192,7 +195,7 @@ mod tests {
     use crate::chess_move::chess_move::ChessMove;
     use crate::chess_move::standard::StandardChessMove;
     use crate::{chess_position, std_move};
-    use common::bitboard::square::*;
+    use common::bitboard::*;
 
     #[test]
     fn test_apply_and_undo_en_passant() {
@@ -212,20 +215,20 @@ mod tests {
         standard_move_revealing_ep.apply(&mut board).unwrap();
         println!("After move that reveals en passant:\n{}", board);
         assert_eq!(Some((Piece::Pawn, Color::White)), board.get(D4));
-        assert_eq!(D3, board.peek_en_passant_target());
+        assert_eq!(Some(D3), board.peek_en_passant_target());
 
         let en_passant = en_passant_move!(E4, D3);
         en_passant.apply(&mut board).unwrap();
         println!("After en passant:\n{}", board);
         assert_eq!(Some((Piece::Pawn, Color::Black)), board.get(D3));
         assert_eq!(None, board.get(D4));
-        assert_eq!(Bitboard::EMPTY, board.peek_en_passant_target());
+        assert_eq!(None, board.peek_en_passant_target());
 
         en_passant.undo(&mut board).unwrap();
         println!("Undo en passant:\n{}", board);
         assert_eq!(Some((Piece::Pawn, Color::White)), board.get(D4));
         assert_eq!(Some((Piece::Pawn, Color::Black)), board.get(E4));
-        assert_eq!(D3, board.peek_en_passant_target());
+        assert_eq!(Some(D3), board.peek_en_passant_target());
     }
 
     #[test]

@@ -11,7 +11,7 @@ use crate::game::engine::EngineConfig;
 use crate::game::stockfish_interface::Stockfish;
 use crate::game::util::print_board_and_stats;
 use crate::{board::color::Color, game::engine::Engine};
-use common::bitboard::square::*;
+use common::bitboard::*;
 use std::time::{Duration, Instant};
 use termion::{clear, cursor};
 
@@ -148,8 +148,8 @@ fn play_game(stockfish: &mut Stockfish, depth: u8) -> (GameResult, Duration, Dur
 }
 
 fn create_chess_move_from_uci(uci: &str, board: &Board) -> ChessMove {
-    let from = square_string_to_bitboard(&uci[0..2]);
-    let to = square_string_to_bitboard(&uci[2..4]);
+    let from = Square::from_algebraic(&uci[0..2]).expect("Invalid from square");
+    let to = Square::from_algebraic(&uci[2..4]).expect("Invalid to square");
     let promotion = uci.chars().nth(4).map(|c| match c {
         'q' => Piece::Queen,
         'r' => Piece::Rook,
@@ -165,7 +165,7 @@ fn create_chess_move_from_uci(uci: &str, board: &Board) -> ChessMove {
         (Piece::Pawn, Some(promote_to)) => {
             ChessMove::PawnPromotion(PawnPromotionChessMove::new(from, to, capture, promote_to))
         }
-        (Piece::Pawn, None) if to == board.peek_en_passant_target() => {
+        (Piece::Pawn, None) if Some(to) == board.peek_en_passant_target() => {
             ChessMove::EnPassant(EnPassantChessMove::new(from, to))
         }
         (Piece::King, None) if (from, to) == (E1, G1) || (from, to) == (E8, G8) => {

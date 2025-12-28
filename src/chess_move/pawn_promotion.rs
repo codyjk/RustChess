@@ -1,6 +1,6 @@
 use core::fmt;
 
-use common::bitboard::{bitboard::Bitboard, square};
+use common::bitboard::Square;
 
 use crate::board::{error::BoardError, piece::Piece, Board};
 
@@ -14,8 +14,8 @@ use super::traits::ChessMoveType;
 /// with the promotion piece.
 #[derive(PartialEq, Clone, Eq, PartialOrd, Ord)]
 pub struct PawnPromotionChessMove {
-    from_square: Bitboard,
-    to_square: Bitboard,
+    from_square: Square,
+    to_square: Square,
     captures: Option<Capture>,
     promote_to_piece: Piece,
     effect: Option<ChessMoveEffect>,
@@ -23,8 +23,8 @@ pub struct PawnPromotionChessMove {
 
 impl PawnPromotionChessMove {
     pub fn new(
-        from_square: Bitboard,
-        to_square: Bitboard,
+        from_square: Square,
+        to_square: Square,
         captures: Option<Capture>,
         promote_to_piece: Piece,
     ) -> Self {
@@ -37,11 +37,11 @@ impl PawnPromotionChessMove {
         }
     }
 
-    pub fn to_square(&self) -> Bitboard {
+    pub fn to_square(&self) -> Square {
         self.to_square
     }
 
-    pub fn from_square(&self) -> Bitboard {
+    pub fn from_square(&self) -> Square {
         self.from_square
     }
 
@@ -114,11 +114,11 @@ impl PawnPromotionChessMove {
 }
 
 impl ChessMoveType for PawnPromotionChessMove {
-    fn from_square(&self) -> Bitboard {
+    fn from_square(&self) -> Square {
         self.from_square
     }
 
-    fn to_square(&self) -> Bitboard {
+    fn to_square(&self) -> Square {
         self.to_square
     }
 
@@ -154,8 +154,8 @@ impl fmt::Display for PawnPromotionChessMove {
         write!(
             f,
             "promote {}{}{}{}",
-            square::to_algebraic(self.from_square).to_lowercase(),
-            square::to_algebraic(self.to_square).to_lowercase(),
+            self.from_square.to_algebraic(),
+            self.to_square.to_algebraic(),
             captures_msg,
             check_or_checkmate_msg,
         )
@@ -181,7 +181,7 @@ macro_rules! promotion {
 #[cfg(test)]
 mod tests {
     use crate::{board::color::Color, chess_position};
-    use common::bitboard::square::*;
+    use common::bitboard::*;
 
     use super::*;
 

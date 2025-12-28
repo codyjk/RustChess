@@ -48,8 +48,8 @@ macro_rules! chess_position {
                 let row = i / 8;
                 let col = i % 8;
                 let transposed_row = 7 - row;
-                let square_num = 8 * transposed_row + col;
-                board.put(Bitboard(1 << square_num), piece, color).unwrap();
+                let square_num = (8 * transposed_row + col) as u8;
+                board.put(common::bitboard::square::Square::new(square_num), piece, color).unwrap();
             }
         }
         board

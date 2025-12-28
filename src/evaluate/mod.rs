@@ -1,5 +1,3 @@
-use common::bitboard::bitboard::Bitboard;
-
 use crate::board::color::Color;
 use crate::board::piece::{Piece, ALL_PIECES};
 use crate::board::Board;
@@ -135,17 +133,15 @@ fn player_material_score(board: &Board, color: Color) -> i16 {
     let is_endgame = is_endgame(board) as usize;
 
     for &piece in &ALL_PIECES {
-        let squares = pieces.locate(piece);
+        let mut squares = pieces.locate(piece);
         let piece_value = MATERIAL_VALUES[piece as usize];
 
-        for i in 0..64 {
-            let sq = Bitboard(1 << i);
-            if !sq.overlaps(squares) {
-                continue;
-            }
+        while !squares.is_empty() {
+            let sq = squares.pop_lsb().to_square();
+            let sq_index = sq.index() as usize;
 
             let bonus_table = BONUS_TABLES[piece as usize][is_endgame];
-            let bonus = bonus_table[index_lookup[i]];
+            let bonus = bonus_table[index_lookup[sq_index]];
 
             material += piece_value + bonus;
         }
@@ -186,7 +182,7 @@ mod tests {
         board::{castle_rights_bitmask::ALL_CASTLE_RIGHTS, Board},
         chess_position,
     };
-    use common::bitboard::square::*;
+    use common::bitboard::*;
 
     #[test]
     fn test_starting_player_material_score() {

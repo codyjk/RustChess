@@ -1,5 +1,5 @@
 use crate::board::{error::BoardError, Board};
-use common::bitboard::bitboard::Bitboard;
+use common::bitboard::Square;
 
 use super::chess_move_effect::ChessMoveEffect;
 
@@ -12,10 +12,10 @@ use super::chess_move_effect::ChessMoveEffect;
 /// - Applying and undoing moves on a board
 pub trait ChessMoveType {
     /// Returns the square the piece is moving from.
-    fn from_square(&self) -> Bitboard;
+    fn from_square(&self) -> Square;
 
     /// Returns the square the piece is moving to.
-    fn to_square(&self) -> Bitboard;
+    fn to_square(&self) -> Square;
 
     /// Returns the effect of this move (check, checkmate, etc.), if calculated.
     fn effect(&self) -> Option<ChessMoveEffect>;

@@ -1,7 +1,7 @@
 use crate::board::{
     castle_rights_bitmask::*, color::Color, error::BoardError, piece::Piece, Board,
 };
-use common::bitboard::square::from_rank_file;
+use common::bitboard::Square;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -131,7 +131,7 @@ fn parse_rank(board: &mut Board, rank: &str, rank_number: u8) -> FenResult<()> {
         } else {
             let (piece, color) = parse_piece_char(c)?;
             board
-                .put(from_rank_file(rank_number, file), piece, color)
+                .put(Square::from_rank_file(rank_number, file), piece, color)
                 .map_err(|e| FenParseError::ErrorPlacingPiece { board_error: e })?;
             file += 1;
         }
@@ -231,7 +231,7 @@ fn parse_en_passant(board: &mut Board, en_passant: &str) -> FenResult<()> {
 
     let file = file as u8 - b'a';
     let rank = rank as u8 - b'1';
-    board.push_en_passant_target(from_rank_file(rank, file));
+    board.push_en_passant_target(Some(Square::from_rank_file(rank, file)));
     Ok(())
 }
 
@@ -285,11 +285,11 @@ mod tests {
 
         // Verify a few piece positions
         assert_eq!(
-            board.get(from_rank_file(7, 0)),
+            board.get(Square::from_rank_file(7, 0)),
             Some((Piece::Rook, Color::Black))
         );
         assert_eq!(
-            board.get(from_rank_file(4, 4)),
+            board.get(Square::from_rank_file(4, 4)),
             Some((Piece::Pawn, Color::Black))
         );
     }
@@ -320,7 +320,7 @@ mod tests {
     fn test_en_passant_parsing() {
         let fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1";
         let board = parse_fen(fen).unwrap();
-        assert_eq!(board.peek_en_passant_target(), from_rank_file(2, 4));
+        assert_eq!(board.peek_en_passant_target(), Some(Square::from_rank_file(2, 4)));
     }
 
     #[test]

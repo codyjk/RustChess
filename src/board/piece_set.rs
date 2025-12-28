@@ -1,4 +1,4 @@
-use common::bitboard::bitboard::Bitboard;
+use common::bitboard::{Bitboard, Square};
 
 use super::piece::Piece;
 use super::BoardError;
@@ -32,9 +32,9 @@ impl PieceSet {
         self.bitboards[piece as usize]
     }
 
-    pub fn get(&self, square: Bitboard) -> Option<Piece> {
+    pub fn get(&self, square: Square) -> Option<Piece> {
         for (i, &bitboard) in self.bitboards.iter().enumerate() {
-            if bitboard.overlaps(square) {
+            if square.overlaps(bitboard) {
                 return Some(Piece::from_usize(i));
             }
         }
@@ -45,31 +45,27 @@ impl PieceSet {
         self.occupied
     }
 
-    pub fn is_occupied(&self, square: Bitboard) -> bool {
-        self.occupied.overlaps(square)
+    pub fn is_occupied(&self, square: Square) -> bool {
+        square.overlaps(self.occupied)
     }
 
-    pub fn put(&mut self, square: Bitboard, piece: Piece) -> Result<(), BoardError> {
-        if self.is_occupied(square) {
+    pub fn put(&mut self, square: Square, piece: Piece) -> Result<(), BoardError> {
+        if square.overlaps(self.occupied) {
             return Err(BoardError::SquareOccupiedBoardPutError);
         }
 
-        self.bitboards[piece as usize] |= square;
-        self.occupied |= square;
+        let bb = square.to_bitboard();
+        self.bitboards[piece as usize] |= bb;
+        self.occupied |= bb;
 
         Ok(())
     }
 
-    pub fn remove(&mut self, square: Bitboard) -> Option<Piece> {
-        let removed = self.get(square);
-        let removed_piece = match removed {
-            Some(piece) => piece,
-            None => return None,
-        };
-
-        self.bitboards[removed_piece as usize] ^= square;
-        self.occupied ^= square;
-
-        removed
+    pub fn remove(&mut self, square: Square) -> Option<Piece> {
+        let removed_piece = self.get(square)?;
+        let bb = square.to_bitboard();
+        self.bitboards[removed_piece as usize] ^= bb;
+        self.occupied ^= bb;
+        Some(removed_piece)
     }
 }

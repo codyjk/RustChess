@@ -10,8 +10,7 @@ use crate::board::{
     piece::Piece,
     Board,
 };
-use common::bitboard::bitboard::Bitboard;
-use common::bitboard::square::*;
+use common::bitboard::{Bitboard, Square, *};
 
 use super::chess_move_effect::ChessMoveEffect;
 use super::traits::ChessMoveType;
@@ -23,16 +22,16 @@ use super::traits::ChessMoveType;
 #[derive(PartialEq, Clone, Eq, PartialOrd, Ord)]
 pub struct CastleChessMove {
     /// The square the king is moving from
-    from_square: Bitboard,
+    from_square: Square,
 
     /// The square the king is moving to
-    to_square: Bitboard,
+    to_square: Square,
 
     effect: Option<ChessMoveEffect>,
 }
 
 impl CastleChessMove {
-    fn new(from_square: Bitboard, to_square: Bitboard) -> Self {
+    fn new(from_square: Square, to_square: Square) -> Self {
         Self {
             from_square,
             to_square,
@@ -54,11 +53,11 @@ impl CastleChessMove {
         }
     }
 
-    pub fn to_square(&self) -> Bitboard {
+    pub fn to_square(&self) -> Square {
         self.to_square
     }
 
-    pub fn from_square(&self) -> Bitboard {
+    pub fn from_square(&self) -> Square {
         self.from_square
     }
 
@@ -71,13 +70,15 @@ impl CastleChessMove {
     }
 
     /// Returns castle details: (color, is_kingside, rook_from, rook_to)
-    fn castle_details(&self) -> Result<(Color, bool, Bitboard, Bitboard), BoardError> {
+    fn castle_details(&self) -> Result<(Color, bool, Square, Square), BoardError> {
         let king_from = self.from_square;
         let king_to = self.to_square;
+        let king_from_bb = king_from.to_bitboard();
+        let king_to_bb = king_to.to_bitboard();
 
-        let kingside = match king_to {
-            b if b == king_from << 2 => true,
-            b if b == king_from >> 2 => false,
+        let kingside = match king_to_bb {
+            b if b == king_from_bb << 2 => true,
+            b if b == king_from_bb >> 2 => false,
             _ => return Err(BoardError::InvalidCastleMoveError),
         };
 
@@ -141,7 +142,7 @@ impl CastleChessMove {
 
         board.increment_halfmove_clock();
         board.increment_fullmove_clock();
-        board.push_en_passant_target(Bitboard::EMPTY);
+        board.push_en_passant_target(None);
         board.lose_castle_rights(lost_castle_rights);
 
         Ok(())
@@ -193,11 +194,11 @@ impl CastleChessMove {
 }
 
 impl ChessMoveType for CastleChessMove {
-    fn from_square(&self) -> Bitboard {
+    fn from_square(&self) -> Square {
         self.from_square
     }
 
-    fn to_square(&self) -> Bitboard {
+    fn to_square(&self) -> Square {
         self.to_square
     }
 
@@ -228,8 +229,8 @@ impl fmt::Display for CastleChessMove {
         write!(
             f,
             "castle {} {}{}",
-            to_algebraic(self.from_square).to_lowercase(),
-            to_algebraic(self.to_square).to_lowercase(),
+            self.from_square.to_algebraic(),
+            self.to_square.to_algebraic(),
             check_or_checkmate_msg,
         )
     }

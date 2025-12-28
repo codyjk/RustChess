@@ -1,7 +1,4 @@
-use common::bitboard::{
-    bitboard::Bitboard,
-    square::{to_algebraic, C1, C8, E1, E8, G1, G8},
-};
+use common::bitboard::{Square, C1, C8, E1, E8, G1, G8};
 
 use crate::{
     board::{color::Color, piece::Piece, Board},
@@ -62,7 +59,7 @@ fn chess_move_to_algebraic_notation(
     let piece_char = piece.to_algebraic_str();
     let disambiguating_char = get_disambiguating_chars(piece, chess_move, ambiguous_moves);
     let capture_char = get_capture_char(chess_move);
-    let target_square_chars = to_algebraic(chess_move.to_square());
+    let target_square_chars = chess_move.to_square().to_algebraic();
     let promotion_chars = get_promotion_chars(chess_move);
 
     let algebraic_move = format!(
@@ -87,14 +84,12 @@ fn algebraic_castle(castle_move: &CastleChessMove) -> String {
     }
 }
 
-fn get_file_char(from_square: Bitboard) -> char {
-    let file = to_algebraic(from_square).chars().next().unwrap();
-    file
+fn get_file_char(from_square: Square) -> char {
+    from_square.to_algebraic().chars().next().unwrap()
 }
 
-fn get_rank_char(from_square: Bitboard) -> char {
-    let rank = to_algebraic(from_square).chars().nth(1).unwrap();
-    rank
+fn get_rank_char(from_square: Square) -> char {
+    from_square.to_algebraic().chars().nth(1).unwrap()
 }
 
 fn get_ambiguous_moves(
@@ -150,7 +145,7 @@ fn get_disambiguating_chars(
         has_ambiguous_moves_on_same_file,
         has_ambiguous_moves_on_same_rank,
     ) {
-        (true, true) => to_algebraic(chess_move.from_square()).to_string(),
+        (true, true) => chess_move.from_square().to_algebraic().to_string(),
         (true, false) => starting_rank_char.to_string(),
         (false, true) => starting_file_char.to_string(),
         (false, false) => EMPTY_STRING.to_string(),
@@ -187,7 +182,7 @@ fn get_promotion_chars(chess_move: &ChessMove) -> String {
 
 #[cfg(test)]
 mod tests {
-    use common::bitboard::square::*;
+    use common::bitboard::*;
 
     use crate::board::castle_rights_bitmask::{
         ALL_CASTLE_RIGHTS, BLACK_KINGSIDE_RIGHTS, BLACK_QUEENSIDE_RIGHTS, WHITE_KINGSIDE_RIGHTS,

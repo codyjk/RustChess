@@ -15,8 +15,7 @@ use crate::chess_move::en_passant::EnPassantChessMove;
 use crate::chess_move::pawn_promotion::PawnPromotionChessMove;
 use crate::chess_move::standard::StandardChessMove;
 use crate::evaluate::{player_is_in_check, player_is_in_checkmate};
-use common::bitboard::bitboard::Bitboard;
-use common::bitboard::square::*;
+use common::bitboard::{Bitboard, *};
 use rayon::prelude::*;
 use smallvec::{smallvec, SmallVec};
 use targets::Targets;
@@ -214,11 +213,10 @@ fn generate_pawn_moves(moves: &mut ChessMoveList, board: &Board, color: Color) {
 }
 
 fn generate_en_passant_moves(moves: &mut ChessMoveList, board: &Board, color: Color) {
-    let en_passant_target = board.peek_en_passant_target();
-
-    if en_passant_target.is_empty() {
+    let Some(target_sq) = board.peek_en_passant_target() else {
         return;
-    }
+    };
+    let target_bb = target_sq.to_bitboard();
 
     let pawns = board.pieces(color).locate(Piece::Pawn);
 
@@ -232,21 +230,21 @@ fn generate_en_passant_moves(moves: &mut ChessMoveList, board: &Board, color: Co
         Color::Black => (pawns >> 9) & !Bitboard::H_FILE,
     };
 
-    if attacks_west.overlaps(en_passant_target) {
-        let from_square = match color {
-            Color::White => en_passant_target >> 9,
-            Color::Black => en_passant_target << 7,
+    if attacks_west.overlaps(target_bb) {
+        let from_bb = match color {
+            Color::White => target_bb >> 9,
+            Color::Black => target_bb << 7,
         };
-        let en_passant_move = EnPassantChessMove::new(from_square, en_passant_target);
+        let en_passant_move = EnPassantChessMove::new(from_bb.to_square(), target_sq);
         moves.push(ChessMove::EnPassant(en_passant_move));
     }
 
-    if attacks_east.overlaps(en_passant_target) {
-        let from_square = match color {
-            Color::White => en_passant_target >> 7,
-            Color::Black => en_passant_target << 9,
+    if attacks_east.overlaps(target_bb) {
+        let from_bb = match color {
+            Color::White => target_bb >> 7,
+            Color::Black => target_bb << 9,
         };
-        let en_passant_move = EnPassantChessMove::new(from_square, en_passant_target);
+        let en_passant_move = EnPassantChessMove::new(from_bb.to_square(), target_sq);
         moves.push(ChessMove::EnPassant(en_passant_move));
     }
 }
@@ -284,14 +282,14 @@ fn expand_piece_targets(
     color: Color,
     piece_targets: PieceTargetList,
 ) {
-    for (piece, target_squares) in piece_targets {
-        let piece_sq = assert_square(piece);
+    for (piece_sq, target_squares) in piece_targets {
         let mut targets = target_squares;
         while !targets.is_empty() {
-            let target = targets.pop_lsb();
-            let capture = board.pieces(color.opposite()).get(target).map(Capture);
+            let target_bb = targets.pop_lsb();
+            let target_sq = target_bb.to_square();
+            let capture = board.pieces(color.opposite()).get(target_sq).map(Capture);
 
-            let standard_move = StandardChessMove::new(piece_sq, target, capture);
+            let standard_move = StandardChessMove::new(piece_sq, target_sq, capture);
             moves.push(ChessMove::Standard(standard_move));
         }
     }
@@ -787,7 +785,7 @@ mod tests {
         move_that_reveals_en_passant_target
             .apply(&mut board)
             .unwrap();
-        assert_eq!(C3, board.peek_en_passant_target());
+        assert_eq!(Some(C3), board.peek_en_passant_target());
 
         let mut expected_black_moves: ChessMoveList =
             smallvec![std_move!(D4, D3), en_passant_move!(D4, C3)];

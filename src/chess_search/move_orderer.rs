@@ -90,8 +90,7 @@ mod tests {
         castle_kingside, check_move, checkmate_move, chess_position, en_passant_move, promotion,
         std_move,
     };
-    use common::bitboard::bitboard::Bitboard;
-    use common::bitboard::square::*;
+    use common::bitboard::*;
 
     fn create_test_board() -> Board {
         chess_position! {

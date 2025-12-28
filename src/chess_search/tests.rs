@@ -9,8 +9,7 @@ use crate::chess_move::capture::Capture;
 use crate::chess_move::chess_move_effect::ChessMoveEffect;
 use crate::chess_move::standard::StandardChessMove;
 use crate::{check_move, checkmate_move, chess_position, std_move};
-use common::bitboard::bitboard::Bitboard;
-use common::bitboard::square::*;
+use common::bitboard::*;
 
 #[test]
 fn test_find_mate_in_1_white() {

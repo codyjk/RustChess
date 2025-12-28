@@ -25,14 +25,14 @@ use super::{
 /// pawn promotion, en passant, or castling.
 #[derive(PartialEq, Clone, Eq, PartialOrd, Ord)]
 pub struct StandardChessMove {
-    from_square: Bitboard,
-    to_square: Bitboard,
+    from_square: square::Square,
+    to_square: square::Square,
     captures: Option<Capture>,
     effect: Option<ChessMoveEffect>,
 }
 
 impl StandardChessMove {
-    pub fn new(from_square: Bitboard, to_square: Bitboard, captures: Option<Capture>) -> Self {
+    pub fn new(from_square: square::Square, to_square: square::Square, captures: Option<Capture>) -> Self {
         Self {
             from_square,
             to_square,
@@ -41,11 +41,11 @@ impl StandardChessMove {
         }
     }
 
-    pub fn to_square(&self) -> Bitboard {
+    pub fn to_square(&self) -> square::Square {
         self.to_square
     }
 
-    pub fn from_square(&self) -> Bitboard {
+    pub fn from_square(&self) -> square::Square {
         self.from_square
     }
 
@@ -195,11 +195,11 @@ impl StandardChessMove {
 }
 
 impl ChessMoveType for StandardChessMove {
-    fn from_square(&self) -> Bitboard {
+    fn from_square(&self) -> square::Square {
         self.from_square
     }
 
-    fn to_square(&self) -> Bitboard {
+    fn to_square(&self) -> square::Square {
         self.to_square
     }
 
@@ -220,19 +220,18 @@ impl ChessMoveType for StandardChessMove {
     }
 }
 
-/// Determines if a move is an en passant move. If so, it returns the target square.
-/// Otherwise, it returns an empty square.
+/// Determines if a move creates an en passant opportunity. If so, returns the target square.
 fn get_en_passant_target_square(
     piece_to_move: Piece,
     color: Color,
-    from_square: Bitboard,
-    to_square: Bitboard,
-) -> Bitboard {
+    from_square: square::Square,
+    to_square: square::Square,
+) -> Option<square::Square> {
     if piece_to_move != Piece::Pawn {
-        return Bitboard::EMPTY;
+        return None;
     }
 
-    let is_en_passant = match color {
+    let is_double_push = match color {
         Color::White => {
             from_square.overlaps(Bitboard::RANK_2) && to_square.overlaps(Bitboard::RANK_4)
         }
@@ -241,41 +240,43 @@ fn get_en_passant_target_square(
         }
     };
 
-    if !is_en_passant {
-        return Bitboard::EMPTY;
+    if !is_double_push {
+        return None;
     }
 
-    match color {
-        Color::White => from_square << 8,
-        Color::Black => from_square >> 8,
-    }
+    // The en passant target is the square the pawn passed over
+    let target_index = match color {
+        Color::White => from_square.index() + 8,
+        Color::Black => from_square.index() - 8,
+    };
+    Some(square::Square::new(target_index))
 }
 
 fn get_lost_castle_rights_if_rook_or_king_moved(
     piece_to_move: Piece,
     color: Color,
-    from_square: Bitboard,
+    from_square: square::Square,
 ) -> u8 {
     match (piece_to_move, color, from_square) {
-        (Piece::Rook, Color::White, A1) => WHITE_QUEENSIDE_RIGHTS,
-        (Piece::Rook, Color::White, H1) => WHITE_KINGSIDE_RIGHTS,
-        (Piece::Rook, Color::Black, A8) => BLACK_QUEENSIDE_RIGHTS,
-        (Piece::Rook, Color::Black, H8) => BLACK_KINGSIDE_RIGHTS,
-        (Piece::King, Color::White, E1) => WHITE_KINGSIDE_RIGHTS | WHITE_QUEENSIDE_RIGHTS,
-        (Piece::King, Color::Black, E8) => BLACK_KINGSIDE_RIGHTS | BLACK_QUEENSIDE_RIGHTS,
+        (Piece::Rook, Color::White, sq) if sq == A1 => WHITE_QUEENSIDE_RIGHTS,
+        (Piece::Rook, Color::White, sq) if sq == H1 => WHITE_KINGSIDE_RIGHTS,
+        (Piece::Rook, Color::Black, sq) if sq == A8 => BLACK_QUEENSIDE_RIGHTS,
+        (Piece::Rook, Color::Black, sq) if sq == H8 => BLACK_KINGSIDE_RIGHTS,
+        (Piece::King, Color::White, sq) if sq == E1 => WHITE_KINGSIDE_RIGHTS | WHITE_QUEENSIDE_RIGHTS,
+        (Piece::King, Color::Black, sq) if sq == E8 => BLACK_KINGSIDE_RIGHTS | BLACK_QUEENSIDE_RIGHTS,
         _ => 0,
     }
 }
 
 fn get_lost_castle_rights_if_rook_taken(
     captured_piece: Option<(Piece, Color)>,
-    to_square: Bitboard,
+    to_square: square::Square,
 ) -> u8 {
     match (captured_piece, to_square) {
-        (Some((Piece::Rook, Color::White)), A1) => WHITE_QUEENSIDE_RIGHTS,
-        (Some((Piece::Rook, Color::White)), H1) => WHITE_KINGSIDE_RIGHTS,
-        (Some((Piece::Rook, Color::Black)), A8) => BLACK_QUEENSIDE_RIGHTS,
-        (Some((Piece::Rook, Color::Black)), H8) => BLACK_KINGSIDE_RIGHTS,
+        (Some((Piece::Rook, Color::White)), sq) if sq == A1 => WHITE_QUEENSIDE_RIGHTS,
+        (Some((Piece::Rook, Color::White)), sq) if sq == H1 => WHITE_KINGSIDE_RIGHTS,
+        (Some((Piece::Rook, Color::Black)), sq) if sq == A8 => BLACK_QUEENSIDE_RIGHTS,
+        (Some((Piece::Rook, Color::Black)), sq) if sq == H8 => BLACK_KINGSIDE_RIGHTS,
         _ => 0,
     }
 }
@@ -295,8 +296,8 @@ impl fmt::Display for StandardChessMove {
         write!(
             f,
             "move {}{}{}{}",
-            square::to_algebraic(self.from_square).to_lowercase(),
-            square::to_algebraic(self.to_square).to_lowercase(),
+            self.from_square.to_algebraic(),
+            self.to_square.to_algebraic(),
             captures_msg,
             check_or_checkmate_msg
         )

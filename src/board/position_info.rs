@@ -1,4 +1,4 @@
-use common::bitboard::bitboard::Bitboard;
+use common::bitboard::Square;
 use rustc_hash::FxHashMap;
 
 use super::{color::Color, piece::Piece};
@@ -58,23 +58,15 @@ impl PositionInfo {
         *self.max_seen_position_count_stack.last().unwrap()
     }
 
-    pub fn update_zobrist_hash_toggle_piece(
-        &mut self,
-        square: Bitboard,
-        piece: Piece,
-        color: Color,
-    ) {
-        let square_num = square.trailing_zeros();
-        let piece_hash = ZOBRIST_PIECES_TABLE[piece as usize][square_num as usize][color as usize];
+    pub fn update_zobrist_hash_toggle_piece(&mut self, square: Square, piece: Piece, color: Color) {
+        let piece_hash =
+            ZOBRIST_PIECES_TABLE[piece as usize][square.index() as usize][color as usize];
         self.current_position_hash ^= piece_hash;
     }
 
-    pub fn update_zobrist_hash_toggle_en_passant_target(&mut self, square: Bitboard) {
-        if square.is_empty() {
-            return;
-        }
-        let square_num = square.trailing_zeros();
-        self.current_position_hash ^= ZOBRIST_EN_PASSANT_TABLE[square_num as usize];
+    pub fn update_zobrist_hash_toggle_en_passant_target(&mut self, square: Option<Square>) {
+        let Some(sq) = square else { return };
+        self.current_position_hash ^= ZOBRIST_EN_PASSANT_TABLE[sq.index() as usize];
     }
 
     pub fn update_zobrist_hash_toggle_castling_rights(&mut self, castling_rights: u8) {
@@ -88,7 +80,7 @@ impl PositionInfo {
 
 #[cfg(test)]
 mod tests {
-    use common::bitboard::square::ORDERED_SQUARES;
+    use common::bitboard::{Square, ORDERED_SQUARES};
 
     use super::*;
 
@@ -99,7 +91,7 @@ mod tests {
         for i in 0..64 {
             let random_piece = Piece::from_usize(i % 6);
             position_info.update_zobrist_hash_toggle_piece(
-                Bitboard(1 << i),
+                Square::new(i as u8),
                 random_piece,
                 Color::White,
             );
@@ -114,7 +106,7 @@ mod tests {
         let mut hash = 0;
         let pairs = ZOBRIST_EN_PASSANT_TABLE.iter().zip(ORDERED_SQUARES.iter());
         for (zobrist_num, square) in pairs {
-            position_info.update_zobrist_hash_toggle_en_passant_target(*square);
+            position_info.update_zobrist_hash_toggle_en_passant_target(Some(*square));
             hash ^= zobrist_num;
         }
         assert_eq!(position_info.current_position_hash(), hash);
@@ -138,7 +130,7 @@ mod tests {
         for i in 0..64 {
             let random_piece = Piece::from_usize(i % 6);
             position_info.update_zobrist_hash_toggle_piece(
-                Bitboard(1 << i),
+                Square::new(i as u8),
                 random_piece,
                 Color::White,
             );
@@ -148,7 +140,7 @@ mod tests {
         for i in 0..64 {
             let random_piece = Piece::from_usize(i % 6);
             position_info.update_zobrist_hash_toggle_piece(
-                Bitboard(1 << i),
+                Square::new(i as u8),
                 random_piece,
                 Color::White,
             );

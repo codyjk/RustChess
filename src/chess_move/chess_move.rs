@@ -1,6 +1,6 @@
 use core::fmt;
 
-use common::bitboard::{bitboard::Bitboard, square::to_algebraic};
+use common::bitboard::Square;
 
 use crate::board::{error::BoardError, piece::Piece, Board};
 
@@ -20,7 +20,7 @@ pub enum ChessMove {
 }
 
 impl ChessMove {
-    pub fn to_square(&self) -> Bitboard {
+    pub fn to_square(&self) -> Square {
         match self {
             ChessMove::Standard(m) => m.to_square(),
             ChessMove::PawnPromotion(m) => m.to_square(),
@@ -29,7 +29,7 @@ impl ChessMove {
         }
     }
 
-    pub fn from_square(&self) -> Bitboard {
+    pub fn from_square(&self) -> Square {
         match self {
             ChessMove::Standard(m) => m.from_square(),
             ChessMove::PawnPromotion(m) => m.from_square(),
@@ -91,8 +91,8 @@ impl ChessMove {
     }
 
     pub fn to_uci(&self) -> String {
-        let from = to_algebraic(self.from_square());
-        let to = to_algebraic(self.to_square());
+        let from = self.from_square().to_algebraic();
+        let to = self.to_square().to_algebraic();
         match self {
             ChessMove::PawnPromotion(m) => {
                 format!(
@@ -127,8 +127,8 @@ impl fmt::Display for ChessMove {
             ChessMove::EnPassant(_) => "En Passant",
             ChessMove::Castle(_) => "Castle",
         };
-        let from_square = to_algebraic(self.from_square());
-        let to_square = to_algebraic(self.to_square());
+        let from_square = self.from_square().to_algebraic();
+        let to_square = self.to_square().to_algebraic();
         let capture = match self.captures() {
             Some(capture) => format!(" capturing {}", capture.0),
             None => "".to_string(),

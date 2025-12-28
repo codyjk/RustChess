@@ -1,14 +1,13 @@
 use crate::board::color::Color;
 use crate::board::piece::Piece;
 use crate::board::Board;
-use common::bitboard::bitboard::Bitboard;
-use common::bitboard::square::ORDERED_SQUARES;
+use common::bitboard::{Bitboard, Square, ORDERED_SQUARES};
 use smallvec::{smallvec, SmallVec};
 
 use super::magic_table::MagicTable;
 
 /// A `PieceTarget` is a tuple of a piece's square and the squares it can move to.
-pub type PieceTarget = (Bitboard, Bitboard); // (piece_square, targets)
+pub type PieceTarget = (Square, Bitboard); // (piece_square, targets)
 
 /// A list of PieceTargets that is optimized for small sizes.
 /// Similar to `ChessMoveList`, see the documentation for reasoning around performance.
@@ -74,7 +73,7 @@ impl Targets {
         let occupied = board.pieces(color).occupied();
 
         for sq in ORDERED_SQUARES {
-            if !pieces.overlaps(sq) {
+            if !sq.overlaps(pieces) {
                 continue;
             }
 
@@ -96,7 +95,7 @@ impl Targets {
         let occupied = board.occupied();
 
         for x in 0..64 {
-            let square = Bitboard(1 << x);
+            let square = Square::new(x);
             let piece = match board.pieces(color).get(square) {
                 Some(p) => p,
                 None => continue,
@@ -117,11 +116,10 @@ impl Targets {
         }
     }
 
-    fn get_precomputed_targets(&self, square: Bitboard, piece: Piece) -> Bitboard {
-        let square_i = square.trailing_zeros() as usize;
+    fn get_precomputed_targets(&self, square: Square, piece: Piece) -> Bitboard {
         match piece {
-            Piece::Knight => self.knights[square_i],
-            Piece::King => self.kings[square_i],
+            Piece::Knight => self.knights[square.index() as usize],
+            Piece::King => self.kings[square.index() as usize],
             _ => panic!("invalid piece type for precomputed targets: {}", piece),
         }
     }
@@ -143,16 +141,17 @@ pub fn generate_pawn_move_targets(board: &Board, color: Color) -> PieceTargetLis
     };
     let move_targets = (single_move_targets | double_move_targets) & !occupied;
 
-    for x in 0..64 {
-        let pawn = Bitboard(1 << x);
-        if !pawns.overlaps(pawn) {
+    for x in 0..64u8 {
+        let pawn_sq = Square::new(x);
+        let pawn_bb = pawn_sq.to_bitboard();
+        if !pawn_sq.overlaps(pawns) {
             continue;
         }
         let mut targets = Bitboard::EMPTY;
 
         let single_move = match color {
-            Color::White => pawn << 8,
-            Color::Black => pawn >> 8,
+            Color::White => pawn_bb << 8,
+            Color::Black => pawn_bb >> 8,
         };
 
         if single_move.overlaps(occupied) {
@@ -172,7 +171,7 @@ pub fn generate_pawn_move_targets(board: &Board, color: Color) -> PieceTargetLis
             continue;
         }
 
-        piece_targets.push((pawn, targets));
+        piece_targets.push((pawn_sq, targets));
     }
 
     piece_targets
@@ -188,32 +187,33 @@ pub fn generate_pawn_attack_targets(
 ) {
     let pawns = board.pieces(color).locate(Piece::Pawn);
 
-    for x in 0..64 {
-        let pawn = Bitboard(1 << x);
-        if !pawns.overlaps(pawn) {
+    for x in 0..64u8 {
+        let pawn_sq = Square::new(x);
+        if !pawn_sq.overlaps(pawns) {
             continue;
         }
 
+        let pawn_bb = pawn_sq.to_bitboard();
         let attack_west = match color {
-            Color::White => (pawn << 9) & !Bitboard::A_FILE,
-            Color::Black => (pawn >> 7) & !Bitboard::A_FILE,
+            Color::White => (pawn_bb << 9) & !Bitboard::A_FILE,
+            Color::Black => (pawn_bb >> 7) & !Bitboard::A_FILE,
         };
 
         let attack_east = match color {
-            Color::White => (pawn << 7) & !Bitboard::H_FILE,
-            Color::Black => (pawn >> 9) & !Bitboard::H_FILE,
+            Color::White => (pawn_bb << 7) & !Bitboard::H_FILE,
+            Color::Black => (pawn_bb >> 9) & !Bitboard::H_FILE,
         };
 
         let targets = attack_east | attack_west;
-        piece_targets.push((pawn, targets));
+        piece_targets.push((pawn_sq, targets));
     }
 }
 
 pub fn generate_knight_targets_table() -> [Bitboard; 64] {
     let mut table = [Bitboard::EMPTY; 64];
 
-    for (square_i, targets) in table.iter_mut().enumerate() {
-        let knight = Bitboard(1 << square_i);
+    for square in Square::ALL {
+        let knight = square.to_bitboard();
 
         // nne = north-north-east, nee = north-east-east, etc..
         let move_nne = knight << 17 & !Bitboard::A_FILE;
@@ -225,7 +225,7 @@ pub fn generate_knight_targets_table() -> [Bitboard; 64] {
         let move_sww = knight >> 10 & !Bitboard::G_FILE & !Bitboard::H_FILE;
         let move_ssw = knight >> 17 & !Bitboard::H_FILE;
 
-        *targets =
+        table[square.index() as usize] =
             move_nne | move_nee | move_see | move_sse | move_nnw | move_nww | move_sww | move_ssw;
     }
 
@@ -235,21 +235,24 @@ pub fn generate_knight_targets_table() -> [Bitboard; 64] {
 pub fn generate_king_targets_table() -> [Bitboard; 64] {
     let mut table = [Bitboard::EMPTY; 64];
 
-    for (square_i, targets) in table.iter_mut().enumerate() {
-        let king = Bitboard(1 << square_i);
+    for square in Square::ALL {
+        let king = square.to_bitboard();
+        let mut targets = Bitboard::EMPTY;
 
         // shift the king's position. in the event that it falls off of the boundary,
         // we want to negate the rank/file where the king would fall.
-        *targets |= (king << 9) & !Bitboard::RANK_1 & !Bitboard::A_FILE; // northeast
-        *targets |= (king << 8) & !Bitboard::RANK_1; // north
-        *targets |= (king << 7) & !Bitboard::RANK_1 & !Bitboard::H_FILE; // northwest
+        targets |= (king << 9) & !Bitboard::RANK_1 & !Bitboard::A_FILE; // northeast
+        targets |= (king << 8) & !Bitboard::RANK_1; // north
+        targets |= (king << 7) & !Bitboard::RANK_1 & !Bitboard::H_FILE; // northwest
 
-        *targets |= (king >> 7) & !Bitboard::RANK_8 & !Bitboard::A_FILE; // southeast
-        *targets |= (king >> 8) & !Bitboard::RANK_8; // south
-        *targets |= (king >> 9) & !Bitboard::RANK_8 & !Bitboard::H_FILE; // southwest
+        targets |= (king >> 7) & !Bitboard::RANK_8 & !Bitboard::A_FILE; // southeast
+        targets |= (king >> 8) & !Bitboard::RANK_8; // south
+        targets |= (king >> 9) & !Bitboard::RANK_8 & !Bitboard::H_FILE; // southwest
 
-        *targets |= (king << 1) & !Bitboard::A_FILE; // east
-        *targets |= (king >> 1) & !Bitboard::H_FILE; // west
+        targets |= (king << 1) & !Bitboard::A_FILE; // east
+        targets |= (king >> 1) & !Bitboard::H_FILE; // west
+
+        table[square.index() as usize] = targets;
     }
 
     table
@@ -258,7 +261,7 @@ pub fn generate_king_targets_table() -> [Bitboard; 64] {
 #[cfg(test)]
 mod tests {
     use crate::chess_move::chess_move_effect::ChessMoveEffect;
-    use common::bitboard::square::*;
+    use common::bitboard::*;
 
     use super::*;
     use crate::chess_move::chess_move::ChessMove;

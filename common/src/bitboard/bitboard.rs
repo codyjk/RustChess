@@ -7,7 +7,7 @@ use std::{
     },
 };
 
-use crate::bitboard::square::from_rank_file;
+use crate::bitboard::square::Square;
 
 /// Represents a chess board as a 64-bit integer. In practice, there will be
 /// one bitboard for each player's piece type (e.g. white pawns, black knights).
@@ -65,6 +65,14 @@ impl Bitboard {
         let lsb = self.0.trailing_zeros();
         self.0 &= !(1 << lsb);
         Bitboard(1 << lsb)
+    }
+
+    /// Converts a single-square bitboard to a Square.
+    /// Panics if the bitboard does not represent exactly one square.
+    #[inline]
+    pub fn to_square(self) -> Square {
+        debug_assert!(self.count_ones() == 1, "Bitboard must represent exactly one square");
+        Square::new(self.0.trailing_zeros() as u8)
     }
 }
 
@@ -159,11 +167,8 @@ impl Display for Bitboard {
         let mut result = String::new();
         for rank in (0..8).rev() {
             for file in 0..8 {
-                let sq = from_rank_file(rank, file);
-                let cell = match self.overlaps(sq) {
-                    true => 'X',
-                    false => '.',
-                };
+                let sq = Square::from_rank_file(rank, file);
+                let cell = if sq.overlaps(*self) { 'X' } else { '.' };
                 result.push(cell);
             }
             result.push('\n');

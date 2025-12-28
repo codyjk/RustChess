@@ -11,8 +11,7 @@ use crate::chess_move::chess_move::ChessMove;
 use crate::evaluate::{self, GameEnding};
 use crate::input_handler::MoveInput;
 use crate::move_generator::MoveGenerator;
-use common::bitboard::bitboard::Bitboard;
-use common::bitboard::square::square_string_to_bitboard;
+use common::bitboard::Square;
 use thiserror::Error;
 
 /// Core engine state and configuration
@@ -112,8 +111,8 @@ impl Engine {
 
     pub fn make_move_by_squares(
         &mut self,
-        from: Bitboard,
-        to: Bitboard,
+        from: Square,
+        to: Square,
     ) -> Result<ChessMove, EngineError> {
         let turn = self.state.board.turn();
         let candidates = self
@@ -199,8 +198,8 @@ impl Engine {
     pub fn make_move_from_input(&mut self, input: MoveInput) -> Result<ChessMove, EngineError> {
         match input {
             MoveInput::Coordinate { from, to } => {
-                let from_square = square_string_to_bitboard(&from);
-                let to_square = square_string_to_bitboard(&to);
+                let from_square = Square::from_algebraic(&from).ok_or(EngineError::InvalidMove)?;
+                let to_square = Square::from_algebraic(&to).ok_or(EngineError::InvalidMove)?;
                 self.make_move_by_squares(from_square, to_square)
             }
             MoveInput::Algebraic { notation } => self.make_move_algebraic(notation),
@@ -270,7 +269,7 @@ mod tests {
     use crate::chess_move::standard::StandardChessMove;
     use crate::chess_position;
     use crate::{checkmate_move, std_move};
-    use common::bitboard::square::*;
+    use common::bitboard::*;
 
     #[test]
     fn test_find_mate_in_1_white() {

@@ -1,6 +1,6 @@
 use crate::board::{color::Color, Board};
 use crate::chess_move::chess_move::ChessMove;
-use common::bitboard::square::from_rank_file;
+use common::bitboard::Square;
 use std::fmt::Write;
 use termion::{clear, cursor};
 
@@ -35,10 +35,10 @@ impl GameDisplay {
             .push_str("  ┌───┬───┬───┬───┬───┬───┬───┬───┐\n");
 
         // Board squares
-        for rank in (0..8).rev() {
+        for rank in (0..8u8).rev() {
             self.buffer.push_str(&format!("{} │", rank + 1));
-            for file in 0..8 {
-                let square = from_rank_file(rank, file);
+            for file in 0..8u8 {
+                let square = Square::from_rank_file(rank, file);
                 let piece_str = match board.get(square) {
                     Some((piece, color)) => piece.to_unicode_piece_char(color).to_string(),
                     None => if (rank + file) % 2 == 0 { " " } else { "·" }.to_string(),
