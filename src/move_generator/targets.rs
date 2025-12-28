@@ -128,50 +128,50 @@ impl Targets {
 pub fn generate_pawn_move_targets(board: &Board, color: Color) -> PieceTargetList {
     let mut piece_targets: PieceTargetList = smallvec![];
 
-    let pawns = board.pieces(color).locate(Piece::Pawn);
+    let mut pawns = board.pieces(color).locate(Piece::Pawn);
     let occupied = board.occupied();
 
-    let single_move_targets = match color {
-        Color::White => pawns << 8, // move 1 rank up the board
-        Color::Black => pawns >> 8, // move 1 rank down the board
-    };
-    let double_move_targets = match color {
-        Color::White => Bitboard::RANK_4,
-        Color::Black => Bitboard::RANK_5,
-    };
-    let move_targets = (single_move_targets | double_move_targets) & !occupied;
-
-    for x in 0..64u8 {
-        let pawn_sq = Square::new(x);
-        let pawn_bb = pawn_sq.to_bitboard();
-        if !pawn_sq.overlaps(pawns) {
-            continue;
-        }
+    while !pawns.is_empty() {
+        let pawn_sq = pawns.pop_lsb().to_square();
         let mut targets = Bitboard::EMPTY;
 
-        let single_move = match color {
-            Color::White => pawn_bb << 8,
-            Color::Black => pawn_bb >> 8,
+        let (single_offset, double_rank) = match color {
+            Color::White => (8u8, 1u8),  // +8 for single move, rank 1 (0-indexed) for double move
+            Color::Black => (8u8, 6u8),  // -8 for single move, rank 6 for double move
         };
 
-        if single_move.overlaps(occupied) {
-            // pawn is blocked and can make no moves
-            continue;
-        }
-
-        let double_move = match color {
-            Color::White => single_move << 8,
-            Color::Black => single_move >> 8,
+        let pawn_idx = pawn_sq.index() as u16;
+        
+        // Single move forward
+        let single_target_idx = match color {
+            Color::White => pawn_idx + single_offset as u16,
+            Color::Black => pawn_idx.wrapping_sub(single_offset as u16),
         };
+        
+        if single_target_idx < 64 {
+            let single_target = Square::new(single_target_idx as u8);
+            if !single_target.overlaps(occupied) {
+                targets |= single_target.to_bitboard();
 
-        targets |= single_move & move_targets;
-        targets |= double_move & move_targets;
-
-        if targets.is_empty() {
-            continue;
+                // Check for double move from starting rank
+                if pawn_sq.rank() == double_rank {
+                    let double_target_idx = match color {
+                        Color::White => single_target_idx + single_offset as u16,
+                        Color::Black => single_target_idx.wrapping_sub(single_offset as u16),
+                    };
+                    if double_target_idx < 64 {
+                        let double_target = Square::new(double_target_idx as u8);
+                        if !double_target.overlaps(occupied) {
+                            targets |= double_target.to_bitboard();
+                        }
+                    }
+                }
+            }
         }
 
-        piece_targets.push((pawn_sq, targets));
+        if !targets.is_empty() {
+            piece_targets.push((pawn_sq, targets));
+        }
     }
 
     piece_targets
@@ -185,26 +185,50 @@ pub fn generate_pawn_attack_targets(
     board: &Board,
     color: Color,
 ) {
-    let pawns = board.pieces(color).locate(Piece::Pawn);
+    let mut pawns = board.pieces(color).locate(Piece::Pawn);
 
-    for x in 0..64u8 {
-        let pawn_sq = Square::new(x);
-        if !pawn_sq.overlaps(pawns) {
-            continue;
+    while !pawns.is_empty() {
+        let pawn_sq = pawns.pop_lsb().to_square();
+        let mut targets = Bitboard::EMPTY;
+
+        let pawn_idx = pawn_sq.index() as u16;
+        let pawn_file = pawn_sq.file();
+
+        match color {
+            Color::White => {
+                // Northeast attack (west)
+                if pawn_file < 7 {
+                    let target_idx = pawn_idx + 9;
+                    if target_idx < 64 {
+                        targets |= Square::new(target_idx as u8).to_bitboard();
+                    }
+                }
+                // Northwest attack (east)
+                if pawn_file > 0 {
+                    let target_idx = pawn_idx + 7;
+                    if target_idx < 64 {
+                        targets |= Square::new(target_idx as u8).to_bitboard();
+                    }
+                }
+            }
+            Color::Black => {
+                // Southeast attack (west)
+                if pawn_file < 7 {
+                    let target_idx = pawn_idx.wrapping_sub(7);
+                    if target_idx < 64 {
+                        targets |= Square::new(target_idx as u8).to_bitboard();
+                    }
+                }
+                // Southwest attack (east)
+                if pawn_file > 0 {
+                    let target_idx = pawn_idx.wrapping_sub(9);
+                    if target_idx < 64 {
+                        targets |= Square::new(target_idx as u8).to_bitboard();
+                    }
+                }
+            }
         }
 
-        let pawn_bb = pawn_sq.to_bitboard();
-        let attack_west = match color {
-            Color::White => (pawn_bb << 9) & !Bitboard::A_FILE,
-            Color::Black => (pawn_bb >> 7) & !Bitboard::A_FILE,
-        };
-
-        let attack_east = match color {
-            Color::White => (pawn_bb << 7) & !Bitboard::H_FILE,
-            Color::Black => (pawn_bb >> 9) & !Bitboard::H_FILE,
-        };
-
-        let targets = attack_east | attack_west;
         piece_targets.push((pawn_sq, targets));
     }
 }
