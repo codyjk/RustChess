@@ -69,16 +69,14 @@ impl CastleChessMove {
         self.effect = effect;
     }
 
-    pub fn apply(&self, board: &mut Board) -> Result<(), BoardError> {
-        let CastleChessMove {
-            from_square: king_from,
-            to_square: king_to,
-            ..
-        } = self;
+    /// Returns castle details: (color, is_kingside, rook_from, rook_to)
+    fn castle_details(&self) -> Result<(Color, bool, Bitboard, Bitboard), BoardError> {
+        let king_from = self.from_square;
+        let king_to = self.to_square;
 
-        let kingside = match *king_to {
-            b if b == *king_from << 2 => true,
-            b if b == *king_from >> 2 => false,
+        let kingside = match king_to {
+            b if b == king_from << 2 => true,
+            b if b == king_from >> 2 => false,
             _ => return Err(BoardError::InvalidCastleMoveError),
         };
 
@@ -97,13 +95,21 @@ impl CastleChessMove {
             (Color::Black, false) => (A8, D8),
         };
 
-        if board.get(*king_from) != Some((Piece::King, color)) {
+        Ok((color, kingside, rook_from, rook_to))
+    }
+
+    pub fn apply(&self, board: &mut Board) -> Result<(), BoardError> {
+        let king_from = self.from_square;
+        let king_to = self.to_square;
+        let (color, _, rook_from, rook_to) = self.castle_details()?;
+
+        if board.get(king_from) != Some((Piece::King, color)) {
             return Err(BoardError::InvalidCastleStateError {
                 msg: "king_from is not a king",
             });
         }
 
-        if board.get(*king_to).is_some() {
+        if board.get(king_to).is_some() {
             return Err(BoardError::InvalidCastleStateError {
                 msg: "king_to is not empty",
             });
@@ -121,8 +127,8 @@ impl CastleChessMove {
             });
         }
 
-        board.remove(*king_from).unwrap();
-        board.put(*king_to, Piece::King, color).unwrap();
+        board.remove(king_from).unwrap();
+        board.put(king_to, Piece::King, color).unwrap();
         board.remove(rook_from).unwrap();
         board.put(rook_to, Piece::Rook, color).unwrap();
 
@@ -140,40 +146,17 @@ impl CastleChessMove {
     }
 
     pub fn undo(&self, board: &mut Board) -> Result<(), BoardError> {
-        let CastleChessMove {
-            from_square: king_from,
-            to_square: king_to,
-            ..
-        } = self;
+        let king_from = self.from_square;
+        let king_to = self.to_square;
+        let (color, _, rook_from, rook_to) = self.castle_details()?;
 
-        let kingside = match *king_to {
-            b if b == *king_from << 2 => true,
-            b if b == *king_from >> 2 => false,
-            _ => return Err(BoardError::InvalidCastleMoveError),
-        };
-
-        let overlaps_first_rank = king_from.overlaps(Bitboard::RANK_1);
-        let overlaps_eighth_rank = king_from.overlaps(Bitboard::RANK_8);
-        let color = match (overlaps_first_rank, overlaps_eighth_rank) {
-            (true, false) => Color::White,
-            (false, true) => Color::Black,
-            _ => return Err(BoardError::InvalidCastleMoveError),
-        };
-
-        let (rook_from, rook_to) = match (color, kingside) {
-            (Color::White, true) => (H1, F1),
-            (Color::White, false) => (A1, D1),
-            (Color::Black, true) => (H8, F8),
-            (Color::Black, false) => (A8, D8),
-        };
-
-        if board.get(*king_to) != Some((Piece::King, color)) {
+        if board.get(king_to) != Some((Piece::King, color)) {
             return Err(BoardError::InvalidCastleStateError {
                 msg: "king_to is not a king",
             });
         }
 
-        if board.get(*king_from).is_some() {
+        if board.get(king_from).is_some() {
             return Err(BoardError::InvalidCastleStateError {
                 msg: "king_from is not empty",
             });
@@ -191,8 +174,8 @@ impl CastleChessMove {
             });
         }
 
-        board.remove(*king_to).unwrap();
-        board.put(*king_from, Piece::King, color).unwrap();
+        board.remove(king_to).unwrap();
+        board.put(king_from, Piece::King, color).unwrap();
         board.remove(rook_to).unwrap();
         board.put(rook_from, Piece::Rook, color).unwrap();
 
