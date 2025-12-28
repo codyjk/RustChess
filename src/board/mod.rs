@@ -7,6 +7,7 @@ mod display;
 mod move_info;
 mod piece_set;
 mod position_info;
+mod state_stack;
 
 pub use color::Color;
 pub use piece::Piece;

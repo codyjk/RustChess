@@ -1,23 +1,24 @@
 use common::bitboard::Square;
 
 use super::castle_rights_bitmask::{CastleRightsBitmask, ALL_CASTLE_RIGHTS};
+use super::state_stack::StateStack;
 
 /// Stores information about state changes related to individual chess moves,
 /// including en passant targets, castle rights, and position clocks.
 #[derive(Clone)]
 pub struct MoveInfo {
-    en_passant_target_stack: Vec<Option<Square>>,
-    castle_rights_stack: Vec<CastleRightsBitmask>,
-    halfmove_clock_stack: Vec<u8>,
+    en_passant_target_stack: StateStack<Option<Square>>,
+    castle_rights_stack: StateStack<CastleRightsBitmask>,
+    halfmove_clock_stack: StateStack<u8>,
     fullmove_clock: u8,
 }
 
 impl Default for MoveInfo {
     fn default() -> Self {
         Self {
-            en_passant_target_stack: vec![None],
-            castle_rights_stack: vec![ALL_CASTLE_RIGHTS],
-            halfmove_clock_stack: vec![0],
+            en_passant_target_stack: StateStack::new(None),
+            castle_rights_stack: StateStack::new(ALL_CASTLE_RIGHTS),
+            halfmove_clock_stack: StateStack::new(0),
             fullmove_clock: 1,
         }
     }
@@ -31,23 +32,22 @@ impl MoveInfo {
     // En passant state management
 
     pub fn push_en_passant_target(&mut self, target_square: Option<Square>) -> Option<Square> {
-        self.en_passant_target_stack.push(target_square);
-        target_square
+        self.en_passant_target_stack.push(target_square)
     }
 
     pub fn peek_en_passant_target(&self) -> Option<Square> {
-        *self.en_passant_target_stack.last().unwrap()
+        *self.en_passant_target_stack.peek()
     }
 
     pub fn pop_en_passant_target(&mut self) -> Option<Square> {
-        self.en_passant_target_stack.pop().unwrap()
+        self.en_passant_target_stack.pop()
     }
 
     // Castle rights state management
 
     /// Returns the current set of castle rights.
     pub fn peek_castle_rights(&self) -> u8 {
-        *self.castle_rights_stack.last().unwrap()
+        *self.castle_rights_stack.peek()
     }
 
     /// Returns the bitmasks of the previous set of castle rights, as well as the
@@ -67,7 +67,7 @@ impl MoveInfo {
     /// off the stack and returns the previous set of rights, as well as the new
     /// set of rights.
     pub fn pop_castle_rights(&mut self) -> (CastleRightsBitmask, CastleRightsBitmask) {
-        let old_rights = self.castle_rights_stack.pop().unwrap();
+        let old_rights = self.castle_rights_stack.pop();
         let new_rights = self.peek_castle_rights();
         (old_rights, new_rights)
     }
@@ -75,8 +75,7 @@ impl MoveInfo {
     /// Preserves the current castle rights by pushing the current rights onto the stack.
     pub fn preserve_castle_rights(&mut self) -> CastleRightsBitmask {
         let rights = self.peek_castle_rights();
-        self.castle_rights_stack.push(rights);
-        rights
+        self.castle_rights_stack.push(rights)
     }
 
     // Position clock state management
@@ -101,27 +100,23 @@ impl MoveInfo {
     }
 
     pub fn push_halfmove_clock(&mut self, clock: u8) -> u8 {
-        self.halfmove_clock_stack.push(clock);
-        clock
+        self.halfmove_clock_stack.push(clock)
     }
 
     pub fn increment_halfmove_clock(&mut self) -> u8 {
-        let old_clock = self.halfmove_clock_stack.last().unwrap();
-        let new_clock = old_clock + 1;
-        self.halfmove_clock_stack.push(new_clock);
-        new_clock
+        let new_clock = self.halfmove_clock_stack.peek() + 1;
+        self.halfmove_clock_stack.push(new_clock)
     }
 
     pub fn reset_halfmove_clock(&mut self) -> u8 {
-        self.halfmove_clock_stack.push(0);
-        0
+        self.halfmove_clock_stack.push(0)
     }
 
     pub fn halfmove_clock(&self) -> u8 {
-        *self.halfmove_clock_stack.last().unwrap()
+        *self.halfmove_clock_stack.peek()
     }
 
     pub fn pop_halfmove_clock(&mut self) -> u8 {
-        self.halfmove_clock_stack.pop().unwrap()
+        self.halfmove_clock_stack.pop()
     }
 }
