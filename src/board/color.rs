@@ -30,6 +30,22 @@ impl Color {
     }
 }
 
+impl From<u8> for Color {
+    fn from(value: u8) -> Self {
+        match value {
+            0 => Color::Black,
+            1 => Color::White,
+            _ => panic!("Invalid color value: {} (must be 0 or 1)", value),
+        }
+    }
+}
+
+impl From<Color> for u8 {
+    fn from(color: Color) -> Self {
+        color as u8
+    }
+}
+
 impl fmt::Display for Color {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let color_str = match self {
@@ -77,5 +93,17 @@ mod tests {
     fn test_parse_random() {
         let rand_color = Color::from_str("random").unwrap();
         assert!(Color::ALL.contains(&rand_color));
+    }
+
+    #[test]
+    fn test_color_from_u8() {
+        assert_eq!(Color::from(0u8), Color::Black);
+        assert_eq!(Color::from(1u8), Color::White);
+    }
+
+    #[test]
+    fn test_color_into_u8() {
+        assert_eq!(u8::from(Color::Black), 0);
+        assert_eq!(u8::from(Color::White), 1);
     }
 }

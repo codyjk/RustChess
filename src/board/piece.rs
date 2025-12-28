@@ -69,6 +69,12 @@ impl TryFrom<usize> for Piece {
     }
 }
 
+impl From<Piece> for usize {
+    fn from(piece: Piece) -> Self {
+        piece as usize
+    }
+}
+
 impl Piece {
     /// Converts a usize to a Piece. Panics if the index is out of range (0-5).
     /// For fallible conversion, use `Piece::try_from(i)` instead.
@@ -167,8 +173,14 @@ mod tests {
     fn test_piece_to_and_from_usize() {
         for i in 0..6 {
             let piece = Piece::from_usize(i);
-            assert_eq!(Piece::from_usize(i) as usize, i);
+            assert_eq!(usize::from(piece), i);
             assert_eq!(piece as usize, i);
         }
+    }
+
+    #[test]
+    fn test_piece_into_usize() {
+        assert_eq!(usize::from(Piece::Pawn), 0);
+        assert_eq!(usize::from(Piece::King), 5);
     }
 }
