@@ -39,7 +39,9 @@ impl<M: Clone + Send + Sync> TranspositionTable<M> {
         let num_entries = (size_mb * 1024 * 1024) / entry_size;
 
         Self {
-            table: RwLock::new(LruCache::new(NonZeroUsize::new(num_entries).unwrap())),
+            table: RwLock::new(LruCache::new(
+                NonZeroUsize::new(num_entries).expect("num_entries should be non-zero"),
+            )),
             hits: AtomicUsize::new(0),
         }
     }
@@ -59,7 +61,10 @@ impl<M: Clone + Send + Sync> TranspositionTable<M> {
             best_move,
         };
 
-        let mut table = self.table.write().unwrap();
+        let mut table = self
+            .table
+            .write()
+            .expect("transposition table lock should not be poisoned");
         table.put(hash, entry);
     }
 
@@ -70,7 +75,10 @@ impl<M: Clone + Send + Sync> TranspositionTable<M> {
         alpha: i16,
         beta: i16,
     ) -> Option<(i16, Option<M>)> {
-        let mut table = self.table.write().unwrap();
+        let mut table = self
+            .table
+            .write()
+            .expect("transposition table lock should not be poisoned");
 
         if let Some(entry) = table.get(&hash) {
             if entry.depth >= depth {
@@ -95,7 +103,10 @@ impl<M: Clone + Send + Sync> TranspositionTable<M> {
     }
 
     pub fn clear(&self) {
-        let mut table = self.table.write().unwrap();
+        let mut table = self
+            .table
+            .write()
+            .expect("transposition table lock should not be poisoned");
         table.clear();
         self.hits.store(0, Ordering::Relaxed);
     }

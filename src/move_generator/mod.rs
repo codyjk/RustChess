@@ -82,7 +82,9 @@ impl MoveGenerator {
         board: &mut Board,
         player: Color,
     ) -> ChessMoveEffect {
-        chess_move.apply(board).unwrap();
+        chess_move
+            .apply(board)
+            .expect("move application should succeed when checking effects");
         let chess_move_effect = if player_is_in_checkmate(board, self, player) {
             ChessMoveEffect::Checkmate
         } else if player_is_in_check(board, self, player) {
@@ -90,7 +92,9 @@ impl MoveGenerator {
         } else {
             ChessMoveEffect::None
         };
-        chess_move.undo(board).unwrap();
+        chess_move
+            .undo(board)
+            .expect("move undo should succeed when checking effects");
 
         chess_move.set_effect(chess_move_effect);
 
@@ -112,14 +116,18 @@ impl MoveGenerator {
             let mut local_board = board.clone();
             let mut local_move_generator = MoveGenerator::default();
 
-            chess_move.apply(&mut local_board).unwrap();
+            chess_move
+                .apply(&mut local_board)
+                .expect("move application should succeed in position counting");
             let local_count = count_positions_inner(
                 depth - 1,
                 &mut local_board,
                 next_player,
                 &mut local_move_generator,
             );
-            chess_move.undo(&mut local_board).unwrap();
+            chess_move
+                .undo(&mut local_board)
+                .expect("move undo should succeed in position counting");
             local_count
         });
 
@@ -147,9 +155,13 @@ fn count_positions_inner(
     let next_color = color.opposite();
 
     for chess_move in candidates.iter() {
-        chess_move.apply(board).unwrap();
+        chess_move
+            .apply(board)
+            .expect("move application should succeed in position counting");
         count += count_positions_inner(depth - 1, board, next_color, move_generator);
-        chess_move.undo(board).unwrap();
+        chess_move
+            .undo(board)
+            .expect("move undo should succeed in position counting");
     }
 
     count
@@ -379,10 +391,14 @@ fn remove_invalid_moves(
     // Simulate each chess_move and see if it leaves the player's king in check.
     // If it does, it's invalid.
     for chess_move in candidates.drain(..) {
-        chess_move.apply(board).unwrap();
+        chess_move
+            .apply(board)
+            .expect("move application should succeed when validating moves");
         let king = board.pieces(color).locate(Piece::King);
         let attacked_squares = targets.generate_attack_targets(board, color.opposite());
-        chess_move.undo(board).unwrap();
+        chess_move
+            .undo(board)
+            .expect("move undo should succeed when validating moves");
 
         if !king.overlaps(attacked_squares) {
             valid_moves.push(chess_move);

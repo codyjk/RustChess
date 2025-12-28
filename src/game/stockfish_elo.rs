@@ -158,7 +158,10 @@ fn create_chess_move_from_uci(uci: &str, board: &Board) -> ChessMove {
         _ => panic!("Invalid promotion piece"),
     });
 
-    let piece = board.get(from).unwrap().0;
+    let piece = board
+        .get(from)
+        .expect("from square should contain a piece")
+        .0;
     let capture = board.get(to).map(|(p, _)| Capture(p));
 
     match (piece, promotion) {

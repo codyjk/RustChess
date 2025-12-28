@@ -38,7 +38,7 @@ impl PositionInfo {
         let count = *self
             .position_count
             .get(&self.current_position_hash)
-            .unwrap();
+            .expect("position should exist in map after or_insert");
         self.max_seen_position_count_stack.push(count);
         count
     }
@@ -51,11 +51,14 @@ impl PositionInfo {
         *self
             .position_count
             .get(&self.current_position_hash)
-            .unwrap()
+            .expect("position should exist in map after decrement")
     }
 
     pub fn max_seen_position_count(&self) -> u8 {
-        *self.max_seen_position_count_stack.last().unwrap()
+        *self
+            .max_seen_position_count_stack
+            .last()
+            .expect("max_seen_position_count_stack should never be empty")
     }
 
     pub fn update_zobrist_hash_toggle_piece(&mut self, square: Square, piece: Piece, color: Color) {

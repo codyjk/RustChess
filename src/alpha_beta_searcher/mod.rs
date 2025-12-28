@@ -121,7 +121,9 @@ where
             let local_evaluator = evaluator.clone();
             let local_orderer = move_orderer.clone();
 
-            game_move.apply(&mut local_state).unwrap();
+            game_move
+                .apply(&mut local_state)
+                .expect("move application should succeed in search");
             local_state.toggle_turn();
 
         let score = alpha_beta_minimax(
@@ -212,7 +214,9 @@ where
     let original_alpha = alpha;
 
     for game_move in candidates.as_ref().iter() {
-        game_move.apply(state).unwrap();
+        game_move
+            .apply(state)
+            .expect("move application should succeed in search");
         state.toggle_turn();
 
         let score = alpha_beta_minimax(
@@ -227,7 +231,9 @@ where
             !maximizing_player,
         )?;
 
-        game_move.undo(state).unwrap();
+        game_move
+            .undo(state)
+            .expect("move undo should succeed in search");
         state.toggle_turn();
 
         if maximizing_player {

@@ -130,10 +130,10 @@ impl CastleChessMove {
             });
         }
 
-        board.remove(king_from).unwrap();
-        board.put(king_to, Piece::King, color).unwrap();
-        board.remove(rook_from).unwrap();
-        board.put(rook_to, Piece::Rook, color).unwrap();
+        board.remove(king_from).expect("king should be on from_square");
+        board.put(king_to, Piece::King, color).expect("king_to should be empty");
+        board.remove(rook_from).expect("rook should be on rook_from");
+        board.put(rook_to, Piece::Rook, color).expect("rook_to should be empty");
 
         let lost_castle_rights = match color {
             Color::White => WHITE_KINGSIDE_RIGHTS | WHITE_QUEENSIDE_RIGHTS,
@@ -178,10 +178,10 @@ impl CastleChessMove {
             });
         }
 
-        board.remove(king_to).unwrap();
-        board.put(king_from, Piece::King, color).unwrap();
-        board.remove(rook_to).unwrap();
-        board.put(rook_from, Piece::Rook, color).unwrap();
+        board.remove(king_to).expect("king should be on king_to when undoing");
+        board.put(king_from, Piece::King, color).expect("king_from should be empty when undoing");
+        board.remove(rook_to).expect("rook should be on rook_to when undoing");
+        board.put(rook_from, Piece::Rook, color).expect("rook_from should be empty when undoing");
 
         // Revert the board state.
         board.decrement_fullmove_clock();

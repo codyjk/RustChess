@@ -97,7 +97,7 @@ impl Book {
                 return vec![];
             }
 
-            curr_node = next.unwrap();
+            curr_node = next.expect("next should exist after is_none check");
         }
 
         curr_node
@@ -115,7 +115,7 @@ impl Book {
             if next.is_none() {
                 return None;
             }
-            curr_node = next.unwrap();
+            curr_node = next.expect("next should exist after is_none check");
         }
 
         curr_node.line_name.clone()

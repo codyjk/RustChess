@@ -115,7 +115,7 @@ impl EnPassantChessMove {
         // return the pawn to its original square
         board
             .put(*from_square, piece_to_move_back, piece_color)
-            .unwrap();
+            .expect("from_square should be empty when undoing en passant");
 
         // the captured pawn is "behind" the target square
         let captures_square = self.captures_square(piece_color);

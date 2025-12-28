@@ -110,7 +110,7 @@ impl StandardChessMove {
         board.lose_castle_rights(lost_castle_rights);
         board
             .put(*to_square, piece_to_move, color_of_piece_to_move)
-            .unwrap();
+            .expect("to_square should be empty after removing piece");
 
         Ok(())
     }
@@ -149,7 +149,7 @@ impl StandardChessMove {
                 piece_to_move_back,
                 color_of_piece_to_move_back,
             )
-            .unwrap();
+            .expect("from_square should be empty when undoing move");
 
         Ok(())
     }

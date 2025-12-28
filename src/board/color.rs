@@ -26,7 +26,9 @@ impl Color {
     }
 
     pub fn random() -> Self {
-        *Self::ALL.choose(&mut rand::thread_rng()).unwrap()
+        *Self::ALL
+            .choose(&mut rand::thread_rng())
+            .expect("ALL array should never be empty")
     }
 }
 

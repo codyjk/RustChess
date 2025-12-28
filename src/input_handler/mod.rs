@@ -6,9 +6,14 @@ use thiserror::Error;
 
 pub mod fen;
 
-static COORD_RE: Lazy<Regex> = Lazy::new(|| Regex::new("^([a-h][1-8])([a-h][1-8])$").unwrap());
-static ALG_RE: Lazy<Regex> =
-    Lazy::new(|| Regex::new("^([NBRQK]?[a-h]?[1-8]?x?[a-h][1-8](=[NBRQ])?[+#]?|O-O(-O)?)$").unwrap());
+static COORD_RE: Lazy<Regex> = Lazy::new(|| {
+    Regex::new("^([a-h][1-8])([a-h][1-8])$")
+        .expect("COORD_RE regex should be valid")
+});
+static ALG_RE: Lazy<Regex> = Lazy::new(|| {
+    Regex::new("^([NBRQK]?[a-h]?[1-8]?x?[a-h][1-8](=[NBRQ])?[+#]?|O-O(-O)?)$")
+        .expect("ALG_RE regex should be valid")
+});
 
 #[derive(Error, Debug)]
 pub enum InputError {

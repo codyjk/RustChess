@@ -53,7 +53,9 @@ fn chess_move_to_algebraic_notation(
         ));
     }
 
-    let (piece, _) = board.get(chess_move.from_square()).unwrap();
+    let (piece, _) = board
+        .get(chess_move.from_square())
+        .expect("from_square should contain a piece");
     let ambiguous_moves = get_ambiguous_moves(chess_move, candidate_moves, board);
 
     let piece_char = piece.to_algebraic_str();
@@ -85,11 +87,19 @@ fn algebraic_castle(castle_move: &CastleChessMove) -> String {
 }
 
 fn get_file_char(from_square: Square) -> char {
-    from_square.to_algebraic().chars().next().unwrap()
+    from_square
+        .to_algebraic()
+        .chars()
+        .next()
+        .expect("algebraic notation should have at least one character")
 }
 
 fn get_rank_char(from_square: Square) -> char {
-    from_square.to_algebraic().chars().nth(1).unwrap()
+    from_square
+        .to_algebraic()
+        .chars()
+        .nth(1)
+        .expect("algebraic notation should have at least two characters")
 }
 
 fn get_ambiguous_moves(
@@ -99,11 +109,15 @@ fn get_ambiguous_moves(
 ) -> ChessMoveList {
     let from_square = chess_move.from_square();
     let to_square = chess_move.to_square();
-    let (piece, _) = board.get(from_square).unwrap();
+    let (piece, _) = board
+        .get(from_square)
+        .expect("from_square should contain a piece");
     let mut ambiguous_moves = ChessMoveList::new();
 
     candidate_moves.iter().for_each(|other_move| {
-        let (other_piece, _) = board.get(other_move.from_square()).unwrap();
+        let (other_piece, _) = board
+            .get(other_move.from_square())
+            .expect("other_move.from_square should contain a piece");
 
         // Filter down to other moves that share the same piece and target square,
         // but different starting squares. This is possible if, for example, two
