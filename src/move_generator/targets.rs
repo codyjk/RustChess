@@ -167,7 +167,7 @@ pub fn generate_pawn_move_targets(board: &Board, color: Color) -> PieceTargetLis
         targets |= single_move & move_targets;
         targets |= double_move & move_targets;
 
-        if targets == Bitboard::EMPTY {
+        if targets.is_empty() {
             continue;
         }
 
