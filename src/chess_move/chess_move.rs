@@ -19,23 +19,29 @@ pub enum ChessMove {
     Castle(CastleChessMove),
 }
 
+macro_rules! delegate_to_variants {
+    ($self:ident, $method:ident, $($variant:ident),*) => {
+        match $self {
+            $(ChessMove::$variant(m) => m.$method(),)*
+        }
+    };
+}
+
+macro_rules! delegate_to_variants_mut {
+    ($self:ident, $method:ident, $arg:expr, $($variant:ident),*) => {
+        match $self {
+            $(ChessMove::$variant(m) => m.$method($arg),)*
+        }
+    };
+}
+
 impl ChessMove {
     pub fn to_square(&self) -> Square {
-        match self {
-            ChessMove::Standard(m) => m.to_square(),
-            ChessMove::PawnPromotion(m) => m.to_square(),
-            ChessMove::EnPassant(m) => m.to_square(),
-            ChessMove::Castle(m) => m.to_square(),
-        }
+        delegate_to_variants!(self, to_square, Standard, PawnPromotion, EnPassant, Castle)
     }
 
     pub fn from_square(&self) -> Square {
-        match self {
-            ChessMove::Standard(m) => m.from_square(),
-            ChessMove::PawnPromotion(m) => m.from_square(),
-            ChessMove::EnPassant(m) => m.from_square(),
-            ChessMove::Castle(m) => m.from_square(),
-        }
+        delegate_to_variants!(self, from_square, Standard, PawnPromotion, EnPassant, Castle)
     }
 
     pub fn captures(&self) -> Option<Capture> {
@@ -48,45 +54,23 @@ impl ChessMove {
     }
 
     pub fn effect(&self) -> Option<ChessMoveEffect> {
-        match self {
-            ChessMove::Standard(m) => m.effect(),
-            ChessMove::PawnPromotion(m) => m.effect(),
-            ChessMove::EnPassant(m) => m.effect(),
-            ChessMove::Castle(m) => m.effect(),
-        }
+        delegate_to_variants!(self, effect, Standard, PawnPromotion, EnPassant, Castle)
     }
 
     pub fn set_effect(&mut self, effect: ChessMoveEffect) -> &Self {
-        match self {
-            ChessMove::Standard(m) => m.set_effect(effect),
-            ChessMove::PawnPromotion(m) => m.set_effect(effect),
-            ChessMove::EnPassant(m) => m.set_effect(effect),
-            ChessMove::Castle(m) => m.set_effect(effect),
-        };
+        delegate_to_variants_mut!(self, set_effect, effect, Standard, PawnPromotion, EnPassant, Castle);
         self
     }
 
     #[must_use = "move application may fail"]
     pub fn apply(&self, board: &mut Board) -> Result<(), BoardError> {
-        let result = match self {
-            ChessMove::Standard(m) => m.apply(board),
-            ChessMove::PawnPromotion(m) => m.apply(board),
-            ChessMove::EnPassant(m) => m.apply(board),
-            ChessMove::Castle(m) => m.apply(board),
-        };
-
+        let result = delegate_to_variants_mut!(self, apply, board, Standard, PawnPromotion, EnPassant, Castle);
         map_ok(result)
     }
 
     #[must_use = "move undo may fail"]
     pub fn undo(&self, board: &mut Board) -> Result<(), BoardError> {
-        let result = match self {
-            ChessMove::Standard(m) => m.undo(board),
-            ChessMove::PawnPromotion(m) => m.undo(board),
-            ChessMove::EnPassant(m) => m.undo(board),
-            ChessMove::Castle(m) => m.undo(board),
-        };
-
+        let result = delegate_to_variants_mut!(self, undo, board, Standard, PawnPromotion, EnPassant, Castle);
         map_ok(result)
     }
 
