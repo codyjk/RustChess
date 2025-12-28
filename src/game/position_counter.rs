@@ -1,9 +1,10 @@
 use std::str::FromStr;
 use std::time::{Duration, SystemTime};
 
-use crate::alpha_beta_searcher::{alpha_beta_search, SearchContext};
 use crate::board::color::Color;
 use crate::board::Board;
+use crate::chess_search::search_best_move;
+use crate::alpha_beta_searcher::SearchContext;
 use crate::move_generator::MoveGenerator;
 
 #[derive(Debug)]
@@ -25,7 +26,7 @@ impl FromStr for CountPositionsStrategy {
 
 pub fn run_count_positions(depth: u8, strategy: CountPositionsStrategy) {
     let depths = 1..=depth;
-    let mut move_generator = MoveGenerator::default();
+    let move_generator = MoveGenerator::default();
 
     let mut total_positions = 0;
     let mut total_duration = Duration::from_secs(0);
@@ -40,7 +41,7 @@ pub fn run_count_positions(depth: u8, strategy: CountPositionsStrategy) {
             }
             CountPositionsStrategy::AlphaBeta => {
                 let mut search_context = SearchContext::new(depth);
-                alpha_beta_search(&mut search_context, &mut board, &mut move_generator).unwrap();
+                search_best_move(&mut search_context, &mut board).unwrap();
                 search_context.searched_position_count()
             }
         };

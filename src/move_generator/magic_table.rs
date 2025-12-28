@@ -12,6 +12,7 @@ pub struct MagicEntry {
     offset: u32,
 }
 
+#[derive(Clone)]
 pub struct MagicTable {
     rook_table: Vec<Bitboard>,
     bishop_table: Vec<Bitboard>,

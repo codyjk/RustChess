@@ -1,6 +1,7 @@
 use std::time::Duration;
 
-use crate::alpha_beta_searcher::{alpha_beta_search, SearchContext, SearchError};
+use crate::alpha_beta_searcher::{SearchContext, SearchError};
+use crate::chess_search::search_best_move;
 use crate::board::color::Color;
 use crate::board::error::BoardError;
 use crate::board::Board;
@@ -69,7 +70,7 @@ pub struct Engine {
     state: GameState,
     book: Book,
     move_generator: MoveGenerator,
-    search_context: SearchContext,
+    search_context: SearchContext<ChessMove>,
 }
 
 impl Engine {
@@ -233,11 +234,7 @@ impl Engine {
     }
 
     fn get_best_move_from_search(&mut self) -> Result<ChessMove, EngineError> {
-        let move_result = alpha_beta_search(
-            &mut self.search_context,
-            &mut self.state.board,
-            &mut self.move_generator,
-        );
+        let move_result = search_best_move(&mut self.search_context, &mut self.state.board);
 
         let best_move = move_result.map_err(|err| EngineError::SearchError { error: err })?;
         self.state.last_score = self.search_context.last_score();

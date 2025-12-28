@@ -33,6 +33,7 @@ pub type ChessMoveList = SmallVec<[ChessMove; 32]>;
 
 /// Implements a move generation algorithm that generates all possible moves for
 /// a given board state.
+#[derive(Clone)]
 pub struct MoveGenerator {
     targets: Targets,
 }

@@ -17,6 +17,7 @@ pub type PieceTargetList = SmallVec<[PieceTarget; 16]>;
 /// The `Targets` struct is responsible for generating move and attack targets for each piece on the board.
 /// It uses precomputed tables for the knight and king pieces, and generates targets for sliding pieces
 /// (rooks, bishops, queens) using magic bitboards.
+#[derive(Clone)]
 pub struct Targets {
     kings: [Bitboard; 64],
     knights: [Bitboard; 64],

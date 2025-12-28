@@ -1,25 +1,21 @@
+//! Chess-specific move ordering for improved alpha-beta pruning.
+
+use crate::alpha_beta_searcher::MoveOrderer;
 use crate::board::piece::Piece;
 use crate::board::Board;
 use crate::chess_move::chess_move::ChessMove;
 use crate::chess_move::chess_move_effect::ChessMoveEffect;
-use crate::move_generator::ChessMoveList;
 
-/// Sorts a list of chess moves according to the following priority (from first to last):
-/// 1. Checkmates
-/// 2. Checks
-/// 3. Captures
-/// 4. Pawn promotions
-/// 5. Rook moves
-/// 6. Knight moves
-/// 7. Bishop moves
-/// 8. Pawn moves
-/// 9. Other moves (including castling)
-///
-/// Sorting in this way will likely put the "best" moves first, which will greatly
-/// improve the efficiency of alpha-beta search, by allowing later search nodes to
-/// be pruned early.
-pub fn sort_chess_moves(moves: &mut ChessMoveList, board: &Board) {
-    moves.sort_by(|a, b| compare_moves(a, b, board));
+/// Chess move orderer that prioritizes checkmates, checks, captures, promotions,
+/// then piece moves by type (rook, knight, bishop, pawn, other).
+#[derive(Clone, Default, Debug)]
+pub struct ChessMoveOrderer;
+
+impl MoveOrderer<Board, ChessMove> for ChessMoveOrderer {
+    #[inline]
+    fn order_moves(&self, moves: &mut [ChessMove], state: &Board) {
+        moves.sort_by(|a, b| compare_moves(a, b, state));
+    }
 }
 
 fn compare_moves(a: &ChessMove, b: &ChessMove, board: &Board) -> std::cmp::Ordering {
@@ -83,13 +79,13 @@ fn compare_piece_types(a: Option<Piece>, b: Option<Piece>) -> std::cmp::Ordering
 mod tests {
     use super::*;
     use crate::board::color::Color;
-    use crate::board::piece::Piece;
     use crate::chess_move::capture::Capture;
     use crate::chess_move::castle::CastleChessMove;
     use crate::chess_move::chess_move_effect::ChessMoveEffect;
     use crate::chess_move::en_passant::EnPassantChessMove;
     use crate::chess_move::pawn_promotion::PawnPromotionChessMove;
     use crate::chess_move::standard::StandardChessMove;
+    use crate::move_generator::ChessMoveList;
     use crate::{
         castle_kingside, check_move, checkmate_move, chess_position, en_passant_move, promotion,
         std_move,
@@ -110,12 +106,15 @@ mod tests {
         }
     }
 
+    fn sort_moves(moves: &mut ChessMoveList, board: &Board) {
+        ChessMoveOrderer.order_moves(moves.as_mut(), board);
+    }
+
     #[test]
     fn test_sort_chess_moves() {
         let board = create_test_board();
         let mut moves = ChessMoveList::new();
 
-        // Create various types of moves
         moves.push(std_move!(E4, E5));
         moves.push(std_move!(E4, D5, Capture(Piece::Pawn)));
         moves.push(check_move!(std_move!(D1, D5, Capture(Piece::Pawn))));
@@ -128,12 +127,8 @@ mod tests {
         moves.push(std_move!(C3, E5));
         moves.push(std_move!(E2, E4));
 
-        // Sort the moves
-        println!("before sort: {:?}", moves);
-        sort_chess_moves(&mut moves, &board);
-        println!("after sort: {:?}", moves);
+        sort_moves(&mut moves, &board);
 
-        // Check if the moves are in the correct order
         assert_eq!(moves[0].effect(), Some(ChessMoveEffect::Checkmate));
         assert_eq!(moves[1].effect(), Some(ChessMoveEffect::Check));
         assert!(moves[2].captures().is_some());
@@ -160,17 +155,13 @@ mod tests {
         let board = create_test_board();
         let mut moves = ChessMoveList::new();
 
-        // Create only standard moves
         moves.push(std_move!(E4, E5));
         moves.push(std_move!(F3, G5));
         moves.push(std_move!(A1, A3));
         moves.push(std_move!(C3, E5));
 
-        println!("before sort: {:?}", moves);
-        sort_chess_moves(&mut moves, &board);
-        println!("after sort: {:?}", moves);
+        sort_moves(&mut moves, &board);
 
-        // Check if the moves are in the correct order: Rook, Knight, Bishop, Pawn
         assert!(
             matches!(&moves[0], ChessMove::Standard(m) if board.get(m.from_square()).unwrap().0 == Piece::Rook)
         );
@@ -195,42 +186,15 @@ mod tests {
         moves.push(std_move!(E4, D5, Capture(Piece::Pawn)));
         moves.push(check_move!(std_move!(G3, E5)));
 
-        println!("before sort: {:?}", moves);
-        sort_chess_moves(&mut moves, &board);
-        println!("after sort: {:?}", moves);
+        sort_moves(&mut moves, &board);
 
-        // Checks should come before captures, but order within checks and captures should be preserved
         assert_eq!(moves[0].effect(), Some(ChessMoveEffect::Check));
         assert_eq!(moves[1].effect(), Some(ChessMoveEffect::Check));
         assert!(moves[2].captures().is_some());
         assert!(moves[3].captures().is_some());
-        assert_eq!(
-            moves[0].from_square(),
-            D1,
-            "expected:\n{}\nbut got:\n{}",
-            D1,
-            moves[0].from_square()
-        );
-        assert_eq!(
-            moves[1].from_square(),
-            G3,
-            "expected:\n{}\nbut got:\n{}",
-            G3,
-            moves[1].from_square()
-        );
-        assert_eq!(
-            moves[2].from_square(),
-            F3,
-            "expected:\n{}\nbut got:\n{}",
-            F3,
-            moves[2].from_square()
-        );
-        assert_eq!(
-            moves[3].from_square(),
-            E4,
-            "expected:\n{}\nbut got:\n{}",
-            E4,
-            moves[3].from_square()
-        );
+        assert_eq!(moves[0].from_square(), D1);
+        assert_eq!(moves[1].from_square(), G3);
+        assert_eq!(moves[2].from_square(), F3);
+        assert_eq!(moves[3].from_square(), E4);
     }
 }

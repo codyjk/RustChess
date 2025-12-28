@@ -150,8 +150,7 @@ let board = chess_position! {
 ```rust
 #[test]
 fn test_find_back_rank_mate_in_2_black() {
-    let mut search_context = SearchContext::new(3);
-    let mut move_generator = MoveGenerator::new();
+    let mut context = SearchContext::new(4);
 
     let mut board = chess_position! {
         ....r..k
@@ -166,7 +165,8 @@ fn test_find_back_rank_mate_in_2_black() {
     board.set_turn(Color::Black);
     board.lose_castle_rights(ALL_CASTLE_RIGHTS);
 
-    // ... tests ...
+    let best_move = search_best_move(&mut context, &mut board).unwrap();
+    // ... assertions ...
 }
 ```
 
@@ -188,4 +188,7 @@ Various other [benchmarks](https://doc.rust-lang.org/cargo/commands/cargo-bench.
 
 * [`common`](./common) contains code that is shared between the engine and the precompiler. This is primarily the [`Bitboard`](./common/src/bitboard/mod.rs) type.
 * [`precompile`](./precompile) contains the precompiler, which generates the [`ZobristHashTable`](./precompile/src/zobrist/mod.rs) tables and [magic bitboard](./precompile/src/magic/find_magics.rs) calculation (see [this](https://www.chessprogramming.org/Magic_Bitboards) for background).
-* [`src`](./src) contains the engine's main logic, including the [`AlphaBetaSearcher`](./src/alpha_beta_searcher/mod.rs) and [`MoveGenerator`](./src/move_generator/mod.rs).
+* [`src`](./src) contains the engine's main logic:
+  * [`alpha_beta_searcher`](./src/alpha_beta_searcher/mod.rs) - Generic alpha-beta search algorithm, independent of chess
+  * [`chess_search`](./src/chess_search/mod.rs) - Chess-specific trait implementations for the search algorithm
+  * [`move_generator`](./src/move_generator/mod.rs) - Chess move generation

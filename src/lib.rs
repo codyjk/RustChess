@@ -2,6 +2,7 @@ pub mod alpha_beta_searcher;
 pub mod board;
 pub mod book;
 pub mod chess_move;
+pub mod chess_search;
 pub mod evaluate;
 pub mod game;
 pub mod input_handler;

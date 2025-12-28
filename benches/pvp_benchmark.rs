@@ -1,6 +1,7 @@
 use fastrand;
 use std::time::Duration;
 
+use chess::board::Board;
 use chess::game::{engine::EngineConfig, mode::ComputerVsComputer, r#loop::GameLoop};
 use criterion::{criterion_group, criterion_main, Criterion};
 
@@ -22,7 +23,10 @@ fn times(n: usize) -> impl Iterator {
 
 fn computer_vs_computer(game_count: usize, search_depth: u8) {
     for _ in times(game_count) {
-        let config = EngineConfig { search_depth };
+        let config = EngineConfig {
+            search_depth,
+            starting_position: Default::default(),
+        };
         let mode = ComputerVsComputer {
             delay_between_moves: Some(Duration::ZERO),
         };

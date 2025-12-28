@@ -1,9 +1,9 @@
-// benches/alpha_beta_history_benchmark.rs
+// benches/alpha_beta_benchmark.rs
 use chess::{
-    alpha_beta_searcher::{alpha_beta_search, SearchContext},
+    alpha_beta_searcher::SearchContext,
     board::{castle_rights_bitmask::ALL_CASTLE_RIGHTS, color::Color, piece::Piece, Board},
     chess_position,
-    move_generator::MoveGenerator,
+    chess_search::search_best_move,
 };
 use common::bitboard::bitboard::Bitboard;
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
@@ -71,15 +71,12 @@ fn alpha_beta_benchmark(c: &mut Criterion) {
                         || {
                             // Setup for each iteration
                             let board = initial_board.clone();
-                            let move_gen = MoveGenerator::default();
                             let context = SearchContext::new(depth);
-                            (board, move_gen, context)
+                            (board, context)
                         },
-                        |(mut board, mut move_gen, mut context)| {
+                        |(mut board, mut context)| {
                             // The actual search
-                            black_box(
-                                alpha_beta_search(&mut context, &mut board, &mut move_gen).unwrap(),
-                            )
+                            black_box(search_best_move(&mut context, &mut board).unwrap())
                         },
                         criterion::BatchSize::LargeInput,
                     )

@@ -1,28 +1,17 @@
-use crate::board::Board;
-use crate::chess_move::chess_move::ChessMove;
-use crate::evaluate;
-use crate::move_generator::MoveGenerator;
-use log::debug;
-use thiserror::Error;
+//! Generic alpha-beta search algorithm.
 
+use log::debug;
 use rayon::prelude::*;
 use std::cmp::{max, min};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
+use thiserror::Error;
 
-use self::prioritize_chess_moves::sort_chess_moves;
-use self::transposition_table::{BoundType, TranspositionTable};
-
-mod prioritize_chess_moves;
+mod traits;
 mod transposition_table;
 
-pub struct SearchContext {
-    search_depth: u8,
-    searched_position_count: AtomicUsize,
-    last_score: Option<i16>,
-    last_search_duration: Option<Duration>,
-    transposition_table: TranspositionTable,
-}
+pub use traits::*;
+pub use transposition_table::{BoundType, TranspositionTable};
 
 #[derive(Error, Debug)]
 pub enum SearchError {
@@ -32,7 +21,15 @@ pub enum SearchError {
     DepthTooLow,
 }
 
-impl SearchContext {
+pub struct SearchContext<M: Clone + Send + Sync> {
+    search_depth: u8,
+    searched_position_count: AtomicUsize,
+    last_score: Option<i16>,
+    last_search_duration: Option<Duration>,
+    transposition_table: TranspositionTable<M>,
+}
+
+impl<M: Clone + Send + Sync> SearchContext<M> {
     pub fn new(depth: u8) -> Self {
         Self {
             search_depth: depth,
@@ -71,11 +68,20 @@ impl SearchContext {
     }
 }
 
-pub fn alpha_beta_search(
-    context: &mut SearchContext,
-    board: &mut Board,
-    move_generator: &MoveGenerator,
-) -> Result<ChessMove, SearchError> {
+pub fn alpha_beta_search<S, G, E, O>(
+    context: &mut SearchContext<G::Move>,
+    state: &mut S,
+    move_generator: &G,
+    evaluator: &E,
+    move_orderer: &O,
+) -> Result<G::Move, SearchError>
+where
+    S: GameState,
+    G: MoveGenerator<S>,
+    G::Move: GameMove<State = S>,
+    E: Evaluator<S>,
+    O: MoveOrderer<S, G::Move>,
+{
     debug!("alpha-beta search depth: {}", context.search_depth());
     let depth = context.search_depth();
 
@@ -84,41 +90,45 @@ pub fn alpha_beta_search(
     }
 
     let start = Instant::now();
-    let current_player = board.turn();
-    let current_player_is_maximizing = current_player.maximize_score();
-    let mut candidates =
-        move_generator.generate_moves_and_lazily_update_chess_move_effects(board, current_player);
+    let current_player_is_maximizing = state.is_maximizing_player();
+    let mut candidates = move_generator.generate_moves(state);
 
-    sort_chess_moves(&mut candidates, board);
+    move_orderer.order_moves(candidates.as_mut(), state);
 
-    // First try the transposition table
-    let hash = board.current_position_hash();
+    let hash = state.position_hash();
     if let Some((score, best_move)) =
         context
             .transposition_table
             .probe(hash, depth, i16::MIN, i16::MAX)
     {
-        if let Some(mv) = best_move {
-            if candidates.iter().any(|c| *c == mv) {
+        if let Some(ref mv) = best_move {
+            if candidates.as_ref().iter().any(|c| c == mv) {
                 debug!("Using transposition table hit");
                 context.last_score = Some(score);
                 context.last_search_duration = Some(start.elapsed());
-                return Ok(mv);
+                return Ok(mv.clone());
             }
         }
     }
 
-    // Score moves in parallel
-    let scored_moves = candidates.par_iter().map(|chess_move| {
-        let mut local_board = board.clone();
+    let scored_moves: Vec<_> = candidates
+        .as_ref()
+        .par_iter()
+        .map(|game_move| {
+            let mut local_state = state.clone();
+            let local_generator = move_generator.clone();
+            let local_evaluator = evaluator.clone();
+            let local_orderer = move_orderer.clone();
 
-        chess_move.apply(&mut local_board).unwrap();
-        local_board.toggle_turn();
+            game_move.apply(&mut local_state).unwrap();
+            local_state.toggle_turn();
 
         let score = alpha_beta_minimax(
             context,
-            &mut local_board,
-            move_generator,
+                &mut local_state,
+                &local_generator,
+                &local_evaluator,
+                &local_orderer,
             depth - 1,
             i16::MIN,
             i16::MAX,
@@ -126,11 +136,11 @@ pub fn alpha_beta_search(
         )
         .unwrap();
 
-        (score, chess_move.clone())
-    });
+            (score, game_move.clone())
+        })
+        .collect();
 
-    // Sort the best move to the end so we can pop it off
-    let mut scored_moves = scored_moves.collect::<Vec<_>>();
+    let mut scored_moves = scored_moves;
     scored_moves.sort_by(|(a, _), (b, _)| b.cmp(a));
     if current_player_is_maximizing {
         scored_moves.reverse();
@@ -138,7 +148,6 @@ pub fn alpha_beta_search(
 
     let (score, best_move) = scored_moves.pop().ok_or(SearchError::NoAvailableMoves)?;
 
-    // Store result in transposition table
     context.transposition_table.store(
         hash,
         score,
@@ -153,38 +162,45 @@ pub fn alpha_beta_search(
     Ok(best_move)
 }
 
-fn alpha_beta_minimax(
-    context: &SearchContext,
-    board: &mut Board,
-    move_generator: &MoveGenerator,
+fn alpha_beta_minimax<S, G, E, O>(
+    context: &SearchContext<G::Move>,
+    state: &mut S,
+    move_generator: &G,
+    evaluator: &E,
+    move_orderer: &O,
     depth: u8,
     mut alpha: i16,
     mut beta: i16,
     maximizing_player: bool,
-) -> Result<i16, SearchError> {
+) -> Result<i16, SearchError>
+where
+    S: GameState,
+    G: MoveGenerator<S>,
+    G::Move: GameMove<State = S>,
+    E: Evaluator<S>,
+    O: MoveOrderer<S, G::Move>,
+{
     context.increment_position_count();
 
-    let hash = board.current_position_hash();
+    let hash = state.position_hash();
 
-    // Check transposition table
     if let Some((score, _)) = context.transposition_table.probe(hash, depth, alpha, beta) {
         return Ok(score);
     }
 
     if depth == 0 {
-        let score = evaluate::score(board, move_generator, board.turn(), depth);
+        let score = evaluator.evaluate(state, depth);
         return Ok(score);
     }
 
-    let mut candidates =
-        move_generator.generate_moves_and_lazily_update_chess_move_effects(board, board.turn());
+    let mut candidates = move_generator.generate_moves(state);
 
     if candidates.is_empty() {
-        let score = evaluate::score(board, move_generator, board.turn(), depth);
+        let score = evaluator.evaluate(state, depth);
         return Ok(score);
     }
 
-    sort_chess_moves(&mut candidates, board);
+    move_orderer.order_moves(candidates.as_mut(), state);
 
     let mut best_move = None;
     let mut best_score = if maximizing_player {
@@ -194,33 +210,35 @@ fn alpha_beta_minimax(
     };
     let original_alpha = alpha;
 
-    for chess_move in candidates {
-        chess_move.apply(board).unwrap();
-        board.toggle_turn();
+    for game_move in candidates.as_ref().iter() {
+        game_move.apply(state).unwrap();
+        state.toggle_turn();
 
         let score = alpha_beta_minimax(
             context,
-            board,
+            state,
             move_generator,
+            evaluator,
+            move_orderer,
             depth - 1,
             alpha,
             beta,
             !maximizing_player,
         )?;
 
-        chess_move.undo(board).unwrap();
-        board.toggle_turn();
+        game_move.undo(state).unwrap();
+        state.toggle_turn();
 
         if maximizing_player {
             if score > best_score {
                 best_score = score;
-                best_move = Some(chess_move);
+                best_move = Some(game_move.clone());
             }
             alpha = max(alpha, score);
         } else {
             if score < best_score {
                 best_score = score;
-                best_move = Some(chess_move);
+                best_move = Some(game_move.clone());
             }
             beta = min(beta, score);
         }
@@ -230,7 +248,6 @@ fn alpha_beta_minimax(
         }
     }
 
-    // Store position in transposition table
     let bound_type = if best_score <= original_alpha {
         BoundType::Upper
     } else if best_score >= beta {
@@ -247,192 +264,4 @@ fn alpha_beta_minimax(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::board::castle_rights_bitmask::ALL_CASTLE_RIGHTS;
-    use crate::board::color::Color;
-    use crate::board::piece::Piece;
-    use crate::chess_move::capture::Capture;
-    use crate::chess_move::chess_move_effect::ChessMoveEffect;
-    use crate::chess_move::standard::StandardChessMove;
-    use crate::{check_move, checkmate_move, chess_position, std_move};
-    use common::bitboard::bitboard::Bitboard;
-    use common::bitboard::square::*;
-
-    #[test]
-    fn test_find_mate_in_1_white() {
-        let mut search_context = SearchContext::new(4);
-        let mut move_generator = MoveGenerator::default();
-
-        let mut board = chess_position! {
-            .Q......
-            ........
-            ........
-            ........
-            ........
-            ........
-            k.K.....
-            ........
-        };
-        board.set_turn(Color::White);
-        board.lose_castle_rights(ALL_CASTLE_RIGHTS);
-        println!("Testing board:\n{}", board);
-
-        let chess_move =
-            alpha_beta_search(&mut search_context, &mut board, &mut move_generator).unwrap();
-        let valid_checkmates = [
-            checkmate_move!(std_move!(B8, B2)),
-            checkmate_move!(std_move!(B8, A8)),
-            checkmate_move!(std_move!(B8, A7)),
-        ];
-        assert!(
-            valid_checkmates.contains(&chess_move),
-            "{} does not lead to checkmate",
-            chess_move
-        );
-    }
-
-    #[test]
-    fn test_find_mate_in_1_black() {
-        let mut search_context = SearchContext::new(4);
-        let mut move_generator = MoveGenerator::default();
-        let mut board = chess_position! {
-            .q......
-            ........
-            ........
-            ........
-            ........
-            ........
-            K.k.....
-            ........
-        };
-        board.set_turn(Color::Black);
-        board.lose_castle_rights(ALL_CASTLE_RIGHTS);
-
-        println!("Testing board:\n{}", board);
-
-        let chess_move =
-            alpha_beta_search(&mut search_context, &mut board, &mut move_generator).unwrap();
-
-        let valid_checkmates = [
-            checkmate_move!(std_move!(B8, B2)),
-            checkmate_move!(std_move!(B8, A8)),
-            checkmate_move!(std_move!(B8, A7)),
-        ];
-        assert!(
-            valid_checkmates.contains(&chess_move),
-            "{} does not lead to checkmate",
-            chess_move
-        );
-    }
-
-    #[test]
-    fn test_find_back_rank_mate_in_2_white() {
-        let mut search_context = SearchContext::new(4);
-        let mut move_generator = MoveGenerator::default();
-
-        let mut board = chess_position! {
-            .k.....r
-            ppp.....
-            ........
-            ........
-            ........
-            ........
-            ...Q....
-            K..R....
-        };
-        board.set_turn(Color::White);
-        board.lose_castle_rights(ALL_CASTLE_RIGHTS);
-
-        println!("Testing board:\n{}", board);
-
-        let expected_moves = [
-            check_move!(std_move!(D2, D8)),
-            std_move!(H8, D8, Capture(Piece::Queen)),
-            checkmate_move!(std_move!(D1, D8, Capture(Piece::Rook))),
-        ];
-        let mut expected_move_iter = expected_moves.iter();
-
-        let move1 =
-            alpha_beta_search(&mut search_context, &mut board, &mut move_generator).unwrap();
-        move1.apply(&mut board).unwrap();
-        board.toggle_turn();
-        assert_eq!(expected_move_iter.next().unwrap(), &move1);
-        println!("Testing board:\n{}", board);
-
-        let move2 =
-            alpha_beta_search(&mut search_context, &mut board, &mut move_generator).unwrap();
-        move2.apply(&mut board).unwrap();
-        board.toggle_turn();
-        assert_eq!(expected_move_iter.next().unwrap(), &move2);
-        println!("Testing board:\n{}", board);
-
-        let move3 =
-            alpha_beta_search(&mut search_context, &mut board, &mut move_generator).unwrap();
-        move3.apply(&mut board).unwrap();
-        board.toggle_turn();
-        assert_eq!(expected_move_iter.next().unwrap(), &move3);
-        println!("Testing board:\n{}", board);
-    }
-
-    #[test]
-    fn test_find_back_rank_mate_in_2_black() {
-        let mut search_context = SearchContext::new(4);
-        let mut move_generator = MoveGenerator::default();
-
-        let mut board = chess_position! {
-            ....r..k
-            ....q...
-            ........
-            ........
-            ........
-            ........
-            .....PPP
-            R.....K.
-        };
-        board.set_turn(Color::Black);
-        board.lose_castle_rights(ALL_CASTLE_RIGHTS);
-
-        println!("Testing board:\n{}", board);
-
-        let expected_moves = [
-            check_move!(std_move!(E7, E1)),
-            std_move!(A1, E1, Capture(Piece::Queen)),
-            checkmate_move!(std_move!(E8, E1, Capture(Piece::Rook))),
-        ];
-        let mut expected_move_iter = expected_moves.iter();
-
-        let move1 =
-            alpha_beta_search(&mut search_context, &mut board, &mut move_generator).unwrap();
-        move1.apply(&mut board).unwrap();
-        board.toggle_turn();
-        assert_eq!(
-            expected_move_iter.next().unwrap(),
-            &move1,
-            "failed to find first move of mate in 2"
-        );
-        println!("Testing board:\n{}", board);
-
-        let move2 =
-            alpha_beta_search(&mut search_context, &mut board, &mut move_generator).unwrap();
-        move2.apply(&mut board).unwrap();
-        board.toggle_turn();
-        assert_eq!(
-            expected_move_iter.next().unwrap(),
-            &move2,
-            "failed to find second move of mate in 2"
-        );
-        println!("Testing board:\n{}", board);
-
-        let move3 =
-            alpha_beta_search(&mut search_context, &mut board, &mut move_generator).unwrap();
-        move3.apply(&mut board).unwrap();
-        board.toggle_turn();
-        assert_eq!(
-            expected_move_iter.next().unwrap(),
-            &move3,
-            "failed to find third move of mate in 2"
-        );
-        println!("Testing board:\n{}", board);
-    }
-}
+mod tests;
