@@ -7,3 +7,4 @@ pub mod evaluate;
 pub mod game;
 pub mod input_handler;
 pub mod move_generator;
+pub mod prelude;

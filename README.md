@@ -189,6 +189,9 @@ Various other [benchmarks](https://doc.rust-lang.org/cargo/commands/cargo-bench.
 * [`common`](./common) contains code that is shared between the engine and the precompiler. This is primarily the [`Bitboard`](./common/src/bitboard/mod.rs) type.
 * [`precompile`](./precompile) contains the precompiler, which generates the [`ZobristHashTable`](./precompile/src/zobrist/mod.rs) tables and [magic bitboard](./precompile/src/magic/find_magics.rs) calculation (see [this](https://www.chessprogramming.org/Magic_Bitboards) for background).
 * [`src`](./src) contains the engine's main logic:
+  * [`prelude`](./src/prelude.rs) - Common types re-exported for convenience (`Board`, `Color`, `Piece`, `ChessMove`, `Bitboard`)
   * [`alpha_beta_searcher`](./src/alpha_beta_searcher/mod.rs) - Generic alpha-beta search algorithm, independent of chess
   * [`chess_search`](./src/chess_search/mod.rs) - Chess-specific trait implementations for the search algorithm
+  * [`board`](./src/board/mod.rs) - Chess board state representation
+  * [`chess_move`](./src/chess_move/mod.rs) - Chess move types and application logic
   * [`move_generator`](./src/move_generator/mod.rs) - Chess move generation
