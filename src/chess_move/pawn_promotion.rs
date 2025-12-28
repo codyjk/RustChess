@@ -7,6 +7,7 @@ use crate::board::{error::BoardError, piece::Piece, Board};
 use super::capture::Capture;
 use super::chess_move_effect::ChessMoveEffect;
 use super::standard::StandardChessMove;
+use super::traits::ChessMoveType;
 
 /// Represents a pawn promotion chess move. The board logic is implemented as
 /// a superset of a standard pawn move, but at the end, the pawn is replaced
@@ -107,6 +108,32 @@ impl PawnPromotionChessMove {
         standard_move.undo(board)?;
 
         Ok(())
+    }
+}
+
+impl ChessMoveType for PawnPromotionChessMove {
+    fn from_square(&self) -> Bitboard {
+        self.from_square
+    }
+
+    fn to_square(&self) -> Bitboard {
+        self.to_square
+    }
+
+    fn effect(&self) -> Option<ChessMoveEffect> {
+        self.effect
+    }
+
+    fn set_effect(&mut self, effect: ChessMoveEffect) {
+        self.effect = Some(effect);
+    }
+
+    fn apply(&self, board: &mut Board) -> Result<(), BoardError> {
+        PawnPromotionChessMove::apply(self, board)
+    }
+
+    fn undo(&self, board: &mut Board) -> Result<(), BoardError> {
+        PawnPromotionChessMove::undo(self, board)
     }
 }
 

@@ -14,6 +14,7 @@ use common::bitboard::bitboard::Bitboard;
 use common::bitboard::square::*;
 
 use super::chess_move_effect::ChessMoveEffect;
+use super::traits::ChessMoveType;
 
 /// Represents a castle move in chess. This struct encapsulates the logic for applying
 /// and undoing a castle move on a chess board.
@@ -186,6 +187,32 @@ impl CastleChessMove {
         board.pop_castle_rights();
 
         Ok(())
+    }
+}
+
+impl ChessMoveType for CastleChessMove {
+    fn from_square(&self) -> Bitboard {
+        self.from_square
+    }
+
+    fn to_square(&self) -> Bitboard {
+        self.to_square
+    }
+
+    fn effect(&self) -> Option<ChessMoveEffect> {
+        self.effect
+    }
+
+    fn set_effect(&mut self, effect: ChessMoveEffect) {
+        self.effect = Some(effect);
+    }
+
+    fn apply(&self, board: &mut Board) -> Result<(), BoardError> {
+        CastleChessMove::apply(self, board)
+    }
+
+    fn undo(&self, board: &mut Board) -> Result<(), BoardError> {
+        CastleChessMove::undo(self, board)
     }
 }
 

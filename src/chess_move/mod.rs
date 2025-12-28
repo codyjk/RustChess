@@ -6,3 +6,4 @@ pub mod chess_move_effect;
 pub mod en_passant;
 pub mod pawn_promotion;
 pub mod standard;
+pub mod traits;

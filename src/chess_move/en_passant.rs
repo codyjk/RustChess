@@ -6,6 +6,7 @@ use crate::board::{color::Color, error::BoardError, piece::Piece, Board};
 
 use super::capture::Capture;
 use super::chess_move_effect::ChessMoveEffect;
+use super::traits::ChessMoveType;
 
 /// Represents an en passant chess move.
 #[derive(PartialEq, Clone, Eq, PartialOrd, Ord)]
@@ -122,6 +123,32 @@ impl EnPassantChessMove {
         board.put(captures_square, Piece::Pawn, piece_color.opposite())?;
 
         Ok(())
+    }
+}
+
+impl ChessMoveType for EnPassantChessMove {
+    fn from_square(&self) -> Bitboard {
+        self.from_square
+    }
+
+    fn to_square(&self) -> Bitboard {
+        self.to_square
+    }
+
+    fn effect(&self) -> Option<ChessMoveEffect> {
+        self.effect
+    }
+
+    fn set_effect(&mut self, effect: ChessMoveEffect) {
+        self.effect = Some(effect);
+    }
+
+    fn apply(&self, board: &mut Board) -> Result<(), BoardError> {
+        EnPassantChessMove::apply(self, board)
+    }
+
+    fn undo(&self, board: &mut Board) -> Result<(), BoardError> {
+        EnPassantChessMove::undo(self, board)
     }
 }
 

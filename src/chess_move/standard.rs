@@ -18,6 +18,7 @@ use log::debug;
 
 use super::{
     capture::Capture, chess_move_effect::ChessMoveEffect, pawn_promotion::PawnPromotionChessMove,
+    traits::ChessMoveType,
 };
 
 /// Represents a standard chess move. A standard move is a move that does not involve
@@ -188,6 +189,32 @@ impl StandardChessMove {
             self.captures,
             promote_to_piece,
         ))
+    }
+}
+
+impl ChessMoveType for StandardChessMove {
+    fn from_square(&self) -> Bitboard {
+        self.from_square
+    }
+
+    fn to_square(&self) -> Bitboard {
+        self.to_square
+    }
+
+    fn effect(&self) -> Option<ChessMoveEffect> {
+        self.effect
+    }
+
+    fn set_effect(&mut self, effect: ChessMoveEffect) {
+        self.effect = Some(effect);
+    }
+
+    fn apply(&self, board: &mut Board) -> Result<(), BoardError> {
+        StandardChessMove::apply(self, board)
+    }
+
+    fn undo(&self, board: &mut Board) -> Result<(), BoardError> {
+        StandardChessMove::undo(self, board)
     }
 }
 
