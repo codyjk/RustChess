@@ -89,6 +89,7 @@ dependencies = [
  "fastrand",
  "log",
  "lru",
+ "once_cell",
  "precompile",
  "rand",
  "rayon",
