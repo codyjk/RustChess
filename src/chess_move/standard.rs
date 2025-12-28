@@ -61,6 +61,7 @@ impl StandardChessMove {
         self.effect = Some(effect);
     }
 
+    #[must_use = "move application may fail"]
     pub fn apply(&self, board: &mut Board) -> Result<(), BoardError> {
         let StandardChessMove {
             from_square,
@@ -114,6 +115,7 @@ impl StandardChessMove {
         Ok(())
     }
 
+    #[must_use = "move undo may fail"]
     pub fn undo(&self, board: &mut Board) -> Result<(), BoardError> {
         let StandardChessMove {
             from_square,

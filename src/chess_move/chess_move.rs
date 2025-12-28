@@ -66,6 +66,7 @@ impl ChessMove {
         self
     }
 
+    #[must_use = "move application may fail"]
     pub fn apply(&self, board: &mut Board) -> Result<(), BoardError> {
         let result = match self {
             ChessMove::Standard(m) => m.apply(board),
@@ -77,6 +78,7 @@ impl ChessMove {
         map_ok(result)
     }
 
+    #[must_use = "move undo may fail"]
     pub fn undo(&self, board: &mut Board) -> Result<(), BoardError> {
         let result = match self {
             ChessMove::Standard(m) => m.undo(board),

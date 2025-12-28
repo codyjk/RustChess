@@ -49,6 +49,7 @@ impl EnPassantChessMove {
         self.effect = Some(effect);
     }
 
+    #[must_use = "move application may fail"]
     pub fn apply(&self, board: &mut Board) -> Result<(), BoardError> {
         let EnPassantChessMove {
             from_square,
@@ -86,6 +87,7 @@ impl EnPassantChessMove {
         Ok(())
     }
 
+    #[must_use = "move undo may fail"]
     pub fn undo(&self, board: &mut Board) -> Result<(), BoardError> {
         let EnPassantChessMove {
             from_square,

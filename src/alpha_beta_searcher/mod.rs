@@ -68,6 +68,7 @@ impl<M: Clone + Send + Sync> SearchContext<M> {
     }
 }
 
+#[must_use = "search returns the best move found"]
 pub fn alpha_beta_search<S, G, E, O>(
     context: &mut SearchContext<G::Move>,
     state: &mut S,

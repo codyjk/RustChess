@@ -120,6 +120,7 @@ impl Evaluator<Board> for ChessEvaluator {
 }
 
 /// Searches for the best chess move from the given position.
+#[must_use = "search returns the best move found"]
 pub fn search_best_move(
     context: &mut SearchContext<ChessMove>,
     board: &mut Board,

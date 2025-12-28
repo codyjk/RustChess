@@ -61,6 +61,7 @@ impl PawnPromotionChessMove {
         self.promote_to_piece
     }
 
+    #[must_use = "move application may fail"]
     pub fn apply(&self, board: &mut Board) -> Result<(), BoardError> {
         let PawnPromotionChessMove {
             from_square,
@@ -86,6 +87,7 @@ impl PawnPromotionChessMove {
         Ok(())
     }
 
+    #[must_use = "move undo may fail"]
     pub fn undo(&self, board: &mut Board) -> Result<(), BoardError> {
         let PawnPromotionChessMove {
             from_square,

@@ -95,6 +95,7 @@ impl Board {
         maybe_piece.map(|piece| (piece, color))
     }
 
+    #[must_use = "placing a piece may fail if the square is occupied"]
     pub fn put(&mut self, square: Bitboard, piece: Piece, color: Color) -> Result<(), BoardError> {
         if self.is_occupied(square) {
             return Err(BoardError::SquareOccupiedBoardPutError);
