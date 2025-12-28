@@ -1,3 +1,4 @@
+use std::convert::TryFrom;
 use std::fmt;
 
 use super::color::Color;
@@ -40,17 +41,39 @@ const UNICODE_PIECE_CHARS: [[char; 2]; 6] = [
 /// Used in `Display` implementations.
 const PIECE_NAMES: [&str; 6] = ["pawn", "knight", "bishop", "rook", "queen", "king"];
 
-impl Piece {
-    pub fn from_usize(i: usize) -> Self {
+/// Error type for invalid piece index conversions
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct InvalidPieceIndex(pub usize);
+
+impl fmt::Display for InvalidPieceIndex {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "invalid piece index: {} (must be 0-5)", self.0)
+    }
+}
+
+impl std::error::Error for InvalidPieceIndex {}
+
+impl TryFrom<usize> for Piece {
+    type Error = InvalidPieceIndex;
+
+    fn try_from(i: usize) -> Result<Self, Self::Error> {
         match i {
-            0 => Piece::Pawn,
-            1 => Piece::Knight,
-            2 => Piece::Bishop,
-            3 => Piece::Rook,
-            4 => Piece::Queen,
-            5 => Piece::King,
-            _ => panic!("Invalid piece index"),
+            0 => Ok(Piece::Pawn),
+            1 => Ok(Piece::Knight),
+            2 => Ok(Piece::Bishop),
+            3 => Ok(Piece::Rook),
+            4 => Ok(Piece::Queen),
+            5 => Ok(Piece::King),
+            _ => Err(InvalidPieceIndex(i)),
         }
+    }
+}
+
+impl Piece {
+    /// Converts a usize to a Piece. Panics if the index is out of range (0-5).
+    /// For fallible conversion, use `Piece::try_from(i)` instead.
+    pub fn from_usize(i: usize) -> Self {
+        Piece::try_from(i).expect("Invalid piece index")
     }
 
     pub fn to_char(&self, color: Color) -> char {
@@ -122,6 +145,22 @@ mod tests {
         assert_eq!(Piece::from_usize(3), Piece::Rook);
         assert_eq!(Piece::from_usize(4), Piece::Queen);
         assert_eq!(Piece::from_usize(5), Piece::King);
+    }
+
+    #[test]
+    fn test_piece_try_from_valid() {
+        assert_eq!(Piece::try_from(0), Ok(Piece::Pawn));
+        assert_eq!(Piece::try_from(1), Ok(Piece::Knight));
+        assert_eq!(Piece::try_from(2), Ok(Piece::Bishop));
+        assert_eq!(Piece::try_from(3), Ok(Piece::Rook));
+        assert_eq!(Piece::try_from(4), Ok(Piece::Queen));
+        assert_eq!(Piece::try_from(5), Ok(Piece::King));
+    }
+
+    #[test]
+    fn test_piece_try_from_invalid() {
+        assert_eq!(Piece::try_from(6), Err(InvalidPieceIndex(6)));
+        assert_eq!(Piece::try_from(100), Err(InvalidPieceIndex(100)));
     }
 
     #[test]
