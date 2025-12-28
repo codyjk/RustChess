@@ -11,13 +11,6 @@ pub enum Color {
 impl Color {
     const ALL: [Color; 2] = [Color::Black, Color::White];
 
-    pub fn color(&self) -> Self {
-        match self {
-            Color::Black => Color::Black,
-            Color::White => Color::White,
-        }
-    }
-
     pub fn opposite(&self) -> Self {
         match self {
             Color::Black => Color::White,
