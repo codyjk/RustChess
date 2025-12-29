@@ -81,12 +81,11 @@ impl Targets {
         let occupied = board.pieces(color).occupied();
 
         while !pieces.is_empty() {
-            let piece_bb = pieces.pop_lsb();
-            let sq = piece_bb.to_square();
+            let square = pieces.pop_lsb().to_square();
 
-            let candidates = self.get_precomputed_targets(sq, piece) & !occupied;
+            let candidates = self.get_precomputed_targets(square, piece) & !occupied;
             if !candidates.is_empty() {
-                piece_targets.push((sq, candidates));
+                piece_targets.push((square, candidates));
             }
         }
     }
@@ -103,8 +102,7 @@ impl Targets {
         // Iterate only rooks (instead of all 64 squares)
         let mut rooks = board.pieces(color).locate(Piece::Rook);
         while !rooks.is_empty() {
-            let rook_bb = rooks.pop_lsb();
-            let square = rook_bb.to_square();
+            let square = rooks.pop_lsb().to_square();
             let targets_including_own_pieces = self.magic_table.get_rook_targets(square, occupied);
             let target_squares =
                 targets_including_own_pieces ^ (own_occupied & targets_including_own_pieces);
@@ -114,8 +112,7 @@ impl Targets {
         // Iterate only bishops (instead of all 64 squares)
         let mut bishops = board.pieces(color).locate(Piece::Bishop);
         while !bishops.is_empty() {
-            let bishop_bb = bishops.pop_lsb();
-            let square = bishop_bb.to_square();
+            let square = bishops.pop_lsb().to_square();
             let targets_including_own_pieces =
                 self.magic_table.get_bishop_targets(square, occupied);
             let target_squares =
@@ -126,8 +123,7 @@ impl Targets {
         // Iterate only queens (instead of all 64 squares)
         let mut queens = board.pieces(color).locate(Piece::Queen);
         while !queens.is_empty() {
-            let queen_bb = queens.pop_lsb();
-            let square = queen_bb.to_square();
+            let square = queens.pop_lsb().to_square();
             let targets_including_own_pieces = self.magic_table.get_rook_targets(square, occupied)
                 | self.magic_table.get_bishop_targets(square, occupied);
             let target_squares =
@@ -153,14 +149,13 @@ pub fn generate_pawn_move_targets(board: &Board, color: Color) -> PieceTargetLis
 
     // Optimized: Use bitboard shifts instead of index arithmetic for better performance
     while !pawns.is_empty() {
-        let pawn_bb = pawns.pop_lsb();
-        let pawn_sq = pawn_bb.to_square();
+        let pawn = pawns.pop_lsb();
         let mut targets = Bitboard::EMPTY;
 
         // Single move forward using bitboard shift (more efficient than index arithmetic)
         let single_target = match color {
-            Color::White => pawn_bb << 8,
-            Color::Black => pawn_bb >> 8,
+            Color::White => pawn << 8,
+            Color::Black => pawn >> 8,
         };
 
         // Check if single move square is empty and within board bounds
@@ -170,13 +165,13 @@ pub fn generate_pawn_move_targets(board: &Board, color: Color) -> PieceTargetLis
             // Check for double move from starting rank
             // Double move is only valid if both the single and double move squares are empty
             let is_starting_rank = match color {
-                Color::White => pawn_sq.rank() == 1,
-                Color::Black => pawn_sq.rank() == 6,
+                Color::White => pawn.overlaps(Bitboard::RANK_2),
+                Color::Black => pawn.overlaps(Bitboard::RANK_7),
             };
             if is_starting_rank {
                 let double_target = match color {
-                    Color::White => pawn_bb << 16,
-                    Color::Black => pawn_bb >> 16,
+                    Color::White => pawn << 16,
+                    Color::Black => pawn >> 16,
                 };
                 // Double move square must be empty and within bounds
                 if !double_target.is_empty() && !double_target.overlaps(occupied) {
@@ -186,7 +181,7 @@ pub fn generate_pawn_move_targets(board: &Board, color: Color) -> PieceTargetLis
         }
 
         if !targets.is_empty() {
-            piece_targets.push((pawn_sq, targets));
+            piece_targets.push((pawn.to_square(), targets));
         }
     }
 
@@ -206,38 +201,37 @@ pub fn generate_pawn_attack_targets(
     // Optimized: Use bitboard shifts instead of index arithmetic for better performance
     // This matches the approach used in generate_en_passant_moves
     while !pawns.is_empty() {
-        let pawn_bb = pawns.pop_lsb();
-        let pawn_sq = pawn_bb.to_square();
+        let pawn = pawns.pop_lsb();
         let mut targets = Bitboard::EMPTY;
 
         match color {
             Color::White => {
                 // Northeast attack (west): shift left 9 squares, exclude A file
-                let attack_west = (pawn_bb << 9) & !Bitboard::A_FILE;
+                let attack_west = (pawn << 9) & !Bitboard::A_FILE;
                 if !attack_west.is_empty() {
                     targets |= attack_west;
                 }
                 // Northwest attack (east): shift left 7 squares, exclude H file
-                let attack_east = (pawn_bb << 7) & !Bitboard::H_FILE;
+                let attack_east = (pawn << 7) & !Bitboard::H_FILE;
                 if !attack_east.is_empty() {
                     targets |= attack_east;
                 }
             }
             Color::Black => {
                 // Southeast attack (west): shift right 7 squares, exclude A file
-                let attack_west = (pawn_bb >> 7) & !Bitboard::A_FILE;
+                let attack_west = (pawn >> 7) & !Bitboard::A_FILE;
                 if !attack_west.is_empty() {
                     targets |= attack_west;
                 }
                 // Southwest attack (east): shift right 9 squares, exclude H file
-                let attack_east = (pawn_bb >> 9) & !Bitboard::H_FILE;
+                let attack_east = (pawn >> 9) & !Bitboard::H_FILE;
                 if !attack_east.is_empty() {
                     targets |= attack_east;
                 }
             }
         }
 
-        piece_targets.push((pawn_sq, targets));
+        piece_targets.push((pawn.to_square(), targets));
     }
 }
 
@@ -245,7 +239,7 @@ pub fn generate_knight_targets_table() -> [Bitboard; 64] {
     let mut table = [Bitboard::EMPTY; 64];
 
     for square in Square::ALL {
-        let knight = square.to_bitboard();
+        let knight = Bitboard(1 << square.index());
 
         // nne = north-north-east, nee = north-east-east, etc..
         let move_nne = knight << 17 & !Bitboard::A_FILE;
@@ -268,7 +262,7 @@ pub fn generate_king_targets_table() -> [Bitboard; 64] {
     let mut table = [Bitboard::EMPTY; 64];
 
     for square in Square::ALL {
-        let king = square.to_bitboard();
+        let king = Bitboard(1 << square.index());
         let mut targets = Bitboard::EMPTY;
 
         // shift the king's position. in the event that it falls off of the boundary,

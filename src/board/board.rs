@@ -66,7 +66,7 @@ impl Board {
     }
 
     pub fn is_square_occupied(&self, square: Square) -> bool {
-        self.is_occupied(square.to_bitboard())
+        square.overlaps(self.occupied())
     }
 
     pub fn get(&self, square: Square) -> Option<(Piece, Color)> {
@@ -88,8 +88,7 @@ impl Board {
 
     #[must_use = "placing a piece may fail if the square is occupied"]
     pub fn put(&mut self, square: Square, piece: Piece, color: Color) -> Result<(), BoardError> {
-        let bb = square.to_bitboard();
-        if self.is_occupied(bb) {
+        if square.overlaps(self.occupied()) {
             return Err(BoardError::SquareOccupiedBoardPutError);
         }
 

@@ -131,8 +131,7 @@ fn player_material_score(board: &Board, color: Color) -> i16 {
         let piece_value = MATERIAL_VALUES[piece as usize];
 
         while !squares.is_empty() {
-            let sq = squares.pop_lsb().to_square();
-            let sq_index = sq.index() as usize;
+            let sq_index = squares.pop_lsb().trailing_zeros() as usize;
 
             let bonus_table = BONUS_TABLES[piece as usize][is_endgame];
             let bonus = bonus_table[index_lookup[sq_index]];

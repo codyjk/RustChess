@@ -64,13 +64,13 @@ impl CastleChessMove {
     fn castle_details(&self) -> Result<(Color, bool, Square, Square), BoardError> {
         let king_from = self.from_square;
         let king_to = self.to_square;
-        let king_from_bb = king_from.to_bitboard();
-        let king_to_bb = king_to.to_bitboard();
 
-        let kingside = match king_to_bb {
-            b if b == king_from_bb << 2 => true,
-            b if b == king_from_bb >> 2 => false,
-            _ => return Err(BoardError::InvalidCastleMoveError),
+        let kingside = match king_to.index().checked_sub(king_from.index()) {
+            Some(2) => true,
+            _ => match king_from.index().checked_sub(king_to.index()) {
+                Some(2) => false,
+                _ => return Err(BoardError::InvalidCastleMoveError),
+            },
         };
 
         let overlaps_first_rank = king_from.overlaps(Bitboard::RANK_1);

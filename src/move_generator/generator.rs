@@ -224,7 +224,7 @@ fn generate_en_passant_moves(moves: &mut ChessMoveList, board: &Board, color: Co
     let Some(target_sq) = board.peek_en_passant_target() else {
         return;
     };
-    let target_bb = target_sq.to_bitboard();
+    let target = target_sq.to_bitboard();
 
     let pawns = board.pieces(color).locate(Piece::Pawn);
 
@@ -238,22 +238,26 @@ fn generate_en_passant_moves(moves: &mut ChessMoveList, board: &Board, color: Co
         Color::Black => (pawns >> 9) & !Bitboard::H_FILE,
     };
 
-    if attacks_west.overlaps(target_bb) {
-        let from_bb = match color {
-            Color::White => target_bb >> 9,
-            Color::Black => target_bb << 7,
+    if attacks_west.overlaps(target) {
+        let from = match color {
+            Color::White => target >> 9,
+            Color::Black => target << 7,
         };
-        let en_passant_move = EnPassantChessMove::new(from_bb.to_square(), target_sq);
-        moves.push(ChessMove::EnPassant(en_passant_move));
+        moves.push(ChessMove::EnPassant(EnPassantChessMove::new(
+            from.to_square(),
+            target_sq,
+        )));
     }
 
-    if attacks_east.overlaps(target_bb) {
-        let from_bb = match color {
-            Color::White => target_bb >> 7,
-            Color::Black => target_bb << 9,
+    if attacks_east.overlaps(target) {
+        let from = match color {
+            Color::White => target >> 7,
+            Color::Black => target << 9,
         };
-        let en_passant_move = EnPassantChessMove::new(from_bb.to_square(), target_sq);
-        moves.push(ChessMove::EnPassant(en_passant_move));
+        moves.push(ChessMove::EnPassant(EnPassantChessMove::new(
+            from.to_square(),
+            target_sq,
+        )));
     }
 }
 
@@ -294,8 +298,7 @@ fn expand_piece_targets(
     for (piece_sq, target_squares) in piece_targets {
         let mut targets = target_squares;
         while !targets.is_empty() {
-            let target_bb = targets.pop_lsb();
-            let target_sq = target_bb.to_square();
+            let target_sq = targets.pop_lsb().to_square();
             let capture = board.pieces(color.opposite()).get(target_sq).map(Capture);
 
             let standard_move = StandardChessMove::new(piece_sq, target_sq, capture);

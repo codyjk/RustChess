@@ -50,12 +50,12 @@ impl EnPassantChessMove {
     }
 
     fn captures_square(&self, color: Color) -> Square {
-        let to_bb = self.to_square.to_bitboard();
-        let captures_bb = match color {
-            Color::White => to_bb >> 8,
-            Color::Black => to_bb << 8,
+        let to = self.to_square.to_bitboard();
+        let captures = match color {
+            Color::White => to >> 8,
+            Color::Black => to << 8,
         };
-        captures_bb.to_square()
+        captures.to_square()
     }
 
     #[must_use = "move application may fail"]

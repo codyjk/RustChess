@@ -69,13 +69,13 @@ fn make_table(
 ) -> Vec<Bitboard> {
     let mut table = vec![Bitboard::EMPTY; table_size];
     for &square in &ORDERED_SQUARES {
-        let square_bb = square.to_bitboard();
+        let square_bitboard = Bitboard(1 << square.index());
         let magic_entry = &magics[square.index() as usize];
         let mask = Bitboard(magic_entry.mask);
 
         let mut blockers = Bitboard::EMPTY;
         loop {
-            let moves = slider_moves(slider_deltas, square_bb, blockers);
+            let moves = slider_moves(slider_deltas, square_bitboard, blockers);
             table[magic_index(magic_entry, blockers)] = moves;
 
             // Carry-Rippler trick that enumerates all subsets of the mask, getting us all blockers.
