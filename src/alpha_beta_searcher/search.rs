@@ -2,6 +2,7 @@
 
 use std::cmp::{max, min};
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use log::debug;
@@ -26,6 +27,7 @@ pub struct SearchContext<M: Clone + Send + Sync> {
     last_search_duration: Option<Duration>,
     transposition_table: TranspositionTable<M>,
     parallel: bool,
+    killer_moves: Mutex<Vec<[Option<M>; 2]>>, // 2 killer moves per ply
 }
 
 impl<M: Clone + Send + Sync> SearchContext<M> {
@@ -37,6 +39,7 @@ impl<M: Clone + Send + Sync> SearchContext<M> {
             last_search_duration: None,
             transposition_table: TranspositionTable::default(),
             parallel: false,
+            killer_moves: Mutex::new(vec![[None, None]; depth as usize + 1]),
         }
     }
 
@@ -48,6 +51,7 @@ impl<M: Clone + Send + Sync> SearchContext<M> {
             last_search_duration: None,
             transposition_table: TranspositionTable::default(),
             parallel,
+            killer_moves: Mutex::new(vec![[None, None]; depth as usize + 1]),
         }
     }
 
@@ -64,6 +68,37 @@ impl<M: Clone + Send + Sync> SearchContext<M> {
         self.last_search_duration = None;
         self.searched_position_count.store(0, Ordering::SeqCst);
         self.transposition_table.clear();
+        self.clear_killers();
+    }
+
+    pub fn store_killer(&self, ply: u8, killer: M) {
+        let ply = ply as usize;
+        if let Ok(mut killers) = self.killer_moves.lock() {
+            if ply < killers.len() {
+                // Shift killers: new killer becomes first, first becomes second
+                let old_first = killers[ply][0].clone();
+                killers[ply][1] = old_first;
+                killers[ply][0] = Some(killer);
+            }
+        }
+    }
+
+    pub fn get_killers(&self, ply: u8) -> [Option<M>; 2] {
+        let ply = ply as usize;
+        if let Ok(killers) = self.killer_moves.lock() {
+            if ply < killers.len() {
+                return killers[ply].clone();
+            }
+        }
+        [None, None]
+    }
+
+    pub fn clear_killers(&mut self) {
+        if let Ok(mut killers) = self.killer_moves.lock() {
+            for killer in killers.iter_mut() {
+                *killer = [None, None];
+            }
+        }
     }
 
     pub fn searched_position_count(&self) -> usize {
@@ -211,6 +246,7 @@ where
             evaluator,
             move_orderer,
             depth - 1,
+            0, // ply starts at 0 for root
             i16::MIN,
             i16::MAX,
             !maximizing_player,
@@ -272,6 +308,7 @@ where
                 evaluator,
                 move_orderer,
                 depth - 1,
+                0, // ply starts at 0 for root
                 i16::MIN,
                 i16::MAX,
                 !maximizing_player,
@@ -312,6 +349,7 @@ fn alpha_beta_minimax<S, G, E, O>(
     evaluator: &E,
     move_orderer: &O,
     depth: u8,
+    ply: u8,
     mut alpha: i16,
     mut beta: i16,
     maximizing_player: bool,
@@ -345,6 +383,17 @@ where
 
     move_orderer.order_moves(candidates.as_mut(), state);
 
+    // Boost killer moves to front after initial ordering
+    let killers = context.get_killers(ply);
+    let moves_slice = candidates.as_mut();
+    for killer in killers.iter().flatten().rev() {
+        if let Some(pos) = moves_slice.iter().position(|m| m == killer) {
+            if pos > 0 {
+                moves_slice[0..=pos].rotate_right(1);
+            }
+        }
+    }
+
     let mut best_move = None;
     let mut best_score = if maximizing_player {
         i16::MIN
@@ -366,6 +415,7 @@ where
             evaluator,
             move_orderer,
             depth - 1,
+            ply + 1,
             alpha,
             beta,
             !maximizing_player,
@@ -391,6 +441,10 @@ where
         }
 
         if beta <= alpha {
+            // Beta cutoff - store killer move if it's not a capture
+            // We can't easily check if it's a capture generically, so we store all cutoff moves
+            // The chess-specific move orderer will handle captures first anyway
+            context.store_killer(ply, game_move.clone());
             break;
         }
     }
