@@ -3,7 +3,8 @@ use std::time::Duration;
 use chess::board::color::Color;
 use chess::board::Board;
 use chess::game::engine::{Engine, EngineConfig};
-use chess::game::mode::{ComputerVsComputer, HumanVsComputer, HumanVsHuman};
+use chess::game::input_source::{ConditionalInput, EngineInput, HumanInput};
+use chess::game::renderer::{ConditionalStatsRenderer, SimpleRenderer, StatsRenderer};
 use chess::game::position_counter::{run_count_positions, CountPositionsStrategy};
 use chess::game::r#loop::GameLoop;
 use chess::game::stockfish_elo::determine_stockfish_elo;
@@ -93,35 +94,38 @@ fn main() {
             color,
             starting_position,
         } => {
-            let mode = HumanVsComputer { human_color: color };
+            let input_source = ConditionalInput { human_color: color };
+            let renderer = ConditionalStatsRenderer { human_color: color };
             let config = EngineConfig {
                 search_depth: depth,
                 starting_position,
             };
-            let mut game = GameLoop::new(mode, config);
+            let mut game = GameLoop::new(input_source, renderer, config);
             game.run();
         }
         Chess::Watch {
             depth,
             starting_position,
         } => {
-            let mode = ComputerVsComputer {
+            let input_source = EngineInput;
+            let renderer = StatsRenderer {
                 delay_between_moves: Some(Duration::from_millis(1000)),
             };
             let config = EngineConfig {
                 search_depth: depth,
                 starting_position,
             };
-            let mut game = GameLoop::new(mode, config);
+            let mut game = GameLoop::new(input_source, renderer, config);
             game.run();
         }
         Chess::Pvp { starting_position } => {
-            let mode = HumanVsHuman;
+            let input_source = HumanInput;
+            let renderer = SimpleRenderer;
             let config = EngineConfig {
                 search_depth: 0,
                 starting_position,
             };
-            let mut game = GameLoop::new(mode, config);
+            let mut game = GameLoop::new(input_source, renderer, config);
             game.run();
         }
         Chess::CalculateBestMove {

@@ -1,21 +1,23 @@
 use crate::evaluate::GameEnding;
 use crate::game::display::GameDisplay;
 use crate::game::engine::{Engine, EngineConfig};
+use crate::game::input_source::InputSource;
+use crate::game::renderer::GameRenderer;
 
-use super::mode::GameMode;
-
-pub struct GameLoop<T: GameMode> {
+pub struct GameLoop<I: InputSource, R: GameRenderer> {
     engine: Engine,
     ui: GameDisplay,
-    mode: T,
+    input_source: I,
+    renderer: R,
 }
 
-impl<T: GameMode> GameLoop<T> {
-    pub fn new(mode: T, config: EngineConfig) -> Self {
+impl<I: InputSource, R: GameRenderer> GameLoop<I, R> {
+    pub fn new(input_source: I, renderer: R, config: EngineConfig) -> Self {
         Self {
             engine: Engine::with_config(config),
             ui: GameDisplay::new(),
-            mode,
+            input_source,
+            renderer,
         }
     }
 
@@ -39,14 +41,14 @@ impl<T: GameMode> GameLoop<T> {
                     .map(|(m, n)| (m, n.as_str()))
             });
 
-            self.mode
+            self.renderer
                 .render(&mut self.ui, &self.engine, current_turn, last_move);
 
-            match self.mode.get_move(current_turn) {
+            match self.input_source.get_move(current_turn) {
                 Some(input) => match self.engine.make_move_from_input(input) {
                     Ok(_) => {
                         self.engine.board_mut().toggle_turn();
-                        if let Some(delay) = self.mode.frame_delay() {
+                        if let Some(delay) = self.renderer.frame_delay() {
                             std::thread::sleep(delay);
                         }
                     }
