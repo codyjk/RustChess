@@ -123,12 +123,15 @@ At alpha-beta search depth 6, you can observe the engine winning against Stockfi
 ## Implementation details
 
 There are numerous optimizations used to increase the engine's performance. This list is not exhaustive, but should give you a sense of the techniques used:
-* The board state is represented as a [64 bit integer](common/src/bitboard/bitboard.rs). This enables the engine to leverage the CPU's bitwise operations to quickly calculate moves, attacks, and other common board state changes.
-* [Alpha-beta pruning](https://en.wikipedia.org/wiki/Alpha–beta_pruning) is used to quickly eliminate branches of the [search tree](src/alpha_beta_searcher/mod.rs) that are unlikely to lead to a winning position. The move order is sorted in an attempt to prioritize the "best" moves first, so that worse moves come later in the search and are therefore pruned (and not searched entirely), reducing the search space/time.
+* The board state is represented using [bitboards](common/src/bitboard/bitboard.rs) (64-bit integers) and [squares](common/src/bitboard/square.rs) (newtype-wrapped u8 indices). This enables the engine to leverage the CPU's bitwise operations to quickly calculate moves, attacks, and other common board state changes.
+* The [alpha-beta search algorithm](src/alpha_beta_searcher/mod.rs) is implemented as a generic, game-agnostic algorithm using Rust traits. This allows for clean separation of concerns and comprehensive testing of the search algorithm independent of chess-specific logic.
+* [Alpha-beta pruning](https://en.wikipedia.org/wiki/Alpha–beta_pruning) is used to quickly eliminate branches of the search tree that are unlikely to lead to a winning position. The move order is sorted in an attempt to prioritize the "best" moves first, so that worse moves come later in the search and are therefore pruned (and not searched entirely), reducing the search space/time.
 * The [Zobrist hashing](./precompile/src/zobrist/mod.rs) tables are generated at compile time using the [precompile](./precompile/src/main.rs) build script. This hashing approach enables quick incremental hashing of the board state so that various computations can be cached (e.g. move generation) by the engine during gameplay.
 * Macros are used throughout the codebase to improve the developer experience. See below for one example.
 
 ```rust
+use crate::board::castle_rights::CastleRights;
+
 // The `chess_position!` macro is used to instantiate a board state from
 // an ascii representation of the board. For example, here is the starting
 // position:
@@ -145,9 +148,8 @@ let board = chess_position! {
 }
 
 // This is used extensively in tests, where various positions are instantiated
-// to exercise the engine's logic with.
+// to exercise the engine's logic with. For example:
 
-```rust
 #[test]
 fn test_find_back_rank_mate_in_2_black() {
     let mut context = SearchContext::new(4);
@@ -163,7 +165,7 @@ fn test_find_back_rank_mate_in_2_black() {
         R.....K.
     };
     board.set_turn(Color::Black);
-    board.lose_castle_rights(ALL_CASTLE_RIGHTS);
+    board.lose_castle_rights(CastleRights::all());
 
     let best_move = search_best_move(&mut context, &mut board).unwrap();
     // ... assertions ...
@@ -186,12 +188,13 @@ Various other [benchmarks](https://doc.rust-lang.org/cargo/commands/cargo-bench.
 
 ## Codebase structure
 
-* [`common`](./common) contains code that is shared between the engine and the precompiler. This is primarily the [`Bitboard`](./common/src/bitboard/mod.rs) type.
+* [`common`](./common) contains code that is shared between the engine and the precompiler. This includes the [`Bitboard`](./common/src/bitboard/bitboard.rs) type (64-bit integer for sets of squares) and the [`Square`](./common/src/bitboard/square.rs) type (newtype-wrapped u8 for individual squares).
 * [`precompile`](./precompile) contains the precompiler, which generates the [`ZobristHashTable`](./precompile/src/zobrist/mod.rs) tables and [magic bitboard](./precompile/src/magic/find_magics.rs) calculation (see [this](https://www.chessprogramming.org/Magic_Bitboards) for background).
 * [`src`](./src) contains the engine's main logic:
-  * [`prelude`](./src/prelude.rs) - Common types re-exported for convenience (`Board`, `Color`, `Piece`, `ChessMove`, `Bitboard`)
+  * [`prelude`](./src/prelude.rs) - Common types re-exported for convenience (`Board`, `Color`, `Piece`, `ChessMove`, `Bitboard`, `Square`)
   * [`alpha_beta_searcher`](./src/alpha_beta_searcher/mod.rs) - Generic alpha-beta search algorithm, independent of chess
   * [`chess_search`](./src/chess_search/mod.rs) - Chess-specific trait implementations for the search algorithm
-  * [`board`](./src/board/mod.rs) - Chess board state representation
+  * [`board`](./src/board/mod.rs) - Chess board state representation, including newtype wrappers (`CastleRights`, `HalfmoveClock`, `FullmoveNumber`) and state management (`StateStack`)
   * [`chess_move`](./src/chess_move/mod.rs) - Chess move types and application logic
   * [`move_generator`](./src/move_generator/mod.rs) - Chess move generation
+  * [`game`](./src/game/mod.rs) - Game loop and engine coordination, with separate `InputSource` and `GameRenderer` traits for modularity
