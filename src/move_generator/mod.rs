@@ -2,6 +2,7 @@
 
 pub mod generator;
 mod magic_table;
-mod targets;
+pub mod targets;
 
 pub use generator::{ChessMoveList, MoveGenerator, PAWN_PROMOTIONS};
+pub use targets::{PieceTarget, PieceTargetList, Targets};

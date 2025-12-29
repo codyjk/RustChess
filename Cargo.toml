@@ -58,3 +58,7 @@ harness = false
 [[bench]]
 name = "pvp_benchmark"
 harness = false
+
+[[bench]]
+name = "move_generation_benchmark"
+harness = false
