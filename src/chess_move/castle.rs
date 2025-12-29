@@ -1,10 +1,7 @@
 use core::fmt;
 
 use crate::board::{
-    castle_rights_bitmask::{
-        BLACK_KINGSIDE_RIGHTS, BLACK_QUEENSIDE_RIGHTS, WHITE_KINGSIDE_RIGHTS,
-        WHITE_QUEENSIDE_RIGHTS,
-    },
+    castle_rights::CastleRights,
     color::Color,
     error::BoardError,
     piece::Piece,
@@ -136,14 +133,14 @@ impl CastleChessMove {
         board.put(rook_to, Piece::Rook, color).expect("rook_to should be empty");
 
         let lost_castle_rights = match color {
-            Color::White => WHITE_KINGSIDE_RIGHTS | WHITE_QUEENSIDE_RIGHTS,
-            Color::Black => BLACK_KINGSIDE_RIGHTS | BLACK_QUEENSIDE_RIGHTS,
+            Color::White => CastleRights::white_kingside() | CastleRights::white_queenside(),
+            Color::Black => CastleRights::black_kingside() | CastleRights::black_queenside(),
         };
 
         board.increment_halfmove_clock();
         board.increment_fullmove_clock();
         board.push_en_passant_target(None);
-        board.lose_castle_rights(lost_castle_rights);
+        board.lose_castle_rights(CastleRights::from(lost_castle_rights));
 
         Ok(())
     }

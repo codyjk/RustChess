@@ -263,7 +263,7 @@ pub struct SearchStats {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::board::castle_rights_bitmask::ALL_CASTLE_RIGHTS;
+        use crate::board::castle_rights::CastleRights;
     use crate::board::piece::Piece;
     use crate::chess_move::chess_move_effect::ChessMoveEffect;
     use crate::chess_move::standard::StandardChessMove;
@@ -284,7 +284,7 @@ mod tests {
             ........
         };
         starting_position.set_turn(Color::White);
-        starting_position.lose_castle_rights(ALL_CASTLE_RIGHTS);
+        starting_position.lose_castle_rights(CastleRights::all());
 
         let mut engine = Engine::with_config(EngineConfig {
             search_depth: 4,

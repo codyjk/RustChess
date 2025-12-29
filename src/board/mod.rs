@@ -1,6 +1,9 @@
+pub mod castle_rights;
 pub mod castle_rights_bitmask;
 pub mod color;
 pub mod error;
+pub mod fullmove_number;
+pub mod halfmove_clock;
 pub mod piece;
 
 mod display;
@@ -23,7 +26,11 @@ use crate::{
 };
 
 use self::{
-    castle_rights_bitmask::CastleRightsBitmask, move_info::MoveInfo, position_info::PositionInfo,
+    castle_rights::CastleRights,
+    fullmove_number::FullmoveNumber,
+    halfmove_clock::HalfmoveClock,
+    move_info::MoveInfo,
+    position_info::PositionInfo,
 };
 
 /// Represents the state of a chess board. The top level struct holds piece position
@@ -162,66 +169,66 @@ impl Board {
         target_square
     }
 
-    pub fn preserve_castle_rights(&mut self) -> CastleRightsBitmask {
+    pub fn preserve_castle_rights(&mut self) -> CastleRights {
         // zobrist does not change
         self.move_info.preserve_castle_rights()
     }
 
-    pub fn peek_castle_rights(&self) -> u8 {
+    pub fn peek_castle_rights(&self) -> CastleRights {
         self.move_info.peek_castle_rights()
     }
 
-    pub fn lose_castle_rights(&mut self, lost_rights: CastleRightsBitmask) -> CastleRightsBitmask {
+    pub fn lose_castle_rights(&mut self, lost_rights: CastleRights) -> CastleRights {
         let (old_rights, new_rights) = self.move_info.lose_castle_rights(lost_rights);
         self.position_info
-            .update_zobrist_hash_toggle_castling_rights(old_rights);
+            .update_zobrist_hash_toggle_castling_rights(old_rights.bits());
         self.position_info
-            .update_zobrist_hash_toggle_castling_rights(new_rights);
+            .update_zobrist_hash_toggle_castling_rights(new_rights.bits());
         new_rights
     }
 
-    pub fn pop_castle_rights(&mut self) -> CastleRightsBitmask {
+    pub fn pop_castle_rights(&mut self) -> CastleRights {
         let (old_rights, new_rights) = self.move_info.pop_castle_rights();
         self.position_info
-            .update_zobrist_hash_toggle_castling_rights(old_rights);
+            .update_zobrist_hash_toggle_castling_rights(old_rights.bits());
         self.position_info
-            .update_zobrist_hash_toggle_castling_rights(new_rights);
+            .update_zobrist_hash_toggle_castling_rights(new_rights.bits());
         new_rights
     }
 
-    pub fn increment_fullmove_clock(&mut self) -> u8 {
+    pub fn increment_fullmove_clock(&mut self) -> FullmoveNumber {
         self.move_info.increment_fullmove_clock()
     }
 
-    pub fn decrement_fullmove_clock(&mut self) -> u8 {
+    pub fn decrement_fullmove_clock(&mut self) -> FullmoveNumber {
         self.move_info.decrement_fullmove_clock()
     }
 
-    pub fn set_fullmove_clock(&mut self, clock: u8) -> u8 {
+    pub fn set_fullmove_clock(&mut self, clock: FullmoveNumber) -> FullmoveNumber {
         self.move_info.set_fullmove_clock(clock)
     }
 
-    pub fn fullmove_clock(&self) -> u8 {
+    pub fn fullmove_clock(&self) -> FullmoveNumber {
         self.move_info.fullmove_clock()
     }
 
-    pub fn push_halfmove_clock(&mut self, clock: u8) -> u8 {
+    pub fn push_halfmove_clock(&mut self, clock: HalfmoveClock) -> HalfmoveClock {
         self.move_info.push_halfmove_clock(clock)
     }
 
-    pub fn increment_halfmove_clock(&mut self) -> u8 {
+    pub fn increment_halfmove_clock(&mut self) -> HalfmoveClock {
         self.move_info.increment_halfmove_clock()
     }
 
-    pub fn reset_halfmove_clock(&mut self) -> u8 {
+    pub fn reset_halfmove_clock(&mut self) -> HalfmoveClock {
         self.move_info.reset_halfmove_clock()
     }
 
-    pub fn halfmove_clock(&self) -> u8 {
+    pub fn halfmove_clock(&self) -> HalfmoveClock {
         self.move_info.halfmove_clock()
     }
 
-    pub fn pop_halfmove_clock(&mut self) -> u8 {
+    pub fn pop_halfmove_clock(&mut self) -> HalfmoveClock {
         self.move_info.pop_halfmove_clock()
     }
 

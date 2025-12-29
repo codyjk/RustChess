@@ -1,10 +1,7 @@
 use core::fmt;
 
 use crate::board::{
-    castle_rights_bitmask::{
-        BLACK_KINGSIDE_RIGHTS, BLACK_QUEENSIDE_RIGHTS, WHITE_KINGSIDE_RIGHTS,
-        WHITE_QUEENSIDE_RIGHTS,
-    },
+    castle_rights::CastleRights,
     color::Color,
     error::BoardError,
     piece::Piece,
@@ -92,12 +89,11 @@ impl StandardChessMove {
             *from_square,
             *to_square,
         );
-        let lost_castle_rights =
-            get_lost_castle_rights_if_rook_or_king_moved(
-                piece_to_move,
-                color_of_piece_to_move,
-                *from_square,
-            ) | get_lost_castle_rights_if_rook_taken(captured_piece_and_color, *to_square);
+        let lost_castle_rights = get_lost_castle_rights_if_rook_or_king_moved(
+            piece_to_move,
+            color_of_piece_to_move,
+            *from_square,
+        ) | get_lost_castle_rights_if_rook_taken(captured_piece_and_color, *to_square);
 
         if captured_piece_and_color.is_some() {
             board.reset_halfmove_clock();
@@ -256,28 +252,32 @@ fn get_lost_castle_rights_if_rook_or_king_moved(
     piece_to_move: Piece,
     color: Color,
     from_square: square::Square,
-) -> u8 {
+) -> CastleRights {
     match (piece_to_move, color, from_square) {
-        (Piece::Rook, Color::White, sq) if sq == A1 => WHITE_QUEENSIDE_RIGHTS,
-        (Piece::Rook, Color::White, sq) if sq == H1 => WHITE_KINGSIDE_RIGHTS,
-        (Piece::Rook, Color::Black, sq) if sq == A8 => BLACK_QUEENSIDE_RIGHTS,
-        (Piece::Rook, Color::Black, sq) if sq == H8 => BLACK_KINGSIDE_RIGHTS,
-        (Piece::King, Color::White, sq) if sq == E1 => WHITE_KINGSIDE_RIGHTS | WHITE_QUEENSIDE_RIGHTS,
-        (Piece::King, Color::Black, sq) if sq == E8 => BLACK_KINGSIDE_RIGHTS | BLACK_QUEENSIDE_RIGHTS,
-        _ => 0,
+        (Piece::Rook, Color::White, sq) if sq == A1 => CastleRights::white_queenside(),
+        (Piece::Rook, Color::White, sq) if sq == H1 => CastleRights::white_kingside(),
+        (Piece::Rook, Color::Black, sq) if sq == A8 => CastleRights::black_queenside(),
+        (Piece::Rook, Color::Black, sq) if sq == H8 => CastleRights::black_kingside(),
+        (Piece::King, Color::White, sq) if sq == E1 => {
+            CastleRights::white_kingside() | CastleRights::white_queenside()
+        }
+        (Piece::King, Color::Black, sq) if sq == E8 => {
+            CastleRights::black_kingside() | CastleRights::black_queenside()
+        }
+        _ => CastleRights::none(),
     }
 }
 
 fn get_lost_castle_rights_if_rook_taken(
     captured_piece: Option<(Piece, Color)>,
     to_square: square::Square,
-) -> u8 {
+) -> CastleRights {
     match (captured_piece, to_square) {
-        (Some((Piece::Rook, Color::White)), sq) if sq == A1 => WHITE_QUEENSIDE_RIGHTS,
-        (Some((Piece::Rook, Color::White)), sq) if sq == H1 => WHITE_KINGSIDE_RIGHTS,
-        (Some((Piece::Rook, Color::Black)), sq) if sq == A8 => BLACK_QUEENSIDE_RIGHTS,
-        (Some((Piece::Rook, Color::Black)), sq) if sq == H8 => BLACK_KINGSIDE_RIGHTS,
-        _ => 0,
+        (Some((Piece::Rook, Color::White)), sq) if sq == A1 => CastleRights::white_queenside(),
+        (Some((Piece::Rook, Color::White)), sq) if sq == H1 => CastleRights::white_kingside(),
+        (Some((Piece::Rook, Color::Black)), sq) if sq == A8 => CastleRights::black_queenside(),
+        (Some((Piece::Rook, Color::Black)), sq) if sq == H8 => CastleRights::black_kingside(),
+        _ => CastleRights::none(),
     }
 }
 
@@ -430,10 +430,15 @@ mod tests {
         };
         println!("Testing board:\n{}", board);
 
-        assert!(board.peek_castle_rights() & WHITE_KINGSIDE_RIGHTS > 0);
+        assert!(
+            !(board.peek_castle_rights() & CastleRights::white_kingside()).is_empty()
+        );
         let chess_move = std_move!(H1, H2);
         chess_move.apply(&mut board).unwrap();
-        assert_eq!(0, board.peek_castle_rights() & WHITE_KINGSIDE_RIGHTS);
+        assert_eq!(
+            CastleRights::none(),
+            board.peek_castle_rights() & CastleRights::white_kingside()
+        );
     }
 
     #[test]
@@ -450,10 +455,15 @@ mod tests {
         };
         println!("Testing board:\n{}", board);
 
-        assert!(board.peek_castle_rights() & WHITE_QUEENSIDE_RIGHTS > 0);
+        assert!(
+            !(board.peek_castle_rights() & CastleRights::white_queenside()).is_empty()
+        );
         let chess_move = std_move!(A1, A2);
         chess_move.apply(&mut board).unwrap();
-        assert_eq!(0, board.peek_castle_rights() & WHITE_QUEENSIDE_RIGHTS);
+        assert_eq!(
+            CastleRights::none(),
+            board.peek_castle_rights() & CastleRights::white_queenside()
+        );
     }
 
     #[test]
@@ -470,10 +480,15 @@ mod tests {
         };
         println!("Testing board:\n{}", board);
 
-        assert!(board.peek_castle_rights() & BLACK_KINGSIDE_RIGHTS > 0);
+        assert!(
+            !(board.peek_castle_rights() & CastleRights::black_kingside()).is_empty()
+        );
         let chess_move = std_move!(H8, H2);
         chess_move.apply(&mut board).unwrap();
-        assert_eq!(0, board.peek_castle_rights() & BLACK_KINGSIDE_RIGHTS);
+        assert_eq!(
+            CastleRights::none(),
+            board.peek_castle_rights() & CastleRights::black_kingside()
+        );
     }
 
     #[test]
@@ -490,10 +505,15 @@ mod tests {
         };
         println!("Testing board:\n{}", board);
 
-        assert!(board.peek_castle_rights() & BLACK_QUEENSIDE_RIGHTS > 0);
+        assert!(
+            !(board.peek_castle_rights() & CastleRights::black_queenside()).is_empty()
+        );
         let chess_move = std_move!(A8, A2);
         chess_move.apply(&mut board).unwrap();
-        assert_eq!(0, board.peek_castle_rights() & BLACK_QUEENSIDE_RIGHTS);
+        assert_eq!(
+            CastleRights::none(),
+            board.peek_castle_rights() & CastleRights::black_queenside()
+        );
     }
 
     #[test]
@@ -510,10 +530,15 @@ mod tests {
         };
         println!("Testing board:\n{}", board);
 
-        assert!(board.peek_castle_rights() & WHITE_QUEENSIDE_RIGHTS > 0);
+        assert!(
+            !(board.peek_castle_rights() & CastleRights::white_queenside()).is_empty()
+        );
         let chess_move = std_move!(H8, A1, Capture(Piece::Rook));
         chess_move.apply(&mut board).unwrap();
-        assert_eq!(0, board.peek_castle_rights() & WHITE_QUEENSIDE_RIGHTS);
+        assert_eq!(
+            CastleRights::none(),
+            board.peek_castle_rights() & CastleRights::white_queenside()
+        );
     }
 
     #[test]
@@ -530,10 +555,15 @@ mod tests {
         };
         println!("Testing board:\n{}", board);
 
-        assert!(board.peek_castle_rights() & WHITE_KINGSIDE_RIGHTS > 0);
+        assert!(
+            !(board.peek_castle_rights() & CastleRights::white_kingside()).is_empty()
+        );
         let chess_move = std_move!(A8, H1, Capture(Piece::Rook));
         chess_move.apply(&mut board).unwrap();
-        assert_eq!(0, board.peek_castle_rights() & WHITE_KINGSIDE_RIGHTS);
+        assert_eq!(
+            CastleRights::none(),
+            board.peek_castle_rights() & CastleRights::white_kingside()
+        );
     }
 
     #[test]
@@ -550,10 +580,15 @@ mod tests {
         };
         println!("Testing board:\n{}", board);
 
-        assert!(board.peek_castle_rights() & BLACK_QUEENSIDE_RIGHTS > 0);
+        assert!(
+            !(board.peek_castle_rights() & CastleRights::black_queenside()).is_empty()
+        );
         let chess_move = std_move!(H1, A8, Capture(Piece::Rook));
         chess_move.apply(&mut board).unwrap();
-        assert_eq!(0, board.peek_castle_rights() & BLACK_QUEENSIDE_RIGHTS);
+        assert_eq!(
+            CastleRights::none(),
+            board.peek_castle_rights() & CastleRights::black_queenside()
+        );
     }
 
     #[test]
@@ -570,10 +605,15 @@ mod tests {
         };
         println!("Testing board:\n{}", board);
 
-        assert!(board.peek_castle_rights() & BLACK_KINGSIDE_RIGHTS > 0);
+        assert!(
+            !(board.peek_castle_rights() & CastleRights::black_kingside()).is_empty()
+        );
         let chess_move = std_move!(A1, H8, Capture(Piece::Rook));
         chess_move.apply(&mut board).unwrap();
-        assert_eq!(0, board.peek_castle_rights() & BLACK_KINGSIDE_RIGHTS);
+        assert_eq!(
+            CastleRights::none(),
+            board.peek_castle_rights() & CastleRights::black_kingside()
+        );
     }
 
     #[test]
@@ -590,12 +630,22 @@ mod tests {
         };
         println!("Testing board:\n{}", board);
 
-        assert!(board.peek_castle_rights() & WHITE_KINGSIDE_RIGHTS > 0);
-        assert!(board.peek_castle_rights() & WHITE_QUEENSIDE_RIGHTS > 0);
+        assert!(
+            !(board.peek_castle_rights() & CastleRights::white_kingside()).is_empty()
+        );
+        assert!(
+            !(board.peek_castle_rights() & CastleRights::white_queenside()).is_empty()
+        );
         let chess_move = std_move!(E1, E2);
         chess_move.apply(&mut board).unwrap();
-        assert_eq!(0, board.peek_castle_rights() & WHITE_KINGSIDE_RIGHTS);
-        assert_eq!(0, board.peek_castle_rights() & WHITE_QUEENSIDE_RIGHTS);
+        assert_eq!(
+            CastleRights::none(),
+            board.peek_castle_rights() & CastleRights::white_kingside()
+        );
+        assert_eq!(
+            CastleRights::none(),
+            board.peek_castle_rights() & CastleRights::white_queenside()
+        );
     }
 
     #[test]
@@ -612,12 +662,22 @@ mod tests {
         };
         println!("Testing board:\n{}", board);
 
-        assert!(board.peek_castle_rights() & BLACK_KINGSIDE_RIGHTS > 0);
-        assert!(board.peek_castle_rights() & BLACK_QUEENSIDE_RIGHTS > 0);
+        assert!(
+            !(board.peek_castle_rights() & CastleRights::black_kingside()).is_empty()
+        );
+        assert!(
+            !(board.peek_castle_rights() & CastleRights::black_queenside()).is_empty()
+        );
         let chess_move = std_move!(E8, E7);
         chess_move.apply(&mut board).unwrap();
-        assert_eq!(0, board.peek_castle_rights() & BLACK_KINGSIDE_RIGHTS);
-        assert_eq!(0, board.peek_castle_rights() & BLACK_QUEENSIDE_RIGHTS);
+        assert_eq!(
+            CastleRights::none(),
+            board.peek_castle_rights() & CastleRights::black_kingside()
+        );
+        assert_eq!(
+            CastleRights::none(),
+            board.peek_castle_rights() & CastleRights::black_queenside()
+        );
     }
 
     #[test]

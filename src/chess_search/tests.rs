@@ -2,7 +2,7 @@
 
 use super::*;
 use crate::alpha_beta_searcher::SearchContext;
-use crate::board::castle_rights_bitmask::ALL_CASTLE_RIGHTS;
+use crate::board::castle_rights::CastleRights;
 use crate::board::color::Color;
 use crate::board::piece::Piece;
 use crate::chess_move::capture::Capture;
@@ -26,7 +26,7 @@ fn test_find_mate_in_1_white() {
         ........
     };
     board.set_turn(Color::White);
-    board.lose_castle_rights(ALL_CASTLE_RIGHTS);
+        board.lose_castle_rights(CastleRights::all());
     println!("Testing board:\n{}", board);
 
     let chess_move = search_best_move(&mut context, &mut board).unwrap();
@@ -57,7 +57,7 @@ fn test_find_mate_in_1_black() {
         ........
     };
     board.set_turn(Color::Black);
-    board.lose_castle_rights(ALL_CASTLE_RIGHTS);
+        board.lose_castle_rights(CastleRights::all());
 
     println!("Testing board:\n{}", board);
 
@@ -90,7 +90,7 @@ fn test_find_back_rank_mate_in_2_white() {
         K..R....
     };
     board.set_turn(Color::White);
-    board.lose_castle_rights(ALL_CASTLE_RIGHTS);
+        board.lose_castle_rights(CastleRights::all());
 
     println!("Testing board:\n{}", board);
 
@@ -135,7 +135,7 @@ fn test_find_back_rank_mate_in_2_black() {
         R.....K.
     };
     board.set_turn(Color::Black);
-    board.lose_castle_rights(ALL_CASTLE_RIGHTS);
+        board.lose_castle_rights(CastleRights::all());
 
     println!("Testing board:\n{}", board);
 

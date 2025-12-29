@@ -1,7 +1,12 @@
 use common::bitboard::{Square, C1, C8, E1, E8, G1, G8};
 
 use crate::{
-    board::{color::Color, piece::Piece, Board},
+    board::{
+        castle_rights::CastleRights,
+        color::Color,
+        piece::Piece,
+        Board,
+    },
     move_generator::{ChessMoveList, MoveGenerator},
 };
 
@@ -252,7 +257,7 @@ mod tests {
             K.......
         };
         board.set_turn(Color::White);
-        board.lose_castle_rights(ALL_CASTLE_RIGHTS);
+        board.lose_castle_rights(CastleRights::all());
 
         assert_move_has_algebraic_notation!(
             &mut board,
@@ -320,7 +325,9 @@ mod tests {
         };
         board.set_turn(Color::White);
         board.lose_castle_rights(
-            WHITE_KINGSIDE_RIGHTS | BLACK_KINGSIDE_RIGHTS | BLACK_QUEENSIDE_RIGHTS,
+            CastleRights::white_kingside()
+                | CastleRights::black_kingside()
+                | CastleRights::black_queenside(),
         );
 
         assert_move_has_algebraic_notation!(
@@ -344,7 +351,9 @@ mod tests {
         };
         board.set_turn(Color::White);
         board.lose_castle_rights(
-            WHITE_KINGSIDE_RIGHTS | BLACK_KINGSIDE_RIGHTS | BLACK_QUEENSIDE_RIGHTS,
+            CastleRights::white_kingside()
+                | CastleRights::black_kingside()
+                | CastleRights::black_queenside(),
         );
 
         println!("Testing board:\n{}", board);
@@ -370,7 +379,7 @@ mod tests {
             .......K
         };
         board.set_turn(Color::White);
-        board.lose_castle_rights(ALL_CASTLE_RIGHTS);
+        board.lose_castle_rights(CastleRights::all());
 
         assert_move_has_algebraic_notation!(
             &mut board,
@@ -399,7 +408,7 @@ mod tests {
             K....N..
         };
         board.set_turn(Color::White);
-        board.lose_castle_rights(ALL_CASTLE_RIGHTS);
+        board.lose_castle_rights(CastleRights::all());
 
         assert_move_has_algebraic_notation!(&mut board, Color::White, std_move!(F1, D2), "N1d2");
         assert_move_has_algebraic_notation!(&mut board, Color::White, std_move!(F3, D2), "N3d2");
@@ -435,7 +444,7 @@ mod tests {
             KN...N..
         };
         board.set_turn(Color::White);
-        board.lose_castle_rights(ALL_CASTLE_RIGHTS);
+        board.lose_castle_rights(CastleRights::all());
 
         assert_move_has_algebraic_notation!(&mut board, Color::White, std_move!(F1, D2), "Nf1d2");
         assert_move_has_algebraic_notation!(&mut board, Color::White, std_move!(F3, D2), "Nf3d2");
@@ -454,7 +463,7 @@ mod tests {
             K.......
         };
         board.set_turn(Color::White);
-        board.lose_castle_rights(ALL_CASTLE_RIGHTS);
+        board.lose_castle_rights(CastleRights::all());
         let exposes_en_passant = std_move!(D2, D4);
         exposes_en_passant.apply(&mut board).unwrap();
         board.toggle_turn();
@@ -487,7 +496,7 @@ mod tests {
             K.......
         };
         board.set_turn(Color::White);
-        board.lose_castle_rights(ALL_CASTLE_RIGHTS);
+        board.lose_castle_rights(CastleRights::all());
 
         assert_move_has_algebraic_notation!(
             &mut board,
@@ -510,7 +519,7 @@ mod tests {
             K.......
         };
         board.set_turn(Color::White);
-        board.lose_castle_rights(ALL_CASTLE_RIGHTS);
+        board.lose_castle_rights(CastleRights::all());
 
         assert_move_has_algebraic_notation!(
             &mut board,
@@ -533,7 +542,7 @@ mod tests {
             K.......
         };
         board.set_turn(Color::White);
-        board.lose_castle_rights(ALL_CASTLE_RIGHTS);
+        board.lose_castle_rights(CastleRights::all());
 
         assert_move_has_algebraic_notation!(
             &mut board,
@@ -556,7 +565,7 @@ mod tests {
             ........
         };
         board.set_turn(Color::White);
-        board.lose_castle_rights(ALL_CASTLE_RIGHTS);
+        board.lose_castle_rights(CastleRights::all());
 
         assert_move_has_algebraic_notation!(
             &mut board,
@@ -579,7 +588,7 @@ mod tests {
             ........
         };
         board.set_turn(Color::White);
-        board.lose_castle_rights(ALL_CASTLE_RIGHTS);
+        board.lose_castle_rights(CastleRights::all());
 
         assert_move_has_algebraic_notation!(
             &mut board,
@@ -603,7 +612,7 @@ mod tests {
         };
 
         board.set_turn(Color::White);
-        board.lose_castle_rights(ALL_CASTLE_RIGHTS);
+        board.lose_castle_rights(CastleRights::all());
 
         assert_move_has_algebraic_notation!(
             &mut board,

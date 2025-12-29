@@ -1,5 +1,11 @@
 use crate::board::{
-    castle_rights_bitmask::*, color::Color, error::BoardError, piece::Piece, Board,
+    castle_rights::CastleRights,
+    color::Color,
+    error::BoardError,
+    fullmove_number::FullmoveNumber,
+    halfmove_clock::HalfmoveClock,
+    piece::Piece,
+    Board,
 };
 use common::bitboard::Square;
 use thiserror::Error;
@@ -152,17 +158,17 @@ fn parse_active_color(board: &mut Board, active_color: &str) -> FenResult<()> {
 /// Parses the castling rights field
 fn parse_castle_rights(board: &mut Board, castle_rights: &str) -> FenResult<()> {
     if castle_rights == "-" {
-        board.lose_castle_rights(ALL_CASTLE_RIGHTS);
+        board.lose_castle_rights(CastleRights::all());
         return Ok(());
     }
 
-    let mut rights = 0u8;
+    let mut rights = CastleRights::none();
     for c in castle_rights.chars() {
-        rights |= match c {
-            'K' => WHITE_KINGSIDE_RIGHTS,
-            'Q' => WHITE_QUEENSIDE_RIGHTS,
-            'k' => BLACK_KINGSIDE_RIGHTS,
-            'q' => BLACK_QUEENSIDE_RIGHTS,
+        rights = rights | match c {
+            'K' => CastleRights::white_kingside(),
+            'Q' => CastleRights::white_queenside(),
+            'k' => CastleRights::black_kingside(),
+            'q' => CastleRights::black_queenside(),
             _ => {
                 return Err(FenParseError::InvalidCastlingRights {
                     invalid_castling: c,
@@ -229,7 +235,7 @@ fn parse_halfmove_clock(board: &mut Board, halfmove_clock: &str) -> FenResult<()
             .map_err(|_| FenParseError::InvalidHalfmoveClock {
                 invalid_clock: halfmove_clock.to_string(),
             })?;
-    board.push_halfmove_clock(halfmove);
+    board.push_halfmove_clock(HalfmoveClock::from(halfmove));
     Ok(())
 }
 
@@ -241,7 +247,7 @@ fn parse_fullmove_number(board: &mut Board, fullmove_number: &str) -> FenResult<
             .map_err(|_| FenParseError::InvalidFullmoveNumber {
                 invalid_number: fullmove_number.to_string(),
             })?;
-    board.set_fullmove_clock(fullmove);
+    board.set_fullmove_clock(FullmoveNumber::from(fullmove));
     Ok(())
 }
 
@@ -266,8 +272,8 @@ mod tests {
 
         // Verify some key aspects of the position
         assert_eq!(board.turn(), Color::Black);
-        assert_eq!(board.halfmove_clock(), 0);
-        assert_eq!(board.fullmove_clock(), 6);
+        assert_eq!(board.halfmove_clock(), HalfmoveClock::new(0));
+        assert_eq!(board.fullmove_clock(), FullmoveNumber::new(6));
 
         // Verify a few piece positions
         assert_eq!(
@@ -314,19 +320,19 @@ mod tests {
         // Test all castle rights
         let fen = "r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1";
         let board = parse_fen(fen).unwrap();
-        assert_eq!(board.peek_castle_rights(), ALL_CASTLE_RIGHTS);
+        assert_eq!(board.peek_castle_rights(), CastleRights::all());
 
         // Test no castle rights
         let fen = "r3k2r/8/8/8/8/8/8/R3K2R w - - 0 1";
         let board = parse_fen(fen).unwrap();
-        assert_eq!(board.peek_castle_rights(), 0);
+        assert_eq!(board.peek_castle_rights(), CastleRights::none());
 
         // Test partial castle rights
         let fen = "r3k2r/8/8/8/8/8/8/R3K2R w Kq - 0 1";
         let board = parse_fen(fen).unwrap();
         assert_eq!(
             board.peek_castle_rights(),
-            WHITE_KINGSIDE_RIGHTS | BLACK_QUEENSIDE_RIGHTS
+            CastleRights::white_kingside() | CastleRights::black_queenside()
         );
     }
 }

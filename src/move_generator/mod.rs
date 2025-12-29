@@ -1,9 +1,7 @@
 mod magic_table;
 mod targets;
 
-use crate::board::castle_rights_bitmask::{
-    BLACK_KINGSIDE_RIGHTS, BLACK_QUEENSIDE_RIGHTS, WHITE_KINGSIDE_RIGHTS, WHITE_QUEENSIDE_RIGHTS,
-};
+use crate::board::castle_rights::CastleRights;
 use crate::board::color::Color;
 use crate::board::piece::Piece;
 use crate::board::Board;
@@ -332,12 +330,12 @@ fn generate_castle_moves(
     let castle_rights = board.peek_castle_rights();
     let (kingside_rights, queenside_rights) = match color {
         Color::White => (
-            WHITE_KINGSIDE_RIGHTS & castle_rights,
-            WHITE_QUEENSIDE_RIGHTS & castle_rights,
+            CastleRights::white_kingside() & castle_rights,
+            CastleRights::white_queenside() & castle_rights,
         ),
         Color::Black => (
-            BLACK_KINGSIDE_RIGHTS & castle_rights,
-            BLACK_QUEENSIDE_RIGHTS & castle_rights,
+            CastleRights::black_kingside() & castle_rights,
+            CastleRights::black_queenside() & castle_rights,
         ),
     };
 
@@ -358,7 +356,7 @@ fn generate_castle_moves(
 
     let occupied = board.occupied();
 
-    if kingside_rights > 0
+    if !kingside_rights.is_empty()
         && board.get(kingside_transit_square).is_none()
         && !kingside_transit_square.overlaps(attacked_squares)
         && !kingside_transit_square.overlaps(occupied)
@@ -368,7 +366,7 @@ fn generate_castle_moves(
         moves.push(ChessMove::Castle(castle_move));
     }
 
-    if queenside_rights > 0
+    if !queenside_rights.is_empty()
         && board.get(queenside_transit_square).is_none()
         && !queenside_transit_square.overlaps(attacked_squares)
         && !queenside_transit_square.overlaps(occupied)

@@ -1,3 +1,4 @@
+use crate::board::castle_rights::CastleRights;
 use crate::board::color::Color;
 use crate::board::piece::{Piece, ALL_PIECES};
 use crate::board::Board;
@@ -59,7 +60,7 @@ pub fn game_ending(
         return Some(GameEnding::Draw);
     }
 
-    if board.halfmove_clock() >= 50 {
+    if board.halfmove_clock().value() >= 50 {
         return Some(GameEnding::Draw);
     }
 
@@ -179,7 +180,7 @@ fn is_endgame(board: &Board) -> bool {
 mod tests {
     use super::*;
     use crate::{
-        board::{castle_rights_bitmask::ALL_CASTLE_RIGHTS, Board},
+        board::Board,
         chess_position,
     };
     use common::bitboard::*;
@@ -209,7 +210,7 @@ mod tests {
             K.......
         };
         board.set_turn(Color::Black);
-        board.lose_castle_rights(ALL_CASTLE_RIGHTS);
+        board.lose_castle_rights(CastleRights::all());
         println!("Testing board:\n{}", board);
 
         let ending = game_ending(&mut board, &MoveGenerator::default(), Color::Black);
@@ -229,7 +230,7 @@ mod tests {
             K.......
         };
         board.set_turn(Color::Black);
-        board.lose_castle_rights(ALL_CASTLE_RIGHTS);
+        board.lose_castle_rights(CastleRights::all());
         println!("Testing board:\n{}", board);
 
         let ending = game_ending(&mut board, &MoveGenerator::default(), Color::Black);
@@ -319,7 +320,7 @@ mod tests {
             .Q......
             K......q
         };
-        board.lose_castle_rights(ALL_CASTLE_RIGHTS);
+        board.lose_castle_rights(CastleRights::all());
         board.set_turn(Color::White);
 
         println!("Testing board:\n{}", board);
@@ -349,7 +350,7 @@ mod tests {
             PPP.....
             .K.....r
         };
-        board.lose_castle_rights(ALL_CASTLE_RIGHTS);
+        board.lose_castle_rights(CastleRights::all());
         board.set_turn(Color::White);
 
         println!("Testing board:\n{}", board);
