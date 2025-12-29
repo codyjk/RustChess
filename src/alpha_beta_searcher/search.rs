@@ -5,6 +5,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
 use log::debug;
+use rayon::prelude::*;
 use thiserror::Error;
 
 use super::transposition_table::{BoundType, TranspositionTable};
@@ -24,6 +25,7 @@ pub struct SearchContext<M: Clone + Send + Sync> {
     last_score: Option<i16>,
     last_search_duration: Option<Duration>,
     transposition_table: TranspositionTable<M>,
+    parallel: bool,
 }
 
 impl<M: Clone + Send + Sync> SearchContext<M> {
@@ -34,7 +36,27 @@ impl<M: Clone + Send + Sync> SearchContext<M> {
             last_score: None,
             last_search_duration: None,
             transposition_table: TranspositionTable::default(),
+            parallel: false,
         }
+    }
+
+    pub fn with_parallel(depth: u8, parallel: bool) -> Self {
+        Self {
+            search_depth: depth,
+            searched_position_count: AtomicUsize::new(0),
+            last_score: None,
+            last_search_duration: None,
+            transposition_table: TranspositionTable::default(),
+            parallel,
+        }
+    }
+
+    pub fn set_parallel(&mut self, parallel: bool) {
+        self.parallel = parallel;
+    }
+
+    pub fn is_parallel(&self) -> bool {
+        self.parallel
     }
 
     pub fn reset_stats(&mut self) {
@@ -77,6 +99,7 @@ where
     S: GameState,
     G: MoveGenerator<S>,
     G::Move: GameMove<State = S>,
+    G::MoveList: Sync,
     E: Evaluator<S>,
     O: MoveOrderer<S, G::Move>,
 {
@@ -107,8 +130,68 @@ where
         }
     }
 
-    // Use sequential search with move apply/undo (no cloning overhead)
-    let mut best_score = if current_player_is_maximizing {
+    let (best_score, best_move) = if context.parallel {
+        // Parallel search: clone state for each thread
+        search_root_parallel(
+            context,
+            state,
+            move_generator,
+            evaluator,
+            move_orderer,
+            &candidates,
+            depth,
+            current_player_is_maximizing,
+        )?
+    } else {
+        // Sequential search: use move apply/undo (no cloning overhead)
+        search_root_sequential(
+            context,
+            state,
+            move_generator,
+            evaluator,
+            move_orderer,
+            &candidates,
+            depth,
+            current_player_is_maximizing,
+        )?
+    };
+
+    let best_move = best_move.ok_or(SearchError::NoAvailableMoves)?;
+
+    context.transposition_table.store(
+        hash,
+        best_score,
+        depth,
+        BoundType::Exact,
+        Some(best_move.clone()),
+    );
+
+    context.last_score = Some(best_score);
+    context.last_search_duration = Some(start.elapsed());
+
+    Ok(best_move)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn search_root_sequential<S, G, E, O, C>(
+    context: &SearchContext<G::Move>,
+    state: &mut S,
+    move_generator: &G,
+    evaluator: &E,
+    move_orderer: &O,
+    candidates: &C,
+    depth: u8,
+    maximizing_player: bool,
+) -> Result<(i16, Option<G::Move>), SearchError>
+where
+    S: GameState,
+    G: MoveGenerator<S, MoveList = C>,
+    G::Move: GameMove<State = S>,
+    C: MoveCollection<G::Move>,
+    E: Evaluator<S>,
+    O: MoveOrderer<S, G::Move>,
+{
+    let mut best_score = if maximizing_player {
         i16::MIN
     } else {
         i16::MAX
@@ -130,7 +213,7 @@ where
             depth - 1,
             i16::MIN,
             i16::MAX,
-            !current_player_is_maximizing,
+            !maximizing_player,
         )?;
 
         game_move
@@ -138,7 +221,7 @@ where
             .expect("move undo should succeed in search");
         state.toggle_turn();
 
-        if current_player_is_maximizing {
+        if maximizing_player {
             if score > best_score {
                 best_score = score;
                 best_move = Some(game_move.clone());
@@ -149,21 +232,76 @@ where
         }
     }
 
-    let best_move = best_move.ok_or(SearchError::NoAvailableMoves)?;
-    let score = best_score;
+    Ok((best_score, best_move))
+}
 
-    context.transposition_table.store(
-        hash,
-        score,
-        depth,
-        BoundType::Exact,
-        Some(best_move.clone()),
-    );
+#[allow(clippy::too_many_arguments)]
+fn search_root_parallel<S, G, E, O, C>(
+    context: &SearchContext<G::Move>,
+    state: &S,
+    move_generator: &G,
+    evaluator: &E,
+    move_orderer: &O,
+    candidates: &C,
+    depth: u8,
+    maximizing_player: bool,
+) -> Result<(i16, Option<G::Move>), SearchError>
+where
+    S: GameState + Clone,
+    G: MoveGenerator<S, MoveList = C> + Sync,
+    G::Move: GameMove<State = S>,
+    C: MoveCollection<G::Move> + Sync,
+    E: Evaluator<S> + Sync,
+    O: MoveOrderer<S, G::Move> + Sync,
+{
+    let results: Vec<_> = candidates
+        .as_ref()
+        .par_iter()
+        .map(|game_move| {
+            let mut cloned_state = state.clone();
 
-    context.last_score = Some(score);
-    context.last_search_duration = Some(start.elapsed());
+            game_move
+                .apply(&mut cloned_state)
+                .expect("move application should succeed in search");
+            cloned_state.toggle_turn();
 
-    Ok(best_move)
+            let score = alpha_beta_minimax(
+                context,
+                &mut cloned_state,
+                move_generator,
+                evaluator,
+                move_orderer,
+                depth - 1,
+                i16::MIN,
+                i16::MAX,
+                !maximizing_player,
+            )
+            .expect("minimax should succeed in parallel search");
+
+            (score, game_move.clone())
+        })
+        .collect();
+
+    let mut best_score = if maximizing_player {
+        i16::MIN
+    } else {
+        i16::MAX
+    };
+    let mut best_move = None;
+
+    for (score, game_move) in results {
+        if maximizing_player {
+            if score > best_score {
+                best_score = score;
+                best_move = Some(game_move);
+            }
+        } else if score < best_score {
+            best_score = score;
+            best_move = Some(game_move);
+        }
+    }
+
+    Ok((best_score, best_move))
 }
 
 #[allow(clippy::too_many_arguments)]

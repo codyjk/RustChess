@@ -88,41 +88,51 @@ fn benchmark_positions() -> Vec<(String, Board)> {
 fn optimization_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("Search Optimizations");
 
+    // Test both parallel and sequential modes
+    let parallel_modes = [("seq", false), ("par", true)];
+
     // Use depth 4 and 5 to see optimization benefits
     for depth in [4, 5] {
         for (name, initial_board) in benchmark_positions() {
-            let bench_name = format!("{}_depth_{}", name, depth);
+            for (mode_suffix, parallel) in parallel_modes {
+                let bench_name = format!("{}_{}_depth_{}", name, mode_suffix, depth);
 
-            group.bench_with_input(BenchmarkId::new(&bench_name, depth), &depth, |b, &depth| {
-                b.iter_batched(
-                    || {
-                        // Setup for each iteration
-                        let board = initial_board.clone();
-                        let context = SearchContext::new(depth);
-                        (board, context)
-                    },
-                    |(mut board, mut context)| {
-                        // The actual search being measured
-                        let result = search_best_move(&mut context, &mut board);
+                group.bench_with_input(
+                    BenchmarkId::new(&bench_name, depth),
+                    &depth,
+                    |b, &depth| {
+                        b.iter_batched(
+                            || {
+                                // Setup for each iteration
+                                let board = initial_board.clone();
+                                let context = SearchContext::with_parallel(depth, parallel);
+                                (board, context)
+                            },
+                            |(mut board, mut context)| {
+                                // The actual search being measured
+                                let result = search_best_move(&mut context, &mut board);
 
-                        // Print metrics after search completes
-                        if let Ok(best_move) = &result {
-                            eprintln!(
-                                "[{}] depth={} move={:?} nodes={} score={:?} duration={:?}",
+                                // Print metrics after search completes
+                                if let Ok(best_move) = &result {
+                                    eprintln!(
+                                "[{} {}] depth={} move={:?} nodes={} score={:?} duration={:?}",
                                 name,
+                                mode_suffix,
                                 depth,
                                 best_move,
                                 context.searched_position_count(),
                                 context.last_score(),
                                 context.last_search_duration()
                             );
-                        }
+                                }
 
-                        black_box(result.unwrap())
+                                black_box(result.unwrap())
+                            },
+                            criterion::BatchSize::LargeInput,
+                        )
                     },
-                    criterion::BatchSize::LargeInput,
-                )
-            });
+                );
+            }
         }
     }
 
