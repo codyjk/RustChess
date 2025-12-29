@@ -5,7 +5,6 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
 use log::debug;
-use rayon::prelude::*;
 use thiserror::Error;
 
 use super::transposition_table::{BoundType, TranspositionTable};
@@ -108,44 +107,50 @@ where
         }
     }
 
-    let scored_moves: Vec<_> = candidates
-        .as_ref()
-        .par_iter()
-        .map(|game_move| {
-            let mut local_state = state.clone();
-            let local_generator = move_generator.clone();
-            let local_evaluator = evaluator.clone();
-            let local_orderer = move_orderer.clone();
+    // Use sequential search with move apply/undo (no cloning overhead)
+    let mut best_score = if current_player_is_maximizing {
+        i16::MIN
+    } else {
+        i16::MAX
+    };
+    let mut best_move = None;
 
-            game_move
-                .apply(&mut local_state)
-                .expect("move application should succeed in search");
-            local_state.toggle_turn();
+    for game_move in candidates.as_ref().iter() {
+        game_move
+            .apply(state)
+            .expect("move application should succeed in search");
+        state.toggle_turn();
 
-            let score = alpha_beta_minimax(
-                context,
-                &mut local_state,
-                &local_generator,
-                &local_evaluator,
-                &local_orderer,
-                depth - 1,
-                i16::MIN,
-                i16::MAX,
-                !current_player_is_maximizing,
-            )
-            .unwrap();
+        let score = alpha_beta_minimax(
+            context,
+            state,
+            move_generator,
+            evaluator,
+            move_orderer,
+            depth - 1,
+            i16::MIN,
+            i16::MAX,
+            !current_player_is_maximizing,
+        )?;
 
-            (score, game_move.clone())
-        })
-        .collect();
+        game_move
+            .undo(state)
+            .expect("move undo should succeed in search");
+        state.toggle_turn();
 
-    let mut scored_moves = scored_moves;
-    scored_moves.sort_by(|(a, _), (b, _)| b.cmp(a));
-    if current_player_is_maximizing {
-        scored_moves.reverse();
+        if current_player_is_maximizing {
+            if score > best_score {
+                best_score = score;
+                best_move = Some(game_move.clone());
+            }
+        } else if score < best_score {
+            best_score = score;
+            best_move = Some(game_move.clone());
+        }
     }
 
-    let (score, best_move) = scored_moves.pop().ok_or(SearchError::NoAvailableMoves)?;
+    let best_move = best_move.ok_or(SearchError::NoAvailableMoves)?;
+    let score = best_score;
 
     context.transposition_table.store(
         hash,

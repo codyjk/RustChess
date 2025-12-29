@@ -89,6 +89,37 @@ pub fn score(
         }
     }
 
+    // Check for 50-move rule
+    if board.halfmove_clock().value() >= 50 {
+        return 0;
+    }
+
+    // OPTIMIZATION: At leaf nodes (depth 0), only check for game ending if we're in check.
+    // Most positions are not terminal, so generating all moves to check for checkmate/stalemate
+    // is wasteful. We only need full game_ending() check when we're in check (potential checkmate).
+    if remaining_depth == 0 {
+        let in_check = current_player_is_in_check(board, move_generator);
+        if !in_check {
+            // Not in check at leaf - just return material evaluation
+            return board_material_score(board);
+        }
+        // In check - need to verify if it's checkmate
+        let has_legal_moves = !move_generator
+            .generate_moves(board, current_turn)
+            .is_empty();
+        if !has_legal_moves {
+            // Checkmate!
+            return if current_turn == Color::White {
+                BLACK_WINS - remaining_depth as i16
+            } else {
+                WHITE_WINS + remaining_depth as i16
+            };
+        }
+        // In check but has legal moves - return material score
+        return board_material_score(board);
+    }
+
+    // For non-leaf nodes, do full game ending check
     match game_ending(board, move_generator, current_turn) {
         Some(GameEnding::Checkmate) => {
             if current_turn == Color::White {
