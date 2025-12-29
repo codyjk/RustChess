@@ -1,13 +1,13 @@
 use std::time::Duration;
 
 use crate::alpha_beta_searcher::{SearchContext, SearchError};
-use crate::chess_search::search_best_move;
 use crate::board::color::Color;
 use crate::board::error::BoardError;
 use crate::board::Board;
 use crate::book::{Book, BookMove};
 use crate::chess_move::algebraic_notation::enumerate_candidate_moves_with_algebraic_notation;
 use crate::chess_move::chess_move::ChessMove;
+use crate::chess_search::search_best_move;
 use crate::evaluate::{self, GameEnding};
 use crate::input_handler::MoveInput;
 use crate::move_generator::MoveGenerator;
@@ -72,9 +72,15 @@ pub struct Engine {
     search_context: SearchContext<ChessMove>,
 }
 
+impl Default for Engine {
+    fn default() -> Self {
+        Self::with_config(EngineConfig::default())
+    }
+}
+
 impl Engine {
     pub fn new() -> Self {
-        Self::with_config(EngineConfig::default())
+        Self::default()
     }
 
     pub fn with_config(config: EngineConfig) -> Self {
@@ -97,16 +103,12 @@ impl Engine {
     pub fn get_valid_moves(&mut self) -> Vec<(ChessMove, String)> {
         let board = &mut self.state.board;
         let current_turn = board.turn();
-        enumerate_candidate_moves_with_algebraic_notation(
-            board,
-            current_turn,
-            &mut self.move_generator,
-        )
+        enumerate_candidate_moves_with_algebraic_notation(board, current_turn, &self.move_generator)
     }
 
     pub fn check_game_over(&mut self) -> Option<GameEnding> {
         let turn = self.state.board.turn();
-        evaluate::game_ending(&mut self.state.board, &mut self.move_generator, turn)
+        evaluate::game_ending(&mut self.state.board, &self.move_generator, turn)
     }
 
     pub fn make_move_by_squares(
@@ -160,12 +162,7 @@ impl Engine {
     }
 
     pub fn get_score(&mut self, current_turn: Color) -> i16 {
-        evaluate::score(
-            &mut self.state.board,
-            &mut self.move_generator,
-            current_turn,
-            0,
-        )
+        evaluate::score(&mut self.state.board, &self.move_generator, current_turn, 0)
     }
 
     pub fn get_search_stats(&self) -> SearchStats {
@@ -263,7 +260,7 @@ pub struct SearchStats {
 #[cfg(test)]
 mod tests {
     use super::*;
-        use crate::board::castle_rights::CastleRights;
+    use crate::board::castle_rights::CastleRights;
     use crate::board::piece::Piece;
     use crate::chess_move::chess_move_effect::ChessMoveEffect;
     use crate::chess_move::standard::StandardChessMove;

@@ -1,6 +1,9 @@
+//! Chess move types and application logic.
+
 pub mod algebraic_notation;
 pub mod capture;
 pub mod castle;
+#[allow(clippy::module_inception)]
 pub mod chess_move;
 pub mod chess_move_effect;
 pub mod en_passant;

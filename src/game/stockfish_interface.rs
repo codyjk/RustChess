@@ -38,7 +38,7 @@ impl Stockfish {
     }
 
     pub fn set_elo(&mut self, elo: u32) -> Result<(), std::io::Error> {
-        self.send_command(&format!("setoption name UCI_LimitStrength value true"))?;
+        self.send_command("setoption name UCI_LimitStrength value true")?;
         self.send_command(&format!("setoption name UCI_Elo value {}", elo))?;
         self.elo = elo;
         Ok(())

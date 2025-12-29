@@ -1,0 +1,36 @@
+# Rustfmt configuration for consistent code formatting
+#
+# IMPORT ORGANIZATION STANDARD:
+# All imports must follow this order (separated by blank lines):
+# 1. Standard library (std::, core::)
+# 2. External crates (third-party dependencies like common, rayon, smallvec, etc.)
+# 3. Crate imports (crate::)
+# 4. Relative imports (super::, self::)
+#
+# Within each group, imports should be:
+# - Alphabetically sorted when possible
+# - Grouped by module when importing multiple items from the same module
+# - Use multi-line format for imports with 3+ items
+#
+# Example:
+#   use std::io;
+#   use std::str::FromStr;
+#
+#   use common::bitboard::Square;
+#   use rayon::prelude::*;
+#
+#   use crate::board::Board;
+#   use crate::chess_move::ChessMove;
+#
+#   use super::helper::Helper;
+#
+# Note: group_imports and imports_granularity require nightly Rust.
+# For stable Rust, we manually organize imports according to the above standard.
+
+edition = "2018"
+max_width = 100
+hard_tabs = false
+tab_spaces = 4
+newline_style = "Unix"
+use_small_heuristics = "Default"
+

@@ -12,6 +12,7 @@ use super::chess_move_effect::ChessMoveEffect;
 /// - Applying and undoing moves on a board
 pub trait ChessMoveType {
     /// Returns the square the piece is moving from.
+    #[allow(clippy::wrong_self_convention)]
     fn from_square(&self) -> Square;
 
     /// Returns the square the piece is moving to.
@@ -35,4 +36,3 @@ pub trait ChessMoveType {
     /// Must be called with the same board state that resulted from `apply`.
     fn undo(&self, board: &mut Board) -> Result<(), BoardError>;
 }
-

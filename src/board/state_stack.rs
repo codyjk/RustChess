@@ -25,4 +25,3 @@ impl<T: Clone> StateStack<T> {
         self.stack.pop().expect("StateStack should never be empty")
     }
 }
-

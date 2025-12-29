@@ -1,3 +1,5 @@
+//! Game loop and engine coordination.
+
 pub mod display;
 pub mod engine;
 pub mod input_source;

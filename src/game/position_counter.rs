@@ -1,10 +1,10 @@
 use std::str::FromStr;
 use std::time::{Duration, SystemTime};
 
+use crate::alpha_beta_searcher::SearchContext;
 use crate::board::color::Color;
 use crate::board::Board;
 use crate::chess_search::search_best_move;
-use crate::alpha_beta_searcher::SearchContext;
 use crate::move_generator::MoveGenerator;
 
 #[derive(Debug)]

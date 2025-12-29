@@ -198,3 +198,43 @@ Various other [benchmarks](https://doc.rust-lang.org/cargo/commands/cargo-bench.
   * [`chess_move`](./src/chess_move/mod.rs) - Chess move types and application logic
   * [`move_generator`](./src/move_generator/mod.rs) - Chess move generation
   * [`game`](./src/game/mod.rs) - Game loop and engine coordination, with separate `InputSource` and `GameRenderer` traits for modularity
+
+## Module structure standards
+
+The codebase follows idiomatic Rust module organization practices:
+
+### Module organization
+
+* **`mod.rs` files** serve only as module declarations and re-exports. They do not contain substantial implementation code.
+* **Implementation files** are placed in dedicated `.rs` files within their module directories (e.g., `board/board.rs`, `evaluate/evaluation.rs`).
+* **Module-level docstrings** (`//!`) are required at the top of all `mod.rs` files and implementation files to describe the module's purpose.
+
+### Import organization
+
+All imports follow a consistent ordering standard (enforced by the pre-commit hook):
+
+1. **Standard library** (`std::`, `core::`)
+2. **External crates** (third-party dependencies like `common`, `rayon`, `smallvec`, etc.)
+3. **Crate imports** (`crate::`)
+4. **Relative imports** (`super::`, `self::`)
+
+Each group is separated by a blank line. Within each group, imports are alphabetically sorted when possible and grouped by module when importing multiple items from the same module.
+
+Example:
+```rust
+use std::io;
+use std::str::FromStr;
+
+use common::bitboard::Square;
+use rayon::prelude::*;
+
+use crate::board::Board;
+use crate::chess_move::ChessMove;
+
+use super::helper::Helper;
+```
+
+### Code quality enforcement
+
+* **`rustfmt.toml`** - Configuration file documenting the import style standard and other formatting rules.
+* **Pre-commit hook** (`.git/hooks/pre-commit`) - Automatically runs `cargo fmt -- --check` and `cargo clippy -- -D warnings` before each commit to ensure code quality and consistency.

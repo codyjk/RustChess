@@ -106,4 +106,3 @@ impl GameRenderer for ConditionalStatsRenderer {
         None
     }
 }
-

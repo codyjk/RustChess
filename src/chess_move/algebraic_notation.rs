@@ -1,12 +1,7 @@
 use common::bitboard::{Square, C1, C8, E1, E8, G1, G8};
 
 use crate::{
-    board::{
-        castle_rights::CastleRights,
-        color::Color,
-        piece::Piece,
-        Board,
-    },
+    board::{color::Color, piece::Piece, Board},
     move_generator::{ChessMoveList, MoveGenerator},
 };
 
@@ -203,9 +198,7 @@ fn get_promotion_chars(chess_move: &ChessMove) -> String {
 mod tests {
     use common::bitboard::*;
 
-    use crate::board::castle_rights_bitmask::{
-        ALL_CASTLE_RIGHTS, BLACK_KINGSIDE_RIGHTS, BLACK_QUEENSIDE_RIGHTS, WHITE_KINGSIDE_RIGHTS,
-    };
+    use crate::board::castle_rights::CastleRights;
     use crate::chess_move::capture::Capture;
     use crate::{
         castle_kingside, castle_queenside, check_move, checkmate_move, chess_position,

@@ -34,4 +34,3 @@ impl From<HalfmoveClock> for u8 {
         clock.0
     }
 }
-

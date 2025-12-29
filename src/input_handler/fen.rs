@@ -1,11 +1,6 @@
 use crate::board::{
-    castle_rights::CastleRights,
-    color::Color,
-    error::BoardError,
-    fullmove_number::FullmoveNumber,
-    halfmove_clock::HalfmoveClock,
-    piece::Piece,
-    Board,
+    castle_rights::CastleRights, color::Color, error::BoardError, fullmove_number::FullmoveNumber,
+    halfmove_clock::HalfmoveClock, piece::Piece, Board,
 };
 use common::bitboard::Square;
 use thiserror::Error;
@@ -86,7 +81,7 @@ fn split_fen_fields(fen: &str) -> FenResult<FenFields> {
 
 /// Maps a FEN piece character to its corresponding piece type and color
 fn parse_piece_char(c: char) -> FenResult<(Piece, Color)> {
-    Piece::from_fen_char(c).ok_or_else(|| FenParseError::InvalidPieceCharacter {
+    Piece::from_fen_char(c).ok_or(FenParseError::InvalidPieceCharacter {
         invalid_character: c,
     })
 }
@@ -164,17 +159,18 @@ fn parse_castle_rights(board: &mut Board, castle_rights: &str) -> FenResult<()> 
 
     let mut rights = CastleRights::none();
     for c in castle_rights.chars() {
-        rights = rights | match c {
-            'K' => CastleRights::white_kingside(),
-            'Q' => CastleRights::white_queenside(),
-            'k' => CastleRights::black_kingside(),
-            'q' => CastleRights::black_queenside(),
-            _ => {
-                return Err(FenParseError::InvalidCastlingRights {
-                    invalid_castling: c,
-                })
-            }
-        };
+        rights = rights
+            | match c {
+                'K' => CastleRights::white_kingside(),
+                'Q' => CastleRights::white_queenside(),
+                'k' => CastleRights::black_kingside(),
+                'q' => CastleRights::black_queenside(),
+                _ => {
+                    return Err(FenParseError::InvalidCastlingRights {
+                        invalid_castling: c,
+                    })
+                }
+            };
     }
     board.lose_castle_rights(!rights);
     Ok(())
@@ -195,7 +191,7 @@ fn parse_en_passant(board: &mut Board, en_passant: &str) -> FenResult<()> {
 
     let file = en_passant
         .chars()
-        .nth(0)
+        .next()
         .ok_or_else(|| FenParseError::InvalidEnPassant {
             component: "file".to_string(),
             value: en_passant.to_string(),
@@ -209,11 +205,9 @@ fn parse_en_passant(board: &mut Board, en_passant: &str) -> FenResult<()> {
         })?;
 
     if !file.is_ascii_lowercase()
-        || file < 'a'
-        || file > 'h'
+        || !('a'..='h').contains(&file)
         || !rank.is_ascii_digit()
-        || rank < '1'
-        || rank > '8'
+        || !('1'..='8').contains(&rank)
     {
         return Err(FenParseError::InvalidEnPassant {
             component: "square".to_string(),
@@ -312,7 +306,10 @@ mod tests {
     fn test_en_passant_parsing() {
         let fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1";
         let board = parse_fen(fen).unwrap();
-        assert_eq!(board.peek_en_passant_target(), Some(Square::from_rank_file(2, 4)));
+        assert_eq!(
+            board.peek_en_passant_target(),
+            Some(Square::from_rank_file(2, 4))
+        );
     }
 
     #[test]

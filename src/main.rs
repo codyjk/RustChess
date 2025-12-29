@@ -4,9 +4,9 @@ use chess::board::color::Color;
 use chess::board::Board;
 use chess::game::engine::{Engine, EngineConfig};
 use chess::game::input_source::{ConditionalInput, EngineInput, HumanInput};
-use chess::game::renderer::{ConditionalStatsRenderer, SimpleRenderer, StatsRenderer};
 use chess::game::position_counter::{run_count_positions, CountPositionsStrategy};
 use chess::game::r#loop::GameLoop;
+use chess::game::renderer::{ConditionalStatsRenderer, SimpleRenderer, StatsRenderer};
 use chess::game::stockfish_elo::determine_stockfish_elo;
 use chess::input_handler::fen::STARTING_POSITION_FEN;
 use structopt::StructOpt;
@@ -138,7 +138,7 @@ fn main() {
             };
             let mut engine = Engine::with_config(config);
             let valid_moves = engine.get_valid_moves();
-            if valid_moves.len() == 0 {
+            if valid_moves.is_empty() {
                 eprintln!("There are no valid moves in the given position.");
                 return;
             }

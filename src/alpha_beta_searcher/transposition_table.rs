@@ -68,13 +68,7 @@ impl<M: Clone + Send + Sync> TranspositionTable<M> {
         table.put(hash, entry);
     }
 
-    pub fn probe(
-        &self,
-        hash: u64,
-        depth: u8,
-        alpha: i16,
-        beta: i16,
-    ) -> Option<(i16, Option<M>)> {
+    pub fn probe(&self, hash: u64, depth: u8, alpha: i16, beta: i16) -> Option<(i16, Option<M>)> {
         let mut table = self
             .table
             .write()

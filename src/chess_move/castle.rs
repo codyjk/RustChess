@@ -1,21 +1,15 @@
 use core::fmt;
 
-use crate::board::{
-    castle_rights::CastleRights,
-    color::Color,
-    error::BoardError,
-    piece::Piece,
-    Board,
-};
 use common::bitboard::{Bitboard, Square, *};
+
+use crate::board::{
+    castle_rights::CastleRights, color::Color, error::BoardError, piece::Piece, Board,
+};
 
 use super::chess_move_effect::ChessMoveEffect;
 use super::traits::ChessMoveType;
 
-/// Represents a castle move in chess. This struct encapsulates the logic for applying
-/// and undoing a castle move on a chess board.
-/// The intended entry points for this struct are the `castle_kingside` and `castle_queenside`.
-/// As such, the struct is not intended to be constructed directly.
+/// Represents a castle move in chess.
 #[derive(PartialEq, Clone, Eq, PartialOrd, Ord)]
 pub struct CastleChessMove {
     /// The square the king is moving from
@@ -127,10 +121,18 @@ impl CastleChessMove {
             });
         }
 
-        board.remove(king_from).expect("king should be on from_square");
-        board.put(king_to, Piece::King, color).expect("king_to should be empty");
-        board.remove(rook_from).expect("rook should be on rook_from");
-        board.put(rook_to, Piece::Rook, color).expect("rook_to should be empty");
+        board
+            .remove(king_from)
+            .expect("king should be on from_square");
+        board
+            .put(king_to, Piece::King, color)
+            .expect("king_to should be empty");
+        board
+            .remove(rook_from)
+            .expect("rook should be on rook_from");
+        board
+            .put(rook_to, Piece::Rook, color)
+            .expect("rook_to should be empty");
 
         let lost_castle_rights = match color {
             Color::White => CastleRights::white_kingside() | CastleRights::white_queenside(),
@@ -140,7 +142,7 @@ impl CastleChessMove {
         board.increment_halfmove_clock();
         board.increment_fullmove_clock();
         board.push_en_passant_target(None);
-        board.lose_castle_rights(CastleRights::from(lost_castle_rights));
+        board.lose_castle_rights(lost_castle_rights);
 
         Ok(())
     }
@@ -175,10 +177,18 @@ impl CastleChessMove {
             });
         }
 
-        board.remove(king_to).expect("king should be on king_to when undoing");
-        board.put(king_from, Piece::King, color).expect("king_from should be empty when undoing");
-        board.remove(rook_to).expect("rook should be on rook_to when undoing");
-        board.put(rook_from, Piece::Rook, color).expect("rook_from should be empty when undoing");
+        board
+            .remove(king_to)
+            .expect("king should be on king_to when undoing");
+        board
+            .put(king_from, Piece::King, color)
+            .expect("king_from should be empty when undoing");
+        board
+            .remove(rook_to)
+            .expect("rook should be on rook_to when undoing");
+        board
+            .put(rook_from, Piece::Rook, color)
+            .expect("rook_from should be empty when undoing");
 
         // Revert the board state.
         board.decrement_fullmove_clock();

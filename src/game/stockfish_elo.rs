@@ -123,14 +123,14 @@ fn play_game(stockfish: &mut Stockfish, depth: u8) -> (GameResult, Duration, Dur
                 .get_best_move(&moves.join(" "), TIME_LIMIT)
                 .unwrap();
             stockfish_time += Duration::from_millis(sf_time);
-            create_chess_move_from_uci(&sf_move, &engine.board())
+            create_chess_move_from_uci(&sf_move, engine.board())
         };
 
         engine.apply_chess_move(chess_move.clone()).unwrap();
         moves.push(chess_move.to_uci());
 
         print!("{}{}", clear::All, cursor::Goto(1, 1));
-        print_board_and_stats(&mut engine, candidate_moves, current_turn);
+        print_board_and_stats(&engine, candidate_moves, current_turn);
         println!("* Engine color: {}", engine_color);
         println!("* Stockfish color: {}", engine_color.opposite());
         println!("* Current Stockfish ELO: {}", stockfish.get_elo());

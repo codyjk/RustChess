@@ -136,18 +136,18 @@ pub fn generate_pawn_move_targets(board: &Board, color: Color) -> PieceTargetLis
         let mut targets = Bitboard::EMPTY;
 
         let (single_offset, double_rank) = match color {
-            Color::White => (8u8, 1u8),  // +8 for single move, rank 1 (0-indexed) for double move
-            Color::Black => (8u8, 6u8),  // -8 for single move, rank 6 for double move
+            Color::White => (8u8, 1u8), // +8 for single move, rank 1 (0-indexed) for double move
+            Color::Black => (8u8, 6u8), // -8 for single move, rank 6 for double move
         };
 
         let pawn_idx = pawn_sq.index() as u16;
-        
+
         // Single move forward
         let single_target_idx = match color {
             Color::White => pawn_idx + single_offset as u16,
             Color::Black => pawn_idx.wrapping_sub(single_offset as u16),
         };
-        
+
         if single_target_idx < 64 {
             let single_target = Square::new(single_target_idx as u8);
             if !single_target.overlaps(occupied) {

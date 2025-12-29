@@ -30,4 +30,3 @@ impl From<FullmoveNumber> for u8 {
         number.0
     }
 }
-

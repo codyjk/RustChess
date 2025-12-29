@@ -101,4 +101,3 @@ impl std::ops::Not for CastleRights {
         Self(!self.0)
     }
 }
-

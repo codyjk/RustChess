@@ -1,7 +1,7 @@
 use common::bitboard::{Bitboard, Square};
 
+use super::error::BoardError;
 use super::piece::Piece;
-use super::BoardError;
 
 /// Encapsulates the state for a set of pieces on the board, represented as bitboards.
 #[derive(Clone, PartialEq)]

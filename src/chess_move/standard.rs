@@ -1,11 +1,7 @@
 use core::fmt;
 
 use crate::board::{
-    castle_rights::CastleRights,
-    color::Color,
-    error::BoardError,
-    piece::Piece,
-    Board,
+    castle_rights::CastleRights, color::Color, error::BoardError, piece::Piece, Board,
 };
 use common::bitboard::{
     bitboard::Bitboard,
@@ -29,7 +25,11 @@ pub struct StandardChessMove {
 }
 
 impl StandardChessMove {
-    pub fn new(from_square: square::Square, to_square: square::Square, captures: Option<Capture>) -> Self {
+    pub fn new(
+        from_square: square::Square,
+        to_square: square::Square,
+        captures: Option<Capture>,
+    ) -> Self {
         Self {
             from_square,
             to_square,
@@ -89,11 +89,12 @@ impl StandardChessMove {
             *from_square,
             *to_square,
         );
-        let lost_castle_rights = get_lost_castle_rights_if_rook_or_king_moved(
-            piece_to_move,
-            color_of_piece_to_move,
-            *from_square,
-        ) | get_lost_castle_rights_if_rook_taken(captured_piece_and_color, *to_square);
+        let lost_castle_rights =
+            get_lost_castle_rights_if_rook_or_king_moved(
+                piece_to_move,
+                color_of_piece_to_move,
+                *from_square,
+            ) | get_lost_castle_rights_if_rook_taken(captured_piece_and_color, *to_square);
 
         if captured_piece_and_color.is_some() {
             board.reset_halfmove_clock();
@@ -430,9 +431,7 @@ mod tests {
         };
         println!("Testing board:\n{}", board);
 
-        assert!(
-            !(board.peek_castle_rights() & CastleRights::white_kingside()).is_empty()
-        );
+        assert!(!(board.peek_castle_rights() & CastleRights::white_kingside()).is_empty());
         let chess_move = std_move!(H1, H2);
         chess_move.apply(&mut board).unwrap();
         assert_eq!(
@@ -455,9 +454,7 @@ mod tests {
         };
         println!("Testing board:\n{}", board);
 
-        assert!(
-            !(board.peek_castle_rights() & CastleRights::white_queenside()).is_empty()
-        );
+        assert!(!(board.peek_castle_rights() & CastleRights::white_queenside()).is_empty());
         let chess_move = std_move!(A1, A2);
         chess_move.apply(&mut board).unwrap();
         assert_eq!(
@@ -480,9 +477,7 @@ mod tests {
         };
         println!("Testing board:\n{}", board);
 
-        assert!(
-            !(board.peek_castle_rights() & CastleRights::black_kingside()).is_empty()
-        );
+        assert!(!(board.peek_castle_rights() & CastleRights::black_kingside()).is_empty());
         let chess_move = std_move!(H8, H2);
         chess_move.apply(&mut board).unwrap();
         assert_eq!(
@@ -505,9 +500,7 @@ mod tests {
         };
         println!("Testing board:\n{}", board);
 
-        assert!(
-            !(board.peek_castle_rights() & CastleRights::black_queenside()).is_empty()
-        );
+        assert!(!(board.peek_castle_rights() & CastleRights::black_queenside()).is_empty());
         let chess_move = std_move!(A8, A2);
         chess_move.apply(&mut board).unwrap();
         assert_eq!(
@@ -530,9 +523,7 @@ mod tests {
         };
         println!("Testing board:\n{}", board);
 
-        assert!(
-            !(board.peek_castle_rights() & CastleRights::white_queenside()).is_empty()
-        );
+        assert!(!(board.peek_castle_rights() & CastleRights::white_queenside()).is_empty());
         let chess_move = std_move!(H8, A1, Capture(Piece::Rook));
         chess_move.apply(&mut board).unwrap();
         assert_eq!(
@@ -555,9 +546,7 @@ mod tests {
         };
         println!("Testing board:\n{}", board);
 
-        assert!(
-            !(board.peek_castle_rights() & CastleRights::white_kingside()).is_empty()
-        );
+        assert!(!(board.peek_castle_rights() & CastleRights::white_kingside()).is_empty());
         let chess_move = std_move!(A8, H1, Capture(Piece::Rook));
         chess_move.apply(&mut board).unwrap();
         assert_eq!(
@@ -580,9 +569,7 @@ mod tests {
         };
         println!("Testing board:\n{}", board);
 
-        assert!(
-            !(board.peek_castle_rights() & CastleRights::black_queenside()).is_empty()
-        );
+        assert!(!(board.peek_castle_rights() & CastleRights::black_queenside()).is_empty());
         let chess_move = std_move!(H1, A8, Capture(Piece::Rook));
         chess_move.apply(&mut board).unwrap();
         assert_eq!(
@@ -605,9 +592,7 @@ mod tests {
         };
         println!("Testing board:\n{}", board);
 
-        assert!(
-            !(board.peek_castle_rights() & CastleRights::black_kingside()).is_empty()
-        );
+        assert!(!(board.peek_castle_rights() & CastleRights::black_kingside()).is_empty());
         let chess_move = std_move!(A1, H8, Capture(Piece::Rook));
         chess_move.apply(&mut board).unwrap();
         assert_eq!(
@@ -630,12 +615,8 @@ mod tests {
         };
         println!("Testing board:\n{}", board);
 
-        assert!(
-            !(board.peek_castle_rights() & CastleRights::white_kingside()).is_empty()
-        );
-        assert!(
-            !(board.peek_castle_rights() & CastleRights::white_queenside()).is_empty()
-        );
+        assert!(!(board.peek_castle_rights() & CastleRights::white_kingside()).is_empty());
+        assert!(!(board.peek_castle_rights() & CastleRights::white_queenside()).is_empty());
         let chess_move = std_move!(E1, E2);
         chess_move.apply(&mut board).unwrap();
         assert_eq!(
@@ -662,12 +643,8 @@ mod tests {
         };
         println!("Testing board:\n{}", board);
 
-        assert!(
-            !(board.peek_castle_rights() & CastleRights::black_kingside()).is_empty()
-        );
-        assert!(
-            !(board.peek_castle_rights() & CastleRights::black_queenside()).is_empty()
-        );
+        assert!(!(board.peek_castle_rights() & CastleRights::black_kingside()).is_empty());
+        assert!(!(board.peek_castle_rights() & CastleRights::black_queenside()).is_empty());
         let chess_move = std_move!(E8, E7);
         chess_move.apply(&mut board).unwrap();
         assert_eq!(

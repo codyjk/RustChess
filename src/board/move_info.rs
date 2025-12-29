@@ -60,7 +60,8 @@ impl MoveInfo {
         lost_rights: CastleRights,
     ) -> (CastleRights, CastleRights) {
         let old_rights = self.peek_castle_rights();
-        let new_rights = CastleRights::new(old_rights.bits() ^ (old_rights.intersection(lost_rights).bits()));
+        let new_rights =
+            CastleRights::new(old_rights.bits() ^ (old_rights.intersection(lost_rights).bits()));
         self.castle_rights_stack.push(new_rights);
         (old_rights, new_rights)
     }

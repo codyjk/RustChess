@@ -8,11 +8,17 @@ pub struct GameDisplay {
     buffer: String,
 }
 
-impl GameDisplay {
-    pub fn new() -> Self {
+impl Default for GameDisplay {
+    fn default() -> Self {
         Self {
             buffer: String::with_capacity(2048),
         }
+    }
+}
+
+impl GameDisplay {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn clear(&mut self) {

@@ -41,7 +41,14 @@ impl ChessMove {
     }
 
     pub fn from_square(&self) -> Square {
-        delegate_to_variants!(self, from_square, Standard, PawnPromotion, EnPassant, Castle)
+        delegate_to_variants!(
+            self,
+            from_square,
+            Standard,
+            PawnPromotion,
+            EnPassant,
+            Castle
+        )
     }
 
     pub fn captures(&self) -> Option<Capture> {
@@ -58,19 +65,43 @@ impl ChessMove {
     }
 
     pub fn set_effect(&mut self, effect: ChessMoveEffect) -> &Self {
-        delegate_to_variants_mut!(self, set_effect, effect, Standard, PawnPromotion, EnPassant, Castle);
+        delegate_to_variants_mut!(
+            self,
+            set_effect,
+            effect,
+            Standard,
+            PawnPromotion,
+            EnPassant,
+            Castle
+        );
         self
     }
 
     #[must_use = "move application may fail"]
     pub fn apply(&self, board: &mut Board) -> Result<(), BoardError> {
-        let result = delegate_to_variants_mut!(self, apply, board, Standard, PawnPromotion, EnPassant, Castle);
+        let result = delegate_to_variants_mut!(
+            self,
+            apply,
+            board,
+            Standard,
+            PawnPromotion,
+            EnPassant,
+            Castle
+        );
         map_ok(result)
     }
 
     #[must_use = "move undo may fail"]
     pub fn undo(&self, board: &mut Board) -> Result<(), BoardError> {
-        let result = delegate_to_variants_mut!(self, undo, board, Standard, PawnPromotion, EnPassant, Castle);
+        let result = delegate_to_variants_mut!(
+            self,
+            undo,
+            board,
+            Standard,
+            PawnPromotion,
+            EnPassant,
+            Castle
+        );
         map_ok(result)
     }
 
