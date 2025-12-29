@@ -96,6 +96,57 @@ impl<M: Clone + Send + Sync> TranspositionTable<M> {
         None
     }
 
+    pub fn get_move(&self, hash: u64) -> Option<M> {
+        let mut table = self
+            .table
+            .write()
+            .expect("transposition table lock should not be poisoned");
+        table.get(&hash).and_then(|entry| entry.best_move.clone())
+    }
+
+    /// Probe TT and return both cutoff score (if applicable) and best move (if exists).
+    /// Returns (Some(score), best_move) if early cutoff possible, (None, best_move) otherwise.
+    /// This is more efficient than calling probe() followed by get_move().
+    pub fn probe_with_move(
+        &self,
+        hash: u64,
+        depth: u8,
+        alpha: i16,
+        beta: i16,
+    ) -> (Option<i16>, Option<M>) {
+        let mut table = self
+            .table
+            .write()
+            .expect("transposition table lock should not be poisoned");
+
+        if let Some(entry) = table.get(&hash) {
+            let best_move = entry.best_move.clone();
+
+            if entry.depth >= depth {
+                match entry.bound_type {
+                    BoundType::Exact => {
+                        self.hits.fetch_add(1, Ordering::Relaxed);
+                        return (Some(entry.score), best_move);
+                    }
+                    BoundType::Lower if entry.score >= beta => {
+                        self.hits.fetch_add(1, Ordering::Relaxed);
+                        return (Some(beta), best_move);
+                    }
+                    BoundType::Upper if entry.score <= alpha => {
+                        self.hits.fetch_add(1, Ordering::Relaxed);
+                        return (Some(alpha), best_move);
+                    }
+                    _ => (),
+                }
+            }
+            // Entry exists but doesn't allow cutoff - return move for ordering
+            (None, best_move)
+        } else {
+            // No entry found
+            (None, None)
+        }
+    }
+
     pub fn clear(&self) {
         let mut table = self
             .table

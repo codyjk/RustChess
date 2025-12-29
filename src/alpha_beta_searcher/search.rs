@@ -365,7 +365,13 @@ where
 
     let hash = state.position_hash();
 
-    if let Some((score, _)) = context.transposition_table.probe(hash, depth, alpha, beta) {
+    // Probe TT once for both cutoff score and PV move
+    let (cutoff_score, tt_move) = context
+        .transposition_table
+        .probe_with_move(hash, depth, alpha, beta);
+
+    // Early return if TT allows cutoff
+    if let Some(score) = cutoff_score {
         return Ok(score);
     }
 
@@ -383,13 +389,28 @@ where
 
     move_orderer.order_moves(candidates.as_mut(), state);
 
-    // Boost killer moves to front after initial ordering
-    let killers = context.get_killers(ply);
     let moves_slice = candidates.as_mut();
-    for killer in killers.iter().flatten().rev() {
-        if let Some(pos) = moves_slice.iter().position(|m| m == killer) {
+
+    // Boost PV move from TT to front first (highest priority)
+    if let Some(ref pv_move) = tt_move {
+        if let Some(pos) = moves_slice.iter().position(|m| m == pv_move) {
+            // Only reorder if not already first
             if pos > 0 {
                 moves_slice[0..=pos].rotate_right(1);
+            }
+        }
+    }
+
+    // Boost killer moves to front after PV move
+    // Start from position 1 if PV move exists, 0 otherwise
+    let killer_start = if tt_move.is_some() { 1 } else { 0 };
+    let killers = context.get_killers(ply);
+
+    for killer in killers.iter().flatten().rev() {
+        if let Some(pos) = moves_slice.iter().position(|m| m == killer) {
+            // Only move if it's beyond the killer insertion point and not the PV move
+            if pos > killer_start && Some(killer) != tt_move.as_ref() {
+                moves_slice[killer_start..=pos].rotate_right(1);
             }
         }
     }
