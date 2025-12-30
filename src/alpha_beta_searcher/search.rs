@@ -22,20 +22,15 @@
 //! ## Move Ordering
 //! Orders moves to maximize alpha-beta cutoffs:
 //! 1. PV (Principal Variation) move from transposition table
-//! 2. Killer moves (quiet moves that caused cutoffs at the same ply)
-//! 3. History heuristic and capture moves (via MoveOrderer trait)
+//! 2. Killer moves (moves that caused cutoffs at the same ply)
+//! 3. Other heuristics (via MoveOrderer trait)
 //!
 //! Better move ordering leads to more cutoffs and faster search.
 //!
-//! ## Null Move Pruning
-//! Gives the opponent a free move (depth >= 3, not in check, not endgame). If they still can't
-//! achieve beta even with this advantage, the position is too good and the branch is pruned.
-//! Games opt in by implementing `is_in_check` and `is_endgame` on their state type.
-//!
 //! ## Quiescence Search
-//! Extends search beyond the nominal depth for tactical moves (captures, checks) to avoid the
-//! horizon effect where the engine stops analyzing just before a critical tactical sequence.
-//! Games opt in by implementing `is_tactical` on their move type.
+//! Extends search beyond the nominal depth for tactical moves to avoid the horizon effect
+//! where evaluation stops just before a critical sequence. Games opt in by implementing
+//! `is_tactical` on their move type to identify which moves should be searched in quiescence.
 //!
 //! ## Parallel Search
 //! Root moves can be searched in parallel using thread-local storage for killer moves to
@@ -76,6 +71,11 @@ impl SearchConfig {
 /// Statistics collected during search.
 struct SearchStats {
     position_count: AtomicUsize,
+    quiescence_nodes: AtomicUsize,
+    tt_probes: AtomicUsize,
+    tt_stores: AtomicUsize,
+    tt_probe_misses: AtomicUsize,
+    move_gen_calls: AtomicUsize,
     last_score: Option<i16>,
     last_duration: Option<Duration>,
 }
@@ -84,6 +84,11 @@ impl SearchStats {
     fn new() -> Self {
         Self {
             position_count: AtomicUsize::new(0),
+            quiescence_nodes: AtomicUsize::new(0),
+            tt_probes: AtomicUsize::new(0),
+            tt_stores: AtomicUsize::new(0),
+            tt_probe_misses: AtomicUsize::new(0),
+            move_gen_calls: AtomicUsize::new(0),
             last_score: None,
             last_duration: None,
         }
@@ -93,10 +98,35 @@ impl SearchStats {
         self.position_count.fetch_add(1, Ordering::SeqCst);
     }
 
+    fn increment_quiescence(&self) {
+        self.quiescence_nodes.fetch_add(1, Ordering::SeqCst);
+    }
+
+    fn increment_tt_probes(&self) {
+        self.tt_probes.fetch_add(1, Ordering::SeqCst);
+    }
+
+    fn increment_tt_stores(&self) {
+        self.tt_stores.fetch_add(1, Ordering::SeqCst);
+    }
+
+    fn increment_tt_misses(&self) {
+        self.tt_probe_misses.fetch_add(1, Ordering::SeqCst);
+    }
+
+    fn increment_move_gen(&self) {
+        self.move_gen_calls.fetch_add(1, Ordering::SeqCst);
+    }
+
     fn reset(&mut self) {
         self.last_score = None;
         self.last_duration = None;
         self.position_count.store(0, Ordering::SeqCst);
+        self.quiescence_nodes.store(0, Ordering::SeqCst);
+        self.tt_probes.store(0, Ordering::SeqCst);
+        self.tt_stores.store(0, Ordering::SeqCst);
+        self.tt_probe_misses.store(0, Ordering::SeqCst);
+        self.move_gen_calls.store(0, Ordering::SeqCst);
     }
 
     fn record_result(&mut self, score: i16, duration: Duration) {
@@ -106,6 +136,26 @@ impl SearchStats {
 
     fn count(&self) -> usize {
         self.position_count.load(Ordering::SeqCst)
+    }
+
+    fn quiescence_nodes(&self) -> usize {
+        self.quiescence_nodes.load(Ordering::SeqCst)
+    }
+
+    fn tt_probes(&self) -> usize {
+        self.tt_probes.load(Ordering::SeqCst)
+    }
+
+    fn tt_stores(&self) -> usize {
+        self.tt_stores.load(Ordering::SeqCst)
+    }
+
+    fn tt_probe_misses(&self) -> usize {
+        self.tt_probe_misses.load(Ordering::SeqCst)
+    }
+
+    fn move_gen_calls(&self) -> usize {
+        self.move_gen_calls.load(Ordering::SeqCst)
     }
 }
 
@@ -181,8 +231,48 @@ impl<M: Clone + Send + Sync + 'static> SearchContext<M> {
         self.transposition_table.hits()
     }
 
+    pub fn tt_probes(&self) -> usize {
+        self.stats.tt_probes()
+    }
+
+    pub fn move_gen_calls(&self) -> usize {
+        self.stats.move_gen_calls()
+    }
+
+    pub fn quiescence_nodes(&self) -> usize {
+        self.stats.quiescence_nodes()
+    }
+
+    pub fn tt_stores(&self) -> usize {
+        self.stats.tt_stores()
+    }
+
+    pub fn tt_probe_misses(&self) -> usize {
+        self.stats.tt_probe_misses()
+    }
+
     fn increment_position_count(&self) {
         self.stats.increment();
+    }
+
+    fn increment_quiescence(&self) {
+        self.stats.increment_quiescence();
+    }
+
+    fn increment_tt_probes(&self) {
+        self.stats.increment_tt_probes();
+    }
+
+    fn increment_tt_stores(&self) {
+        self.stats.increment_tt_stores();
+    }
+
+    fn increment_tt_misses(&self) {
+        self.stats.increment_tt_misses();
+    }
+
+    fn increment_move_gen(&self) {
+        self.stats.increment_move_gen();
     }
 }
 
@@ -258,54 +348,6 @@ where
             }
         }
     }
-}
-
-/// Attempts null move pruning to cut search early.
-///
-/// Returns Some(beta) if null move causes cutoff, None otherwise.
-///
-/// Prerequisites: depth >= 3, not in check, not endgame.
-#[allow(clippy::too_many_arguments)]
-fn try_null_move_pruning<S, G, E, O>(
-    context: &SearchContext<G::Move>,
-    state: &mut S,
-    move_generator: &G,
-    evaluator: &E,
-    move_orderer: &O,
-    depth: u8,
-    ply: u8,
-    beta: i16,
-    maximizing_player: bool,
-) -> Result<Option<i16>, SearchError>
-where
-    S: GameState,
-    G: MoveGenerator<S>,
-    G::Move: GameMove<State = S>,
-    E: Evaluator<S>,
-    O: MoveOrderer<S, G::Move>,
-{
-    if depth < 3 || state.is_in_check() || state.is_endgame() {
-        return Ok(None);
-    }
-
-    const NULL_MOVE_REDUCTION: u8 = 2;
-
-    state.toggle_turn();
-    let null_score = -alpha_beta_minimax(
-        context,
-        state,
-        move_generator,
-        evaluator,
-        move_orderer,
-        depth - 1 - NULL_MOVE_REDUCTION,
-        ply + 1,
-        -beta,
-        -beta + 1,
-        !maximizing_player,
-    )?;
-    state.toggle_turn();
-
-    Ok(if null_score >= beta { Some(beta) } else { None })
 }
 
 /// Searches for the best move using alpha-beta pruning with iterative deepening.
@@ -432,6 +474,7 @@ where
 
     let best_move = best_move.ok_or(SearchError::NoAvailableMoves)?;
 
+    context.increment_tt_stores();
     context.transposition_table.store(
         hash,
         best_score,
@@ -568,9 +611,9 @@ const MAX_QUIESCENCE_DEPTH: u8 = 8;
 
 /// Quiescence search to avoid the horizon effect.
 ///
-/// Extends the search beyond the nominal depth by only considering tactical moves
-/// (captures, checks, promotions). This prevents the evaluation from being distorted
-/// by stopping the search in the middle of a tactical sequence.
+/// Extends the search beyond the nominal depth by only considering tactical moves.
+/// This prevents the evaluation from being distorted by stopping the search in the
+/// middle of a tactical sequence.
 ///
 /// The search continues until reaching a "quiet" position where no tactical moves
 /// are available, or until MAX_QUIESCENCE_DEPTH is reached.
@@ -605,6 +648,7 @@ where
     O: MoveOrderer<S, G::Move>,
 {
     context.increment_position_count();
+    context.increment_quiescence();
 
     if qdepth >= MAX_QUIESCENCE_DEPTH {
         return Ok(evaluator.evaluate(state, 0));
@@ -618,6 +662,7 @@ where
         alpha = stand_pat;
     }
 
+    context.increment_move_gen();
     let candidates = move_generator.generate_moves(state);
     if candidates.is_empty() {
         return Ok(stand_pat);
@@ -683,7 +728,6 @@ where
 /// # Search Optimizations
 ///
 /// - **Transposition Table Lookup**: Checks for cached results at this position
-/// - **Null Move Pruning**: Attempts to prune the branch by giving opponent a free move
 /// - **Move Ordering**: Prioritizes PV move, killer moves, then other moves
 /// - **Quiescence Extension**: Calls quiescence_search at depth 0 to avoid horizon effect
 ///
@@ -723,9 +767,15 @@ where
     let hash = state.position_hash();
 
     // Probe TT once for both cutoff score and PV move
+    context.increment_tt_probes();
     let (cutoff_score, tt_move) = context
         .transposition_table
         .probe_with_move(hash, depth, alpha, beta);
+
+    // Track if we got a TT miss
+    if cutoff_score.is_none() && tt_move.is_none() {
+        context.increment_tt_misses();
+    }
 
     // Early return if TT allows cutoff
     if let Some(score) = cutoff_score {
@@ -746,21 +796,7 @@ where
         );
     }
 
-    // Null move pruning
-    if let Some(score) = try_null_move_pruning(
-        context,
-        state,
-        move_generator,
-        evaluator,
-        move_orderer,
-        depth,
-        ply,
-        beta,
-        maximizing_player,
-    )? {
-        return Ok(score);
-    }
-
+    context.increment_move_gen();
     let mut candidates = move_generator.generate_moves(state);
 
     if candidates.is_empty() {
@@ -827,6 +863,7 @@ where
         BoundType::Exact
     };
 
+    context.increment_tt_stores();
     context
         .transposition_table
         .store(hash, best_score, depth, bound_type, best_move);

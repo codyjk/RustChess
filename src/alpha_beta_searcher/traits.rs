@@ -12,18 +12,6 @@ pub trait GameState: Clone + Send + Sync {
 
     /// Switches to the next player's turn.
     fn toggle_turn(&mut self);
-
-    /// Returns true if the current player is in check. Used for null move pruning.
-    /// Default implementation returns false (null move pruning disabled).
-    fn is_in_check(&self) -> bool {
-        false
-    }
-
-    /// Returns true if the position is an endgame. Used for null move pruning.
-    /// Default implementation returns false (null move pruning enabled).
-    fn is_endgame(&self) -> bool {
-        false
-    }
 }
 
 /// Represents an action that can be applied to and undone from a game state.
@@ -38,8 +26,9 @@ pub trait GameMove: Clone + Send + Sync + PartialEq + Debug {
     fn undo(&self, state: &mut Self::State) -> Result<(), Self::Error>;
 
     /// Returns true if this move is "tactical" and should be searched in quiescence.
-    /// Tactical moves are those that change the material balance or create immediate threats
-    /// (e.g., captures, checks, promotions). Default implementation returns false.
+    /// Tactical moves are those that significantly change the position evaluation and
+    /// should not be evaluated at a horizon (e.g., material exchanges, forced sequences).
+    /// Default implementation returns false.
     fn is_tactical(&self, _state: &Self::State) -> bool {
         false
     }

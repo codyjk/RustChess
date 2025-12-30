@@ -83,8 +83,13 @@ impl PositionResult {
 
 struct BenchmarkSummary {
     total_nodes: usize,
+    total_quiescence_nodes: usize,
     total_time: Duration,
     total_tt_hits: usize,
+    total_tt_probes: usize,
+    total_tt_stores: usize,
+    total_tt_misses: usize,
+    total_move_gen_calls: usize,
     results: Vec<PositionResult>,
 }
 
@@ -94,10 +99,18 @@ impl BenchmarkSummary {
     }
 
     fn tt_hit_rate(&self) -> f64 {
+        if self.total_tt_probes == 0 {
+            0.0
+        } else {
+            (self.total_tt_hits as f64 / self.total_tt_probes as f64) * 100.0
+        }
+    }
+
+    fn move_gen_per_node(&self) -> f64 {
         if self.total_nodes == 0 {
             0.0
         } else {
-            (self.total_tt_hits as f64 / self.total_nodes as f64) * 100.0
+            self.total_move_gen_calls as f64 / self.total_nodes as f64
         }
     }
 
@@ -117,12 +130,44 @@ impl BenchmarkSummary {
         println!("SUMMARY");
         println!("{}", "-".repeat(70));
         println!("  Total nodes:    {:>12}", format_number(self.total_nodes));
+        println!(
+            "    Quiescence:   {:>12} ({:.1}% of nodes)",
+            format_number(self.total_quiescence_nodes),
+            (self.total_quiescence_nodes as f64 / self.total_nodes as f64) * 100.0
+        );
         println!("  Total time:     {:>12.2}s", self.total_time.as_secs_f64());
         println!(
             "  Avg speed:      {:>12.0}k nodes/s",
             self.average_nodes_per_second() / 1000.0
         );
-        println!("  TT hit rate:    {:>12.1}%", self.tt_hit_rate());
+        println!();
+        println!("  Transposition Table:");
+        println!(
+            "    Probes:       {:>12} ({:.2} per node)",
+            format_number(self.total_tt_probes),
+            self.total_tt_probes as f64 / self.total_nodes as f64
+        );
+        println!(
+            "    Hits:         {:>12} ({:.1}% of probes)",
+            format_number(self.total_tt_hits),
+            self.tt_hit_rate()
+        );
+        println!(
+            "    Misses:       {:>12} ({:.1}% of probes)",
+            format_number(self.total_tt_misses),
+            (self.total_tt_misses as f64 / self.total_tt_probes as f64) * 100.0
+        );
+        println!(
+            "    Stores:       {:>12} ({:.2} per node)",
+            format_number(self.total_tt_stores),
+            self.total_tt_stores as f64 / self.total_nodes as f64
+        );
+        println!();
+        println!(
+            "  Move gen calls: {:>12} ({:.2} per node)",
+            format_number(self.total_move_gen_calls),
+            self.move_gen_per_node()
+        );
         println!("{}", "=".repeat(70));
     }
 }
@@ -193,8 +238,13 @@ pub fn run_alpha_beta_benchmark(depth: u8, parallel: bool, position_filter: Opti
 
     let mut results = Vec::new();
     let mut total_nodes = 0;
+    let mut total_quiescence_nodes = 0;
     let mut total_time = Duration::from_secs(0);
     let mut total_tt_hits = 0;
+    let mut total_tt_probes = 0;
+    let mut total_tt_stores = 0;
+    let mut total_tt_misses = 0;
+    let mut total_move_gen_calls = 0;
 
     for benchmark_pos in positions_to_run {
         let mut board = benchmark_pos.board();
@@ -206,12 +256,22 @@ pub fn run_alpha_beta_benchmark(depth: u8, parallel: bool, position_filter: Opti
         let time_taken = start.elapsed();
 
         let nodes_searched = context.searched_position_count();
+        let quiescence_nodes = context.quiescence_nodes();
         let score = context.last_score().unwrap_or(0);
         let tt_hits = context.tt_hits();
+        let tt_probes = context.tt_probes();
+        let tt_stores = context.tt_stores();
+        let tt_misses = context.tt_probe_misses();
+        let move_gen_calls = context.move_gen_calls();
 
         total_nodes += nodes_searched;
+        total_quiescence_nodes += quiescence_nodes;
         total_time += time_taken;
         total_tt_hits += tt_hits;
+        total_tt_probes += tt_probes;
+        total_tt_stores += tt_stores;
+        total_tt_misses += tt_misses;
+        total_move_gen_calls += move_gen_calls;
 
         results.push(PositionResult {
             position_name: benchmark_pos.name.to_string(),
@@ -224,8 +284,13 @@ pub fn run_alpha_beta_benchmark(depth: u8, parallel: bool, position_filter: Opti
 
     let summary = BenchmarkSummary {
         total_nodes,
+        total_quiescence_nodes,
         total_time,
         total_tt_hits,
+        total_tt_probes,
+        total_tt_stores,
+        total_tt_misses,
+        total_move_gen_calls,
         results,
     };
 
