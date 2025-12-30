@@ -38,7 +38,7 @@ impl<M: Clone + Send + Sync> SearchContext<M> {
             last_score: None,
             last_search_duration: None,
             transposition_table: TranspositionTable::default(),
-            parallel: false,
+            parallel: true,
             killer_moves: Mutex::new(vec![[None, None]; depth as usize + 1]),
         }
     }
