@@ -9,7 +9,7 @@ use crate::chess_move::{chess_move::ChessMove, chess_move_effect::ChessMoveEffec
 use crate::move_generator::{ChessMoveList, MoveGenerator as ChessMoveGen};
 use crate::{evaluate, move_generator};
 
-use super::move_orderer::ChessMoveOrderer;
+use super::move_orderer::{clear_history, ChessMoveOrderer};
 
 impl GameState for Board {
     #[inline]
@@ -124,6 +124,9 @@ pub fn search_best_move(
     context: &mut SearchContext<ChessMove>,
     board: &mut Board,
 ) -> Result<ChessMove, SearchError> {
+    // Clear history at start of each search to prevent unbounded growth
+    clear_history();
+
     let move_generator = ChessMoveGenerator::default();
     let evaluator = ChessEvaluator::default();
     let move_orderer = ChessMoveOrderer;

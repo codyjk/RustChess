@@ -680,10 +680,9 @@ where
         }
 
         if beta <= alpha {
-            // Beta cutoff - store killer move if it's not a capture
-            // We can't easily check if it's a capture generically, so we store all cutoff moves
-            // The chess-specific move orderer will handle captures first anyway
+            // Beta cutoff - store killer move and notify move orderer
             context.store_killer(ply, game_move.clone());
+            move_orderer.record_cutoff(game_move, state, depth);
             break;
         }
     }

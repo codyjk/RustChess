@@ -1,14 +1,44 @@
 //! Chess-specific move ordering for improved alpha-beta pruning.
 
-use crate::alpha_beta_searcher::MoveOrderer;
+use std::cell::RefCell;
+use thread_local::ThreadLocal;
+
+use crate::alpha_beta_searcher::{GameMove, MoveOrderer};
 use crate::board::piece::Piece;
 use crate::board::Board;
 use crate::chess_move::chess_move::ChessMove;
 use crate::chess_move::chess_move_effect::ChessMoveEffect;
 use crate::evaluate::evaluation_tables::MATERIAL_VALUES;
+use crate::prelude::*;
+
+use super::history_table::HistoryTable;
+
+static HISTORY_TABLE: ThreadLocal<RefCell<HistoryTable>> = ThreadLocal::new();
+
+fn get_history_score(from: Square, to: Square) -> u32 {
+    HISTORY_TABLE
+        .get_or(|| RefCell::new(HistoryTable::new()))
+        .borrow()
+        .score(from, to)
+}
+
+/// Records a history cutoff for a quiet move.
+pub fn record_history_cutoff(from: Square, to: Square, depth: u8) {
+    HISTORY_TABLE
+        .get_or(|| RefCell::new(HistoryTable::new()))
+        .borrow_mut()
+        .record_cutoff(from, to, depth);
+}
+
+/// Clears the history table.
+pub fn clear_history() {
+    if let Some(storage) = HISTORY_TABLE.get() {
+        storage.borrow_mut().clear();
+    }
+}
 
 /// Chess move orderer that prioritizes checkmates, checks, captures, promotions,
-/// then piece moves by type (rook, knight, bishop, pawn, other).
+/// then uses history heuristic for quiet moves, then piece moves by type.
 #[derive(Clone, Default, Debug)]
 pub struct ChessMoveOrderer;
 
@@ -16,6 +46,14 @@ impl MoveOrderer<Board, ChessMove> for ChessMoveOrderer {
     #[inline]
     fn order_moves(&self, moves: &mut [ChessMove], state: &Board) {
         moves.sort_by(|a, b| compare_moves(a, b, state));
+    }
+
+    fn record_cutoff(&self, mv: &ChessMove, _state: &Board, depth: u8) {
+        // Only record history for quiet (non-tactical) moves
+        // Tactical moves are already prioritized by move ordering
+        if !mv.is_tactical(_state) {
+            record_history_cutoff(mv.from_square(), mv.to_square(), depth);
+        }
     }
 }
 
@@ -80,7 +118,17 @@ fn compare_move_types(a: &ChessMove, b: &ChessMove, board: &Board) -> std::cmp::
         (ChessMove::PawnPromotion(_), ChessMove::PawnPromotion(_)) => Ordering::Equal,
         (ChessMove::PawnPromotion(_), _) => Ordering::Less,
         (_, ChessMove::PawnPromotion(_)) => Ordering::Greater,
-        _ => compare_piece_types(get_piece_type(a, board), get_piece_type(b, board)),
+        _ => {
+            // For quiet moves, use history heuristic
+            let history_a = get_history_score(a.from_square(), a.to_square());
+            let history_b = get_history_score(b.from_square(), b.to_square());
+            match history_a.cmp(&history_b) {
+                Ordering::Equal => {
+                    compare_piece_types(get_piece_type(a, board), get_piece_type(b, board))
+                }
+                other => other.reverse(), // Higher history score = better, so reverse for ascending sort
+            }
+        }
     }
 }
 

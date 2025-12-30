@@ -64,6 +64,10 @@ pub trait Evaluator<S: GameState>: Clone + Send + Sync {
 pub trait MoveOrderer<S: GameState, M>: Clone + Send + Sync {
     /// Sorts moves in-place, placing "better" moves first.
     fn order_moves(&self, moves: &mut [M], state: &S);
+
+    /// Called when a move causes a beta cutoff. Can be used to update
+    /// move ordering heuristics (e.g., history table). Default does nothing.
+    fn record_cutoff(&self, _mv: &M, _state: &S, _depth: u8) {}
 }
 
 /// A no-op move orderer for games without move ordering heuristics.
