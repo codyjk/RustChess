@@ -361,7 +361,6 @@ mod tests {
             ........
             .R.....k
         };
-        println!("Testing board:\n{}", board);
 
         let expected_white_targets = Bitboard::EMPTY
             // pawn
@@ -388,8 +387,6 @@ mod tests {
             | D2
             | A1;
         let white_targets = targets.generate_attack_targets(&board, Color::White);
-        println!("expected white targets:\n{}", expected_white_targets,);
-        println!("actual white targets:\n{}", white_targets);
         assert_eq!(expected_white_targets, white_targets);
 
         let expected_black_targets = Bitboard::EMPTY
@@ -401,8 +398,6 @@ mod tests {
             | G2
             | H2;
         let black_targets = targets.generate_attack_targets(&board, Color::Black);
-        println!("expected black targets:\n{}", expected_black_targets);
-        println!("actual black targets:\n{}", black_targets);
         assert_eq!(expected_black_targets, black_targets);
     }
 
@@ -421,7 +416,6 @@ mod tests {
             m.apply(&mut board).unwrap();
             board.toggle_turn();
         }
-        println!("Testing board:\n{}", board);
 
         let expected_white_targets = Bitboard::EMPTY
             // knights
@@ -456,8 +450,6 @@ mod tests {
             | E2;
 
         let white_targets = targets.generate_attack_targets(&board, Color::White);
-        println!("expected white targets:\n{}", expected_white_targets,);
-        println!("actual white targets:\n{}", white_targets);
         assert_eq!(expected_white_targets, white_targets);
     }
 }

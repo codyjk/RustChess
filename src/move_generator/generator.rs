@@ -493,7 +493,6 @@ mod tests {
             p..P.P..
             ........
         };
-        println!("Testing board:\n{}", board);
 
         let mut expected_white_moves: ChessMoveList = smallvec![
             std_move!(D2, D3),
@@ -549,7 +548,6 @@ mod tests {
             .PP.P...
             ........
         };
-        println!("Testing board:\n{}", board);
 
         let mut expected_moves: ChessMoveList =
             smallvec![std_move!(B2, B3), std_move!(B2, B4), std_move!(C3, C4)];
@@ -576,7 +574,6 @@ mod tests {
             ........
             ........
         };
-        println!("Testing board:\n{}", board);
 
         let mut expected_white_moves: ChessMoveList = smallvec![
             std_move!(C3, D5, Capture(Piece::Pawn)),
@@ -622,7 +619,6 @@ mod tests {
             ........
             ..K.....
         };
-        println!("Testing board:\n{}", board);
 
         let mut expected_moves: ChessMoveList = smallvec![
             std_move!(C3, C2),
@@ -658,7 +654,6 @@ mod tests {
             RP......
             ........
         };
-        println!("Testing board:\n{}", board);
 
         let mut expected_moves: ChessMoveList = smallvec![std_move!(A2, A1), std_move!(A2, A3)];
         expected_moves.sort();
@@ -683,7 +678,6 @@ mod tests {
             ........
             P.......
         };
-        println!("Testing board:\n{}", board);
 
         let mut expected_moves: ChessMoveList = smallvec![
             std_move!(E5, D4),
@@ -716,7 +710,6 @@ mod tests {
             .P.....P
             ........
         };
-        println!("Testing board:\n{}", board);
 
         let mut expected_moves: ChessMoveList = smallvec![
             // North - no moves
@@ -769,7 +762,6 @@ mod tests {
             ........
             K.......
         };
-        println!("Testing board:\n{}", board);
 
         let mut expected_moves: ChessMoveList =
             smallvec![std_move!(A1, A2), std_move!(A1, B1), std_move!(A1, B2)];
@@ -795,7 +787,6 @@ mod tests {
             ...p....
             ....K...
         };
-        println!("Testing board:\n{}", board);
 
         let mut expected_moves: ChessMoveList = smallvec![
             std_move!(E1, D1),
@@ -826,7 +817,6 @@ mod tests {
             ........
             ........
         };
-        println!("Testing board:\n{}", board);
 
         let mut expected_moves: ChessMoveList = smallvec![
             std_move!(E5, D4),
@@ -859,7 +849,6 @@ mod tests {
             ..P.....
             ........
         };
-        println!("Testing board:\n{}", board);
 
         let move_that_reveals_en_passant_target = std_move!(C2, C4);
         move_that_reveals_en_passant_target
@@ -891,7 +880,6 @@ mod tests {
             ........
             R...K..R
         };
-        println!("Testing board:\n{}", board);
 
         let mut expected_white_moves: ChessMoveList = smallvec![
             castle_kingside!(Color::White),
@@ -940,8 +928,6 @@ mod tests {
             R...K..R
         };
 
-        println!("Testing board:\n{}", board);
-
         let expected_white_moves: ChessMoveList = smallvec![castle_kingside!(Color::White)];
         let expected_black_moves: ChessMoveList = smallvec![castle_queenside!(Color::Black)];
 
@@ -972,7 +958,6 @@ mod tests {
             ........
             RB..K.nR
         };
-        println!("Testing board:\n{}", board);
 
         let expected_white_moves: ChessMoveList = smallvec![];
         let mut white_moves = smallvec![];

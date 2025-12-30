@@ -197,17 +197,14 @@ mod tests {
             ........
             ........
         };
-        println!("Testing board:\n{}", board);
 
         let promotion = PawnPromotionChessMove::new(A7, A8, None, Piece::Queen);
 
         promotion.apply(&mut board).unwrap();
-        println!("After applying promotion:\n{}", board);
         assert_eq!(None, board.get(A7));
         assert_eq!(Some((Piece::Queen, Color::White)), board.get(A8));
 
         promotion.undo(&mut board).unwrap();
-        println!("After undoing promotion:\n{}", board);
         assert_eq!(Some((Piece::Pawn, Color::White)), board.get(A7));
         assert_eq!(None, board.get(A8));
     }
@@ -224,18 +221,15 @@ mod tests {
             ........
             ........
         };
-        println!("Testing board:\n{}", board);
 
         let promotion =
             PawnPromotionChessMove::new(A7, B8, Some(Capture(Piece::Rook)), Piece::Queen);
 
         promotion.apply(&mut board).unwrap();
-        println!("After applying promotion:\n{}", board);
         assert_eq!(None, board.get(A7));
         assert_eq!(Some((Piece::Queen, Color::White)), board.get(B8));
 
         promotion.undo(&mut board).unwrap();
-        println!("After undoing promotion:\n{}", board);
         assert_eq!(Some((Piece::Pawn, Color::White)), board.get(A7));
         assert_eq!(Some((Piece::Rook, Color::Black)), board.get(B8));
     }

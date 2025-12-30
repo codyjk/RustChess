@@ -53,7 +53,6 @@ fn test_zobrist_hashing_is_equal_for_transpositions() {
     board1_hashes.pop();
     board2_hashes.pop();
     for (move1, move2) in board1_moves.iter().rev().zip(board2_moves.iter().rev()) {
-        println!("undoing moves {} and {}", move1, move2);
         move1.undo(&mut board1).unwrap();
         move2.undo(&mut board2).unwrap();
         println!(

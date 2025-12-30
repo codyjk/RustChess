@@ -286,17 +286,14 @@ mod tests {
             ........
             ....K..R
         };
-        println!("Testing board:\n{}", board);
 
         let castle = castle_kingside!(Color::White);
 
         castle.apply(&mut board).unwrap();
-        println!("After applying castle:\n{}", board);
         assert_eq!(Some((Piece::King, Color::White)), board.get(G1));
         assert_eq!(Some((Piece::Rook, Color::White)), board.get(F1));
 
         castle.undo(&mut board).unwrap();
-        println!("After undoing castle:\n{}", board);
         assert_eq!(Some((Piece::King, Color::White)), board.get(E1));
         assert_eq!(Some((Piece::Rook, Color::White)), board.get(H1));
     }
@@ -313,17 +310,14 @@ mod tests {
             ........
             ........
         };
-        println!("Testing board:\n{}", board);
 
         let castle = castle_kingside!(Color::Black);
 
         castle.apply(&mut board).unwrap();
-        println!("After applying castle:\n{}", board);
         assert_eq!(Some((Piece::King, Color::Black)), board.get(G8));
         assert_eq!(Some((Piece::Rook, Color::Black)), board.get(F8));
 
         castle.undo(&mut board).unwrap();
-        println!("After undoing castle:\n{}", board);
         assert_eq!(Some((Piece::King, Color::Black)), board.get(E8));
         assert_eq!(Some((Piece::Rook, Color::Black)), board.get(H8));
     }
@@ -340,17 +334,14 @@ mod tests {
             ........
             R...K...
         };
-        println!("Testing board:\n{}", board);
 
         let castle = castle_queenside!(Color::White);
 
         castle.apply(&mut board).unwrap();
-        println!("After applying castle:\n{}", board);
         assert_eq!(Some((Piece::King, Color::White)), board.get(C1));
         assert_eq!(Some((Piece::Rook, Color::White)), board.get(D1));
 
         castle.undo(&mut board).unwrap();
-        println!("After undoing castle:\n{}", board);
         assert_eq!(Some((Piece::King, Color::White)), board.get(E1));
         assert_eq!(Some((Piece::Rook, Color::White)), board.get(A1));
     }
@@ -367,17 +358,14 @@ mod tests {
             ........
             ........
         };
-        println!("Testing board:\n{}", board);
 
         let castle = castle_queenside!(Color::Black);
 
         castle.apply(&mut board).unwrap();
-        println!("After applying castle:\n{}", board);
         assert_eq!(Some((Piece::King, Color::Black)), board.get(C8));
         assert_eq!(Some((Piece::Rook, Color::Black)), board.get(D8));
 
         castle.undo(&mut board).unwrap();
-        println!("After undoing castle:\n{}", board);
         assert_eq!(Some((Piece::King, Color::Black)), board.get(E8));
         assert_eq!(Some((Piece::Rook, Color::Black)), board.get(A8));
     }
@@ -398,7 +386,6 @@ mod tests {
 
         let castle = castle_queenside!(Color::Black);
 
-        println!("applying castle queenside");
         castle.apply(&mut board).unwrap();
         assert_ne!(
             initial_hash,
@@ -406,7 +393,6 @@ mod tests {
             "hash should change after applying queenside castle"
         );
 
-        println!("undoing castle queenside");
         castle.undo(&mut board).unwrap();
         assert_eq!(
             initial_hash,
@@ -416,7 +402,6 @@ mod tests {
 
         let castle = castle_kingside!(Color::Black);
 
-        println!("applying castle kingside");
         castle.apply(&mut board).unwrap();
         assert_ne!(
             initial_hash,
@@ -424,7 +409,6 @@ mod tests {
             "hash should change after applying kingside castle"
         );
 
-        println!("undoing castle kingside");
         castle.undo(&mut board).unwrap();
         assert_eq!(
             initial_hash,

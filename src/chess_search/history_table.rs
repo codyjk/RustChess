@@ -70,7 +70,6 @@ impl Default for HistoryTable {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::*;
 
     #[test]
     fn test_history_recording() {

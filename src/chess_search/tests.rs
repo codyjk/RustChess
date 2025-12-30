@@ -7,15 +7,16 @@
 //! - Killer moves in chess positions
 //! - Transposition tables with chess positions
 
-use super::*;
+use common::bitboard::*;
+
 use crate::alpha_beta_searcher::SearchContext;
 use crate::board::{castle_rights::CastleRights, color::Color, piece::Piece, Board};
 use crate::chess_move::{
     capture::Capture, chess_move_effect::ChessMoveEffect, standard::StandardChessMove, ChessMove,
 };
 use crate::{check_move, checkmate_move, chess_position, std_move};
-use common::bitboard::*;
-use std::sync::atomic::Ordering;
+
+use super::*;
 
 #[test]
 fn test_find_mate_in_1_white() {
@@ -33,7 +34,6 @@ fn test_find_mate_in_1_white() {
     };
     board.set_turn(Color::White);
     board.lose_castle_rights(CastleRights::all());
-    println!("Testing board:\n{}", board);
 
     let chess_move = search_best_move(&mut context, &mut board).unwrap();
     let valid_checkmates = [
@@ -64,8 +64,6 @@ fn test_find_mate_in_1_black() {
     };
     board.set_turn(Color::Black);
     board.lose_castle_rights(CastleRights::all());
-
-    println!("Testing board:\n{}", board);
 
     let chess_move = search_best_move(&mut context, &mut board).unwrap();
 
@@ -98,8 +96,6 @@ fn test_find_back_rank_mate_in_2_white() {
     board.set_turn(Color::White);
     board.lose_castle_rights(CastleRights::all());
 
-    println!("Testing board:\n{}", board);
-
     let expected_moves = [
         check_move!(std_move!(D2, D8)),
         std_move!(H8, D8, Capture(Piece::Queen)),
@@ -111,19 +107,16 @@ fn test_find_back_rank_mate_in_2_white() {
     move1.apply(&mut board).unwrap();
     board.toggle_turn();
     assert_eq!(expected_move_iter.next().unwrap(), &move1);
-    println!("Testing board:\n{}", board);
 
     let move2 = search_best_move(&mut context, &mut board).unwrap();
     move2.apply(&mut board).unwrap();
     board.toggle_turn();
     assert_eq!(expected_move_iter.next().unwrap(), &move2);
-    println!("Testing board:\n{}", board);
 
     let move3 = search_best_move(&mut context, &mut board).unwrap();
     move3.apply(&mut board).unwrap();
     board.toggle_turn();
     assert_eq!(expected_move_iter.next().unwrap(), &move3);
-    println!("Testing board:\n{}", board);
 }
 
 #[test]
@@ -143,8 +136,6 @@ fn test_find_back_rank_mate_in_2_black() {
     board.set_turn(Color::Black);
     board.lose_castle_rights(CastleRights::all());
 
-    println!("Testing board:\n{}", board);
-
     let expected_moves = [
         check_move!(std_move!(E7, E1)),
         std_move!(A1, E1, Capture(Piece::Queen)),
@@ -160,7 +151,6 @@ fn test_find_back_rank_mate_in_2_black() {
         &move1,
         "failed to find first move of mate in 2"
     );
-    println!("Testing board:\n{}", board);
 
     let move2 = search_best_move(&mut context, &mut board).unwrap();
     move2.apply(&mut board).unwrap();
@@ -170,7 +160,6 @@ fn test_find_back_rank_mate_in_2_black() {
         &move2,
         "failed to find second move of mate in 2"
     );
-    println!("Testing board:\n{}", board);
 
     let move3 = search_best_move(&mut context, &mut board).unwrap();
     move3.apply(&mut board).unwrap();
@@ -180,7 +169,6 @@ fn test_find_back_rank_mate_in_2_black() {
         &move3,
         "failed to find third move of mate in 2"
     );
-    println!("Testing board:\n{}", board);
 }
 
 #[test]
@@ -205,7 +193,7 @@ fn test_quiescence_with_captures() {
 
     let result = search_best_move(&mut context, &mut board);
     assert!(result.is_ok(), "Quiescence with captures should succeed");
-    let chess_move = result.unwrap();
+    let _chess_move = result.unwrap();
     let position_count = context.searched_position_count();
 
     // Verification: This test verifies quiescence is working by checking that positions
@@ -242,7 +230,7 @@ fn test_quiescence_with_checks() {
 
     let result = search_best_move(&mut context, &mut board);
     assert!(result.is_ok(), "Quiescence with checks should succeed");
-    let chess_move = result.unwrap();
+    let _chess_move = result.unwrap();
     let position_count = context.searched_position_count();
 
     // Verification: This test verifies quiescence is working by checking that positions
@@ -279,7 +267,6 @@ fn test_transposition_table_chess_positions() {
 
     let first_result = search_best_move(&mut context, &mut board).unwrap();
     let first_count = context.searched_position_count();
-    let first_tt_hits = context.tt_hits();
 
     // Don't reset stats - keep TT populated for second search to test TT reuse
     // We'll measure the cumulative effect
@@ -335,7 +322,6 @@ fn test_killer_moves_chess_positions() {
     let result = search_best_move(&mut context, &mut board).unwrap();
 
     // After search, killer moves should be stored from beta cutoffs
-    let killers = context.get_killers(0);
     let position_count = context.searched_position_count();
 
     // In a position with many moves causing cutoffs, killer moves should be stored

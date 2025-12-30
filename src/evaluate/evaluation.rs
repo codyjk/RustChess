@@ -209,7 +209,6 @@ mod tests {
     #[test]
     fn test_starting_player_material_score() {
         let board = Board::default();
-        println!("Testing board:\n{}", board);
 
         let white_score = player_material_score(&board, Color::White);
         assert_eq!(white_score, 23905);
@@ -232,7 +231,6 @@ mod tests {
         };
         board.set_turn(Color::Black);
         board.lose_castle_rights(CastleRights::all());
-        println!("Testing board:\n{}", board);
 
         let ending = game_ending(&mut board, &MoveGenerator::default(), Color::Black);
         matches!(ending, Some(GameEnding::Stalemate));
@@ -252,7 +250,6 @@ mod tests {
         };
         board.set_turn(Color::Black);
         board.lose_castle_rights(CastleRights::all());
-        println!("Testing board:\n{}", board);
 
         let ending = game_ending(&mut board, &MoveGenerator::default(), Color::Black);
         matches!(ending, Some(GameEnding::Checkmate));
@@ -270,12 +267,10 @@ mod tests {
             ........
             K.......
         };
-        println!("Testing board:\n{}", board);
 
         assert!(!is_endgame(&board));
 
         board.remove(D5);
-        println!("Testing board:\n{}", board);
         assert!(is_endgame(&board));
     }
 
@@ -291,13 +286,11 @@ mod tests {
             .Q......
             K.......
         };
-        println!("Testing board:\n{}", board);
 
         assert!(!is_endgame(&board));
 
         board.remove(H7);
         board.remove(B2);
-        println!("Testing board:\n{}", board);
         assert!(is_endgame(&board));
     }
 
@@ -319,7 +312,6 @@ mod tests {
             .......p
             ........
         };
-        println!("Testing board:\n{}", board);
 
         let white_score = player_material_score(&board, Color::White);
         assert_eq!(white_score, 150);
@@ -343,8 +335,6 @@ mod tests {
         };
         board.lose_castle_rights(CastleRights::all());
         board.set_turn(Color::White);
-
-        println!("Testing board:\n{}", board);
 
         assert!(player_is_in_check(
             &board,
@@ -373,8 +363,6 @@ mod tests {
         };
         board.lose_castle_rights(CastleRights::all());
         board.set_turn(Color::White);
-
-        println!("Testing board:\n{}", board);
 
         assert!(player_is_in_checkmate(
             &mut board,

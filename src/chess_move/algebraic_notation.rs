@@ -349,8 +349,6 @@ mod tests {
                 | CastleRights::black_queenside(),
         );
 
-        println!("Testing board:\n{}", board);
-
         assert_move_has_algebraic_notation!(
             &mut board,
             Color::White,

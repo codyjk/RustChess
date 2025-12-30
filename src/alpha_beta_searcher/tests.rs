@@ -13,10 +13,10 @@
 //! - Depth edge cases (depth 1, single/two moves)
 //! - Parallel vs sequential search consistency
 
-use super::*;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
-use std::sync::atomic::Ordering;
+
+use super::*;
 
 /// State of a Nim game: players take 1-3 objects, last to take wins.
 #[derive(Clone, Debug)]
@@ -402,7 +402,6 @@ fn test_move_ordering_pv_move_prioritized() {
     )
     .unwrap();
     let first_count = context.searched_position_count();
-    let first_tt_hits = context.tt_hits();
 
     context.reset_stats();
 
@@ -415,7 +414,6 @@ fn test_move_ordering_pv_move_prioritized() {
     )
     .unwrap();
     let second_count = context.searched_position_count();
-    let second_tt_hits = context.tt_hits();
 
     assert_eq!(
         first_result, second_result,
@@ -687,8 +685,8 @@ fn test_alpha_beta_beta_cutoff_first_move() {
         }
     }
 
-    let mut state = NimState::new(5);
-    let mut context = SearchContext::<NimMove>::new(2);
+    let state = NimState::new(5);
+    let _context = SearchContext::<NimMove>::new(2);
 
     let first_count = {
         let mut ctx = SearchContext::<NimMove>::new(2);
@@ -959,8 +957,8 @@ fn test_quiescence_beta_cutoff() {
 
 #[test]
 fn test_killer_move_already_first() {
-    let mut state = NimState::new(8);
-    let mut context = SearchContext::<NimMove>::new(5);
+    let state = NimState::new(8);
+    let context = SearchContext::<NimMove>::new(5);
     let killer = NimMove { take: 1 };
 
     context.store_killer(0, killer.clone());
@@ -982,7 +980,6 @@ fn test_killer_move_already_first() {
 fn test_killer_move_is_pv_move() {
     let mut state = NimState::new(8);
     let mut context = SearchContext::<NimMove>::new(5);
-    let pv_move = NimMove { take: 2 };
 
     let first_result = alpha_beta_search(
         &mut context,

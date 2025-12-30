@@ -150,10 +150,8 @@ mod tests {
             ..K.....
             ........
         };
-        println!("Testing board:\n{}", board);
 
         let targets = magic_table.get_rook_targets(C3, board.occupied());
-        println!("Rook targets:\n{}", targets);
 
         // Targets should assume any piece in the way can be taken
         let expected_targets = A3 | B3 | D3 | E3 | F3 | C2 | C4 | C5 | C6 | C7;
@@ -175,7 +173,6 @@ mod tests {
         };
 
         let targets = magic_table.get_bishop_targets(C3, board.occupied());
-        println!("Bishop targets:\n{}", targets);
 
         // Targets should assume any piece in the way can be taken
         let expected_targets = D4 | E5 | B2 | D2 | E1 | B4 | A5;
@@ -196,17 +193,9 @@ mod tests {
             .R.....k
         };
 
-        println!("Testing board:\n{}", board);
-        println!("Occupied squares:\n{}", board.occupied());
-
-        println!("Getting rook targets");
         let rook_targets = magic_table.get_rook_targets(A5, board.occupied());
-        println!("Getting bishop targets");
         let bishop_targets = magic_table.get_bishop_targets(A5, board.occupied());
         let targets = rook_targets | bishop_targets;
-        println!("Rook targets:\n{}", rook_targets);
-        println!("Bishop targets:\n{}", bishop_targets);
-        println!("Queen targets:\n{}", targets);
 
         let expected_targets = Bitboard::EMPTY
             // queen - north
@@ -226,8 +215,6 @@ mod tests {
             | E1
             // queen - south
             | A4;
-
-        println!("Expected targets:\n{}", expected_targets);
 
         assert_eq!(targets, expected_targets);
     }

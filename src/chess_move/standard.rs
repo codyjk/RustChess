@@ -335,7 +335,6 @@ mod tests {
     #[test]
     fn test_apply_chess_move() {
         let mut board = Board::default();
-        println!("Testing board:\n{}", board);
 
         // using a queens gambit accepted opening to test basic chess move application
         let moves = vec![
@@ -354,7 +353,6 @@ mod tests {
             let chess_move = StandardChessMove::new(*from_square, *to_square, *expected_capture);
             chess_move.apply(&mut board).unwrap();
             assert_eq!(board.get(*to_square).unwrap(), *moved);
-            println!("New board state:\n{}", board);
         }
     }
 
@@ -362,13 +360,10 @@ mod tests {
     fn test_undo_pawn_move() {
         let mut board = Board::default();
         let original_board = format!("{}", board);
-        println!("Testing board:\n{}", board);
 
         let chess_move = std_move!(A2, A4);
         chess_move.apply(&mut board).unwrap();
-        println!("Result after applying move:\n{}", board);
         chess_move.undo(&mut board).unwrap();
-        println!("Result after undoing move:\n{}", board);
 
         let result_board = format!("{}", board);
         assert_eq!(original_board, result_board);
@@ -378,19 +373,14 @@ mod tests {
     fn test_undo_knight_move() {
         let mut board = Board::default();
         let original_board = format!("{}", board);
-        println!("Testing board:\n{}", board);
 
         let chess_move = std_move!(B1, C3);
         chess_move.apply(&mut board).unwrap();
-        println!("Result after applying move:\n{}", board);
         chess_move.undo(&mut board).unwrap();
-        println!("Result after undoing move:\n{}", board);
 
         let chess_move_2 = std_move!(G1, F3);
         chess_move_2.apply(&mut board).unwrap();
-        println!("Result after applying move:\n{}", board);
         chess_move_2.undo(&mut board).unwrap();
-        println!("Result after undoing move:\n{}", board);
 
         let result_board = format!("{}", board);
         assert_eq!(original_board, result_board);
@@ -429,7 +419,6 @@ mod tests {
             ........
             ....K..R
         };
-        println!("Testing board:\n{}", board);
 
         assert!(!(board.peek_castle_rights() & CastleRights::white_kingside()).is_empty());
         let chess_move = std_move!(H1, H2);
@@ -452,7 +441,6 @@ mod tests {
             ........
             R...K...
         };
-        println!("Testing board:\n{}", board);
 
         assert!(!(board.peek_castle_rights() & CastleRights::white_queenside()).is_empty());
         let chess_move = std_move!(A1, A2);
@@ -475,7 +463,6 @@ mod tests {
             ........
             ........
         };
-        println!("Testing board:\n{}", board);
 
         assert!(!(board.peek_castle_rights() & CastleRights::black_kingside()).is_empty());
         let chess_move = std_move!(H8, H2);
@@ -498,7 +485,6 @@ mod tests {
             ........
             ........
         };
-        println!("Testing board:\n{}", board);
 
         assert!(!(board.peek_castle_rights() & CastleRights::black_queenside()).is_empty());
         let chess_move = std_move!(A8, A2);
@@ -521,7 +507,6 @@ mod tests {
             ........
             R...K..R
         };
-        println!("Testing board:\n{}", board);
 
         assert!(!(board.peek_castle_rights() & CastleRights::white_queenside()).is_empty());
         let chess_move = std_move!(H8, A1, Capture(Piece::Rook));
@@ -544,7 +529,6 @@ mod tests {
             ........
             R...K..R
         };
-        println!("Testing board:\n{}", board);
 
         assert!(!(board.peek_castle_rights() & CastleRights::white_kingside()).is_empty());
         let chess_move = std_move!(A8, H1, Capture(Piece::Rook));
@@ -567,7 +551,6 @@ mod tests {
             ........
             .......B
         };
-        println!("Testing board:\n{}", board);
 
         assert!(!(board.peek_castle_rights() & CastleRights::black_queenside()).is_empty());
         let chess_move = std_move!(H1, A8, Capture(Piece::Rook));
@@ -590,7 +573,6 @@ mod tests {
             ........
             B.......
         };
-        println!("Testing board:\n{}", board);
 
         assert!(!(board.peek_castle_rights() & CastleRights::black_kingside()).is_empty());
         let chess_move = std_move!(A1, H8, Capture(Piece::Rook));
@@ -613,7 +595,6 @@ mod tests {
             ........
             R...K..R
         };
-        println!("Testing board:\n{}", board);
 
         assert!(!(board.peek_castle_rights() & CastleRights::white_kingside()).is_empty());
         assert!(!(board.peek_castle_rights() & CastleRights::white_queenside()).is_empty());
@@ -641,7 +622,6 @@ mod tests {
             ........
             ........
         };
-        println!("Testing board:\n{}", board);
 
         assert!(!(board.peek_castle_rights() & CastleRights::black_kingside()).is_empty());
         assert!(!(board.peek_castle_rights() & CastleRights::black_queenside()).is_empty());
