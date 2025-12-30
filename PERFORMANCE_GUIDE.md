@@ -41,6 +41,23 @@ The engine includes instrumentation for tracking allocations:
 sudo cargo flamegraph --bench pvp_benchmark
 ```
 
+### Debug Logging for Lock Contention
+
+The engine includes debug-level logging for monitoring lock contention in critical sections. These messages are useful for identifying synchronization bottlenecks:
+
+**Enable debug logging:**
+```bash
+RUST_LOG=debug chess play --depth 4
+```
+
+**Key debug messages:**
+- `Slow killer get lock` - Indicates when acquiring the killer moves lock takes >100µs
+- `Slow killer store lock` - Indicates when acquiring the killer moves lock for storage takes >100µs
+
+These messages help identify when thread contention on the `killer_moves` mutex is impacting performance. High frequency of these messages suggests the parallel search strategy may need adjustment or the killer move storage mechanism should be optimized.
+
+**Note:** These messages are logged at debug level by default and won't appear in normal operation. Use `RUST_LOG=debug` to enable them during profiling.
+
 ## Optimization Workflow
 
 ### 1. Establish Baseline

@@ -77,7 +77,7 @@ impl<M: Clone + Send + Sync> SearchContext<M> {
         if let Ok(mut killers) = self.killer_moves.lock() {
             let lock_time = start.elapsed();
             if lock_time > std::time::Duration::from_micros(100) {
-                eprintln!("Slow killer store lock: {:?}", lock_time);
+                debug!("Slow killer store lock: {:?}", lock_time);
             }
             if ply < killers.len() {
                 // Shift killers: new killer becomes first, first becomes second
@@ -94,7 +94,7 @@ impl<M: Clone + Send + Sync> SearchContext<M> {
         if let Ok(killers) = self.killer_moves.lock() {
             let lock_time = start.elapsed();
             if lock_time > std::time::Duration::from_micros(100) {
-                eprintln!("Slow killer get lock: {:?}", lock_time);
+                debug!("Slow killer get lock: {:?}", lock_time);
             }
             if ply < killers.len() {
                 return killers[ply].clone();
