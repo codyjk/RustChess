@@ -2,3 +2,4 @@
 /precompile/target
 /common/target
 *.cast
+*.log
