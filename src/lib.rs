@@ -3,6 +3,7 @@ pub mod board;
 pub mod book;
 pub mod chess_move;
 pub mod chess_search;
+pub mod diagnostics;
 pub mod evaluate;
 pub mod game;
 pub mod input_handler;

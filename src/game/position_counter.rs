@@ -5,6 +5,7 @@ use crate::alpha_beta_searcher::SearchContext;
 use crate::board::color::Color;
 use crate::board::Board;
 use crate::chess_search::search_best_move;
+use crate::diagnostics::memory_profiler::MemoryProfiler;
 use crate::move_generator::MoveGenerator;
 
 #[derive(Debug)]
@@ -25,6 +26,8 @@ impl FromStr for CountPositionsStrategy {
 }
 
 pub fn run_count_positions(depth: u8, strategy: CountPositionsStrategy) {
+    MemoryProfiler::reset();
+
     let depths = 1..=depth;
     let move_generator = MoveGenerator::default();
 
@@ -63,4 +66,7 @@ pub fn run_count_positions(depth: u8, strategy: CountPositionsStrategy) {
         total_duration,
         total_positions as f64 / total_duration.as_secs_f64()
     );
+
+    println!();
+    MemoryProfiler::print_stats();
 }

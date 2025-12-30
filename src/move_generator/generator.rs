@@ -1,8 +1,16 @@
 //! Move generation implementation.
 //!
 //! **Performance optimizations:**
-//! - Pre-allocate move lists with capacity: 1.5% improvement
-//! - Pre-compute constants (promotion rank) before hot loops: 1.2% improvement
+//! - Pre-allocate move lists with capacity to avoid reallocations
+//! - Pre-compute constants (promotion rank) before hot loops
+//! - **MoveGenerator sharing**: Pass `&self` to recursive functions instead of creating new
+//!   `MoveGenerator` instances (865 KB each). This eliminates redundant allocations and
+//!   reduces memory overhead.
+//! - **Conditional cloning**: Only clone boards when parallelizing (move lists >= 10). Use
+//!   sequential apply/undo pattern for small move lists to avoid cloning overhead.
+//! - **Multi-depth parallelization**: Parallelize at depth 2 and above (configurable threshold)
+//!   with conditional parallelization based on move count (>= 10 moves). This improves CPU
+//!   utilization across all threads and reduces thread synchronization overhead.
 
 use rayon::prelude::*;
 use smallvec::{smallvec, SmallVec};
@@ -23,6 +31,16 @@ use super::targets::{
 
 pub const PAWN_PROMOTIONS: [Piece; 4] = [Piece::Queen, Piece::Rook, Piece::Bishop, Piece::Knight];
 
+/// Minimum number of moves required to justify parallelization overhead.
+///
+/// When generating moves for position counting, we only parallelize if the move list
+/// contains at least this many moves. For smaller move lists, the overhead of thread
+/// creation, board cloning, and synchronization exceeds the benefits of parallelization.
+///
+/// This threshold is used in both `count_positions` and `count_positions_inner` to
+/// determine when to use parallel iteration vs sequential apply/undo pattern.
+const PARALLEL_MOVE_THRESHOLD: usize = 10;
+
 /// A list of chess moves that is optimized for small sizes.
 pub type ChessMoveList = SmallVec<[ChessMove; 32]>;
 
@@ -40,6 +58,7 @@ impl Default for MoveGenerator {
 
 impl MoveGenerator {
     pub fn new() -> Self {
+        crate::diagnostics::memory_profiler::MemoryProfiler::record_movegen_create();
         Self {
             targets: Targets::default(),
         }
@@ -106,27 +125,44 @@ impl MoveGenerator {
 
         let next_player = player.opposite();
 
-        // `par_iter` is a rayon primitive that allows for parallel iteration over a collection.
-        let inner_counts = candidates.par_iter().map(|chess_move| {
-            let mut local_board = board.clone();
-            let local_move_generator = MoveGenerator::default();
+        // Use parallel iteration for larger move lists, sequential for small ones to avoid cloning overhead
+        let inner_count = if candidates.len() >= PARALLEL_MOVE_THRESHOLD {
+            // Parallel path: clone board for each task
+            let inner_counts = candidates.par_iter().map(|chess_move| {
+                let mut local_board = board.clone();
 
-            chess_move
-                .apply(&mut local_board)
-                .expect("move application should succeed in position counting");
-            let local_count = count_positions_inner(
-                depth - 1,
-                &mut local_board,
-                next_player,
-                &local_move_generator,
-            );
-            chess_move
-                .undo(&mut local_board)
-                .expect("move undo should succeed in position counting");
-            local_count
-        });
+                chess_move
+                    .apply(&mut local_board)
+                    .expect("move application should succeed in position counting");
+                let local_count = count_positions_inner(
+                    depth - 1,
+                    &mut local_board,
+                    next_player,
+                    self,
+                    2, // parallel_threshold: parallelize at depth 2 and above
+                );
+                chess_move
+                    .undo(&mut local_board)
+                    .expect("move undo should succeed in position counting");
+                local_count
+            });
+            inner_counts.sum::<usize>()
+        } else {
+            // Sequential path: no cloning needed, use apply/undo pattern
+            let mut inner_count = 0;
+            for chess_move in candidates.iter() {
+                chess_move
+                    .apply(board)
+                    .expect("move application should succeed in position counting");
+                inner_count += count_positions_inner(depth - 1, board, next_player, self, 2);
+                chess_move
+                    .undo(board)
+                    .expect("move undo should succeed in position counting");
+            }
+            inner_count
+        };
 
-        initial_count + inner_counts.sum::<usize>()
+        initial_count + inner_count
     }
 
     pub fn get_attack_targets(&self, board: &Board, player: Color) -> Bitboard {
@@ -139,6 +175,7 @@ fn count_positions_inner(
     board: &mut Board,
     color: Color,
     move_generator: &MoveGenerator,
+    parallel_threshold: u8,
 ) -> usize {
     let candidates = move_generator.generate_moves(board, color);
     let mut count = candidates.len();
@@ -149,14 +186,43 @@ fn count_positions_inner(
 
     let next_color = color.opposite();
 
-    for chess_move in candidates.iter() {
-        chess_move
-            .apply(board)
-            .expect("move application should succeed in position counting");
-        count += count_positions_inner(depth - 1, board, next_color, move_generator);
-        chess_move
-            .undo(board)
-            .expect("move undo should succeed in position counting");
+    // Parallelize if depth is above threshold and we have enough moves to justify overhead
+    if depth >= parallel_threshold && candidates.len() >= PARALLEL_MOVE_THRESHOLD {
+        let inner_counts = candidates.par_iter().map(|chess_move| {
+            let mut local_board = board.clone();
+            chess_move
+                .apply(&mut local_board)
+                .expect("move application should succeed in position counting");
+            let local_count = count_positions_inner(
+                depth - 1,
+                &mut local_board,
+                next_color,
+                move_generator,
+                parallel_threshold,
+            );
+            chess_move
+                .undo(&mut local_board)
+                .expect("move undo should succeed in position counting");
+            local_count
+        });
+        count += inner_counts.sum::<usize>()
+    } else {
+        // Sequential for shallow depths or small move lists
+        for chess_move in candidates.iter() {
+            chess_move
+                .apply(board)
+                .expect("move application should succeed in position counting");
+            count += count_positions_inner(
+                depth - 1,
+                board,
+                next_color,
+                move_generator,
+                parallel_threshold,
+            );
+            chess_move
+                .undo(board)
+                .expect("move undo should succeed in position counting");
+        }
     }
 
     count

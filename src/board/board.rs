@@ -231,6 +231,7 @@ impl Board {
 
 impl Clone for Board {
     fn clone(&self) -> Self {
+        crate::diagnostics::memory_profiler::MemoryProfiler::record_board_clone();
         Self {
             white: self.white.clone(),
             black: self.black.clone(),

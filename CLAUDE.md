@@ -20,6 +20,8 @@ cargo install --path .
 chess --help
 ```
 
+**IMPORTANT**: Always use the installed `chess` binary (available via `which chess`) rather than `./target/release/chess`. The binary is installed at `~/.cargo/bin/chess` and should be in your PATH.
+
 ### Testing and Quality
 ```bash
 # Run all tests

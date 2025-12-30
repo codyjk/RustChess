@@ -91,9 +91,48 @@ fn benchmark_position_counting_throughput(c: &mut Criterion) {
     group.finish();
 }
 
+/// Benchmark depth 4 specifically for baseline tracking.
+fn benchmark_depth_4(c: &mut Criterion) {
+    let move_generator = MoveGenerator::default();
+    c.bench_function("count_positions_depth_4", |b| {
+        b.iter(|| {
+            let mut board = Board::default();
+            let count = move_generator.count_positions(4, black_box(&mut board), Color::White);
+            black_box(count)
+        })
+    });
+}
+
+/// Benchmark depth 5 specifically for baseline tracking.
+fn benchmark_depth_5(c: &mut Criterion) {
+    let move_generator = MoveGenerator::default();
+    c.bench_function("count_positions_depth_5", |b| {
+        b.iter(|| {
+            let mut board = Board::default();
+            let count = move_generator.count_positions(5, black_box(&mut board), Color::White);
+            black_box(count)
+        })
+    });
+}
+
+/// Benchmark depth 6 specifically for baseline tracking.
+fn benchmark_depth_6(c: &mut Criterion) {
+    let move_generator = MoveGenerator::default();
+    c.bench_function("count_positions_depth_6", |b| {
+        b.iter(|| {
+            let mut board = Board::default();
+            let count = move_generator.count_positions(6, black_box(&mut board), Color::White);
+            black_box(count)
+        })
+    });
+}
+
 criterion_group!(
     benches,
     benchmark_position_counting,
-    benchmark_position_counting_throughput
+    benchmark_position_counting_throughput,
+    benchmark_depth_4,
+    benchmark_depth_5,
+    benchmark_depth_6
 );
 criterion_main!(benches);
