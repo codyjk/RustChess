@@ -201,5 +201,5 @@ If checks fail, commit is rejected. Fix issues before committing.
 ### Performance Considerations
 - Always test performance changes with release builds (`cargo build --release`)
 - Use benchmarks (`cargo bench`) to measure impact of optimizations
-- Profile with `cargo flamegraph --bench pvp_benchmark` to identify bottlenecks
+- See [PERFORMANCE_GUIDE.md](./PERFORMANCE_GUIDE.md) for systematic profiling and optimization workflow
 - The `pvp_benchmark` simulates engine-vs-engine gameplay for realistic profiling

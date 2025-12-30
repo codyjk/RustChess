@@ -174,48 +174,23 @@ fn test_find_back_rank_mate_in_2_black() {
 
 ## Profiling
 
-### Visual Profiling with Flamegraph
+For detailed profiling and optimization guidance, see [PERFORMANCE_GUIDE.md](./PERFORMANCE_GUIDE.md).
 
-Combined with `flamegraph`, you can get a flamegraph of the engine's performance. For example:
+### Quick Start
 
+**Visual profiling with flamegraph:**
 ```shell
 sudo cargo flamegraph --bench pvp_benchmark
 ```
 
-The `pvp_benchmark` simulates a game where the engine plays against itself, producing a realistic cross-section of the engine's typical performance. Flamegraphs visually represent the time spent in different parts of the code, with wider sections indicating more time consumed (relative to other codepaths). This helps identify performance bottlenecks and optimize critical codepaths during development.
-
 ![Flamegraph of the `pvp_benchmark` benchmark](./pvp_benchmark.svg)
 
-### Text-Based Profiling with Sample (macOS)
+**CPU profiling:**
+- **macOS**: `sample $PID 30 -file /tmp/profile.txt`
+- **Linux**: `perf record -p $PID sleep 30 && perf report`
 
-For text-based profiling output that can be analyzed programmatically, use macOS's native `sample` command:
-
-```shell
-# Run the chess command in background and profile it
-chess count-positions --depth 6 2>&1 &
-CHESS_PID=$!
-sleep 1
-sample $CHESS_PID 30 -file /tmp/chess_profile.txt
-wait $CHESS_PID
-
-# View the profile
-head -n 200 /tmp/chess_profile.txt
-tail -n 100 /tmp/chess_profile.txt  # See "Sort by top of stack" summary
-```
-
-The `sample` command takes periodic snapshots of the call stack and produces a text report showing where the CPU is spending time. The "Sort by top of stack" section at the end shows the actual hot functions (not just functions in the call stack), making it easy to identify optimization targets.
-
-**Key advantages:**
-- Text output that can be parsed and analyzed in Claude Code or other tools
-- No external dependencies (built into macOS)
-- Works with any chess command (not just benchmarks)
-- Shows sample counts for precise performance comparison
-
-**Typical workflow:**
-1. Profile current code: `chess count-positions --depth 6 | tail -n 1` (note positions/second)
-2. Run `sample` profiler to identify hot functions
-3. Optimize the hottest functions
-4. Re-profile to measure improvement
+**Memory profiling:**
+The engine includes built-in instrumentation that automatically tracks allocations. Run any command and check the output for memory profiler stats.
 
 Various other [benchmarks](https://doc.rust-lang.org/cargo/commands/cargo-bench.html) are available in the [`benches`](./benches) directory.
 
