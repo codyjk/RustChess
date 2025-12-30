@@ -12,6 +12,18 @@ pub trait GameState: Clone + Send + Sync {
 
     /// Switches to the next player's turn.
     fn toggle_turn(&mut self);
+
+    /// Returns true if the current player is in check. Used for null move pruning.
+    /// Default implementation returns false (null move pruning disabled).
+    fn is_in_check(&self) -> bool {
+        false
+    }
+
+    /// Returns true if the position is an endgame. Used for null move pruning.
+    /// Default implementation returns false (null move pruning enabled).
+    fn is_endgame(&self) -> bool {
+        false
+    }
 }
 
 /// Represents an action that can be applied to and undone from a game state.

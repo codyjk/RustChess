@@ -7,6 +7,8 @@
 //! - Quiescence search: continues searching tactical moves (captures, checks) beyond the
 //!   nominal depth limit to avoid horizon effects. Games opt-in by implementing `is_tactical`
 //!   on their move type.
+//! - Null move pruning: gives opponent a free move; if they still can't beat beta, prunes the
+//!   branch. Games opt-in by implementing `is_in_check` and `is_endgame` on their state type.
 
 use std::cmp::{max, min};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -539,6 +541,29 @@ where
             maximizing_player,
             0,
         );
+    }
+
+    // Null move pruning: give opponent a free move; if they still can't beat beta, prune branch
+    if depth >= 3 && !state.is_in_check() && !state.is_endgame() {
+        const NULL_MOVE_REDUCTION: u8 = 2;
+        state.toggle_turn();
+        let null_score = -alpha_beta_minimax(
+            context,
+            state,
+            move_generator,
+            evaluator,
+            move_orderer,
+            depth - 1 - NULL_MOVE_REDUCTION,
+            ply + 1,
+            -beta,
+            -beta + 1,
+            !maximizing_player,
+        )?;
+        state.toggle_turn();
+
+        if null_score >= beta {
+            return Ok(beta);
+        }
     }
 
     let mut candidates = move_generator.generate_moves(state);

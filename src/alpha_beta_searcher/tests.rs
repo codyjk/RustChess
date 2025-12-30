@@ -1560,3 +1560,39 @@ fn test_quiescence_alpha_update() {
         "Quiescence with alpha update should succeed"
     );
 }
+
+#[test]
+fn test_null_move_pruning_requires_depth_3() {
+    let mut state = NimState::new(10);
+    let mut context_depth_2 = SearchContext::<NimMove>::new(2);
+    let mut context_depth_3 = SearchContext::<NimMove>::new(3);
+
+    let result_2 = alpha_beta_search(
+        &mut context_depth_2,
+        &mut state.clone(),
+        &NimMoveGenerator,
+        &NimEvaluator,
+        &NoOpMoveOrderer,
+    )
+    .unwrap();
+    let count_2 = context_depth_2.searched_position_count();
+
+    let result_3 = alpha_beta_search(
+        &mut context_depth_3,
+        &mut state,
+        &NimMoveGenerator,
+        &NimEvaluator,
+        &NoOpMoveOrderer,
+    )
+    .unwrap();
+    let count_3 = context_depth_3.searched_position_count();
+
+    assert_eq!(
+        result_2, result_3,
+        "Results should match regardless of null move pruning"
+    );
+    assert!(
+        count_2 > 0 && count_3 > 0,
+        "Both searches should explore positions"
+    );
+}

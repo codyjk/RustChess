@@ -364,3 +364,56 @@ fn test_killer_moves_chess_positions() {
         "Stored killer move should match"
     );
 }
+
+#[test]
+fn test_null_move_pruning_disabled_when_in_check() {
+    let mut context = SearchContext::new(5);
+
+    let mut board = chess_position! {
+        .k......
+        ........
+        ........
+        ........
+        ........
+        ........
+        K.Q.....
+        ........
+    };
+    board.set_turn(Color::White);
+    board.lose_castle_rights(CastleRights::all());
+
+    let result = search_best_move(&mut context, &mut board);
+    assert!(result.is_ok(), "Search should succeed even when in check");
+    let position_count = context.searched_position_count();
+    assert!(
+        position_count > 0,
+        "Should search positions even when null move is disabled (in check)"
+    );
+}
+
+#[test]
+fn test_null_move_pruning_disabled_in_endgame() {
+    let mut context = SearchContext::new(5);
+
+    // Endgame position (king and pawn vs king)
+    let mut board = chess_position! {
+        ........
+        ........
+        ........
+        ........
+        ........
+        ........
+        P.......
+        K.......
+    };
+    board.set_turn(Color::White);
+    board.lose_castle_rights(CastleRights::all());
+
+    let result = search_best_move(&mut context, &mut board);
+    assert!(result.is_ok(), "Search should succeed even in endgame");
+    let position_count = context.searched_position_count();
+    assert!(
+        position_count > 0,
+        "Should search positions even when null move is disabled (endgame)"
+    );
+}

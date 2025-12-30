@@ -176,7 +176,7 @@ fn player_material_score(board: &Board, color: Color) -> i16 {
 
 /// Determines if the position is an endgame.
 #[inline(always)]
-fn is_endgame(board: &Board) -> bool {
+pub fn is_endgame(board: &Board) -> bool {
     let white_queen = board.pieces(Color::White).locate(Piece::Queen);
     let black_queen = board.pieces(Color::Black).locate(Piece::Queen);
     let white_king = board.pieces(Color::White).locate(Piece::King);

@@ -26,6 +26,17 @@ impl GameState for Board {
     fn toggle_turn(&mut self) {
         Board::toggle_turn(self);
     }
+
+    #[inline]
+    fn is_in_check(&self) -> bool {
+        let move_generator = move_generator::MoveGenerator::default();
+        evaluate::current_player_is_in_check(self, &move_generator)
+    }
+
+    #[inline]
+    fn is_endgame(&self) -> bool {
+        evaluate::is_endgame(self)
+    }
 }
 
 impl GameMove for ChessMove {
