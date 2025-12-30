@@ -33,53 +33,90 @@ pub enum SearchError {
     DepthTooLow,
 }
 
-pub struct SearchContext<M: Clone + Send + Sync + 'static> {
-    search_depth: u8,
-    searched_position_count: AtomicUsize,
+/// Search configuration parameters.
+struct SearchConfig {
+    depth: u8,
+    parallel: bool,
+}
+
+impl SearchConfig {
+    fn new(depth: u8, parallel: bool) -> Self {
+        Self { depth, parallel }
+    }
+}
+
+/// Statistics collected during search.
+struct SearchStats {
+    position_count: AtomicUsize,
     last_score: Option<i16>,
-    last_search_duration: Option<Duration>,
+    last_duration: Option<Duration>,
+}
+
+impl SearchStats {
+    fn new() -> Self {
+        Self {
+            position_count: AtomicUsize::new(0),
+            last_score: None,
+            last_duration: None,
+        }
+    }
+
+    fn increment(&self) {
+        self.position_count.fetch_add(1, Ordering::SeqCst);
+    }
+
+    fn reset(&mut self) {
+        self.last_score = None;
+        self.last_duration = None;
+        self.position_count.store(0, Ordering::SeqCst);
+    }
+
+    fn record_result(&mut self, score: i16, duration: Duration) {
+        self.last_score = Some(score);
+        self.last_duration = Some(duration);
+    }
+
+    fn count(&self) -> usize {
+        self.position_count.load(Ordering::SeqCst)
+    }
+}
+
+pub struct SearchContext<M: Clone + Send + Sync + 'static> {
+    config: SearchConfig,
+    stats: SearchStats,
     transposition_table: TranspositionTable<M>,
     killer_manager: KillerMovesManager,
-    parallel: bool,
 }
 
 impl<M: Clone + Send + Sync + 'static> SearchContext<M> {
     pub fn new(depth: u8) -> Self {
         Self {
-            search_depth: depth,
-            searched_position_count: AtomicUsize::new(0),
-            last_score: None,
-            last_search_duration: None,
+            config: SearchConfig::new(depth, true),
+            stats: SearchStats::new(),
             transposition_table: TranspositionTable::default(),
             killer_manager: KillerMovesManager::new(depth),
-            parallel: true,
         }
     }
 
     pub fn with_parallel(depth: u8, parallel: bool) -> Self {
         Self {
-            search_depth: depth,
-            searched_position_count: AtomicUsize::new(0),
-            last_score: None,
-            last_search_duration: None,
+            config: SearchConfig::new(depth, parallel),
+            stats: SearchStats::new(),
             transposition_table: TranspositionTable::default(),
             killer_manager: KillerMovesManager::new(depth),
-            parallel,
         }
     }
 
     pub fn set_parallel(&mut self, parallel: bool) {
-        self.parallel = parallel;
+        self.config.parallel = parallel;
     }
 
     pub fn is_parallel(&self) -> bool {
-        self.parallel
+        self.config.parallel
     }
 
     pub fn reset_stats(&mut self) {
-        self.last_score = None;
-        self.last_search_duration = None;
-        self.searched_position_count.store(0, Ordering::SeqCst);
+        self.stats.reset();
         self.transposition_table.clear();
         self.killer_manager.clear();
     }
@@ -97,19 +134,19 @@ impl<M: Clone + Send + Sync + 'static> SearchContext<M> {
     }
 
     pub fn searched_position_count(&self) -> usize {
-        self.searched_position_count.load(Ordering::SeqCst)
+        self.stats.count()
     }
 
     pub fn search_depth(&self) -> u8 {
-        self.search_depth
+        self.config.depth
     }
 
     pub fn last_score(&self) -> Option<i16> {
-        self.last_score
+        self.stats.last_score
     }
 
     pub fn last_search_duration(&self) -> Option<Duration> {
-        self.last_search_duration
+        self.stats.last_duration
     }
 
     pub fn tt_hits(&self) -> usize {
@@ -117,7 +154,7 @@ impl<M: Clone + Send + Sync + 'static> SearchContext<M> {
     }
 
     fn increment_position_count(&self) {
-        self.searched_position_count.fetch_add(1, Ordering::SeqCst);
+        self.stats.increment();
     }
 }
 
@@ -234,7 +271,7 @@ where
             }
         }
 
-        let (score, move_found) = if context.parallel {
+        let (score, move_found) = if context.is_parallel() {
             search_root_parallel(
                 context,
                 state,
@@ -274,8 +311,7 @@ where
         Some(best_move.clone()),
     );
 
-    context.last_score = Some(best_score);
-    context.last_search_duration = Some(start.elapsed());
+    context.stats.record_result(best_score, start.elapsed());
 
     Ok(best_move)
 }
