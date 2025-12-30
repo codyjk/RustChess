@@ -1,0 +1,18 @@
+# Compilation performance optimizations for macOS
+
+[build]
+# Use all available CPU cores for parallel compilation
+jobs = 16  # Adjust based on your CPU core count
+
+[target.aarch64-apple-darwin]
+# Optimize linker performance
+rustflags = [
+    # Use faster split debuginfo on macOS (unpacked format)
+    "-C", "split-debuginfo=unpacked",
+    # Optimize linker performance
+    "-C", "link-arg=-Wl,-w",  # Suppress linker warnings for speed
+]
+
+[profile.dev]
+# Split debuginfo for faster linking
+split-debuginfo = "unpacked"

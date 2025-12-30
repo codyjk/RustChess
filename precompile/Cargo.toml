@@ -7,4 +7,4 @@ edition = "2018"
 [dependencies]
 common = { path = "../common" }
 log = "0.4.14"
-rand = "0.8.4"
+rand = { version = "0.8.4", default-features = false, features = ["std", "std_rng"] }
