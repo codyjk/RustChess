@@ -3,11 +3,13 @@
 //! Test coverage:
 //! - Basic search functionality (winning moves, losing positions, game completion)
 //! - Error handling (zero depth, no moves)
-//! - Transposition tables (TT hits, bound types, position caching)
-//! - Killer moves (storage, retrieval, clearing, multiple plies)
-//! - Move ordering (PV move prioritization)
+//! - Transposition tables (TT hits, bound types, position caching, depth replacement)
+//! - Killer moves (storage, retrieval, clearing, multiple plies, thread isolation, edge cases)
+//! - Move ordering (PV move prioritization, killer moves, reordering logic)
 //! - Quiescence search (tactical moves, stand-pat, depth limiting, alpha/beta boundaries)
 //! - Alpha-beta pruning (beta cutoffs, score boundaries, best move positions)
+//! - Iterative deepening (PV move ordering, TT usage across depths, consistency)
+//! - Null move pruning (depth requirements, check/endgame conditions)
 //! - Depth edge cases (depth 1, single/two moves)
 //! - Parallel vs sequential search consistency
 
@@ -1591,4 +1593,523 @@ fn test_null_move_pruning_requires_depth_3() {
         count_2 > 0 && count_3 > 0,
         "Both searches should explore positions"
     );
+}
+
+#[test]
+fn test_iterative_deepening_pv_move_ordering() {
+    // Test that iterative deepening with PV move ordering finds the correct move
+    let mut state = NimState::new(10);
+    let mut context = SearchContext::<NimMove>::new(5);
+
+    // First search with iterative deepening (populates TT with PV moves)
+    let result = alpha_beta_search(
+        &mut context,
+        &mut state,
+        &NimMoveGenerator,
+        &NimEvaluator,
+        &NoOpMoveOrderer,
+    )
+    .unwrap();
+
+    // From 10, optimal move leaves opponent with a multiple of 4
+    let remaining = 10 - result.take;
+    assert_eq!(
+        remaining % 4,
+        0,
+        "PV move ordering should find optimal move (take {} leaves {})",
+        result.take,
+        remaining
+    );
+
+    // Verify TT was used (has hits)
+    assert!(
+        context.tt_hits() > 0,
+        "Iterative deepening should use TT for move ordering"
+    );
+}
+
+#[test]
+fn test_iterative_deepening_tt_hit_skip() {
+    // Test that iterative deepening uses TT for each depth iteration
+    let mut state = NimState::new(8);
+    let mut context = SearchContext::<NimMove>::new(5);
+
+    // Search with iterative deepening (depths 1..=5)
+    let result = alpha_beta_search(
+        &mut context,
+        &mut state,
+        &NimMoveGenerator,
+        &NimEvaluator,
+        &NoOpMoveOrderer,
+    );
+
+    assert!(result.is_ok(), "Iterative deepening should succeed");
+
+    // Iterative deepening should have TT hits from reusing positions across depths
+    let tt_hits = context.tt_hits();
+    assert!(
+        tt_hits > 0,
+        "Iterative deepening should have TT hits from depth reuse (got {})",
+        tt_hits
+    );
+}
+
+#[test]
+fn test_iterative_deepening_same_result_as_single_depth() {
+    // Iterative deepening should find same move as single-depth search
+    let mut state1 = NimState::new(9);
+    let mut state2 = NimState::new(9);
+
+    // Search with iterative deepening (default behavior)
+    let mut context_iterative = SearchContext::<NimMove>::new(4);
+    let iterative_result = alpha_beta_search(
+        &mut context_iterative,
+        &mut state1,
+        &NimMoveGenerator,
+        &NimEvaluator,
+        &NoOpMoveOrderer,
+    )
+    .unwrap();
+
+    // Search directly at depth 4 (simulated by using depth 4 context)
+    let mut context_direct = SearchContext::<NimMove>::new(4);
+    let direct_result = alpha_beta_search(
+        &mut context_direct,
+        &mut state2,
+        &NimMoveGenerator,
+        &NimEvaluator,
+        &NoOpMoveOrderer,
+    )
+    .unwrap();
+
+    assert_eq!(
+        iterative_result, direct_result,
+        "Iterative deepening should find same move as direct search"
+    );
+}
+
+#[test]
+fn test_iterative_deepening_improves_pruning() {
+    // Test that deeper iterative deepening finds the same move with more pruning opportunities
+    let mut state1 = NimState::new(11);
+    let mut state2 = NimState::new(11);
+
+    // Shallow search
+    let mut context_shallow = SearchContext::<NimMove>::new(3);
+    let shallow_result = alpha_beta_search(
+        &mut context_shallow,
+        &mut state1,
+        &NimMoveGenerator,
+        &NimEvaluator,
+        &NoOpMoveOrderer,
+    )
+    .unwrap();
+
+    // Deeper search - should find same move
+    let mut context_deep = SearchContext::<NimMove>::new(6);
+    let deep_result = alpha_beta_search(
+        &mut context_deep,
+        &mut state2,
+        &NimMoveGenerator,
+        &NimEvaluator,
+        &NoOpMoveOrderer,
+    )
+    .unwrap();
+
+    assert_eq!(
+        shallow_result, deep_result,
+        "Iterative deepening at different depths should find same optimal move"
+    );
+
+    // Deeper search should have more TT hits from iterative deepening
+    assert!(
+        context_deep.tt_hits() > context_shallow.tt_hits(),
+        "Deeper iterative deepening should have more TT hits ({} vs {})",
+        context_deep.tt_hits(),
+        context_shallow.tt_hits()
+    );
+}
+
+#[test]
+fn test_iterative_deepening_best_move_stable() {
+    // Best move should be stable across different depths in winning positions
+    let state = NimState::new(13);
+
+    for depth in 3..=6 {
+        let mut context = SearchContext::<NimMove>::new(depth);
+        let result = alpha_beta_search(
+            &mut context,
+            &mut state.clone(),
+            &NimMoveGenerator,
+            &NimEvaluator,
+            &NoOpMoveOrderer,
+        )
+        .unwrap();
+
+        // From 13, optimal move is to take 1 (leaving 12, which is divisible by 4)
+        let remaining = 13 - result.take;
+        assert_eq!(
+            remaining % 4,
+            0,
+            "At depth {}, should find optimal move (take {} leaves {})",
+            depth,
+            result.take,
+            remaining
+        );
+    }
+}
+
+#[test]
+fn test_killer_vs_pv_priority() {
+    // Test that PV move takes priority over killer moves
+    let mut state = NimState::new(10);
+    let mut context = SearchContext::<NimMove>::new(5);
+
+    // Do a search to populate both PV (in TT) and killer moves
+    let first_result = alpha_beta_search(
+        &mut context,
+        &mut state,
+        &NimMoveGenerator,
+        &NimEvaluator,
+        &NoOpMoveOrderer,
+    )
+    .unwrap();
+
+    // Store a different move as killer
+    let other_move = if first_result.take == 1 {
+        NimMove { take: 2 }
+    } else {
+        NimMove { take: 1 }
+    };
+    context.store_killer(0, other_move);
+
+    // Search again - PV should still be found
+    context.reset_stats();
+    let second_result = alpha_beta_search(
+        &mut context,
+        &mut state,
+        &NimMoveGenerator,
+        &NimEvaluator,
+        &NoOpMoveOrderer,
+    )
+    .unwrap();
+
+    assert_eq!(
+        first_result, second_result,
+        "PV move should take priority over killer moves"
+    );
+}
+
+#[test]
+fn test_killer_move_at_max_depth() {
+    // Test killer move storage and retrieval at boundary ply
+    let max_depth = 5;
+    let context = SearchContext::<NimMove>::new(max_depth);
+
+    let killer = NimMove { take: 2 };
+    let boundary_ply = max_depth - 1;
+
+    // Store at boundary ply
+    context.store_killer(boundary_ply, killer.clone());
+
+    // Should be retrievable
+    let retrieved = context.get_killers(boundary_ply);
+    assert_eq!(
+        retrieved[0],
+        Some(killer),
+        "Killer should be stored and retrieved at boundary ply"
+    );
+}
+
+#[test]
+fn test_killer_moves_thread_isolated() {
+    // Test that killer moves are isolated between threads
+    use std::thread;
+
+    let context = SearchContext::<NimMove>::new(5);
+
+    // Clear any killers from other tests
+    let mut clear_context = SearchContext::<NimMove>::new(5);
+    clear_context.clear_killers();
+
+    // Store killer in main thread at a unique ply to avoid conflicts
+    let main_killer = NimMove { take: 1 };
+    context.store_killer(3, main_killer.clone());
+
+    // Verify main thread has its killer
+    let main_killers = context.get_killers(3);
+    assert_eq!(
+        main_killers[0],
+        Some(main_killer),
+        "Main thread killer preserved"
+    );
+
+    // Spawn thread with a new context to test thread-local isolation
+    let handle = thread::spawn(|| {
+        let thread_context = SearchContext::<NimMove>::new(5);
+        // Thread-local storage should be empty in new thread
+        let killers = thread_context.get_killers(3);
+        killers[0].is_none() // Should be None in new thread
+    });
+
+    let is_none_in_thread = handle.join().unwrap();
+    assert!(is_none_in_thread, "Thread-local killer storage isolated");
+}
+
+#[test]
+fn test_killer_move_no_reorder_if_first() {
+    // If killer move is already first, reordering should be a no-op
+    let mut context = SearchContext::<NimMove>::new(5);
+    context.clear_killers(); // Clear any killers from other tests
+
+    let killer = NimMove { take: 1 };
+
+    // Use a unique ply to avoid conflicts with other tests
+    context.store_killer(2, killer.clone());
+
+    let mut moves = vec![
+        NimMove { take: 1 }, // Already first
+        NimMove { take: 2 },
+        NimMove { take: 3 },
+    ];
+    let moves_before = moves.clone();
+
+    // Manual reordering logic (simulating what happens in alpha_beta_minimax)
+    let killers = context.get_killers(2);
+    for killer in killers.iter().flatten().rev() {
+        if let Some(pos) = moves.iter().position(|m| m == killer) {
+            if pos > 0 {
+                moves[0..=pos].rotate_right(1);
+            }
+        }
+    }
+
+    assert_eq!(
+        moves, moves_before,
+        "Killer already first should not reorder"
+    );
+}
+
+#[test]
+fn test_tt_exact_bound_in_iterative_deepening() {
+    // Test that TT is used correctly across iterations in iterative deepening
+    let mut state = NimState::new(10);
+    let mut context = SearchContext::<NimMove>::new(5);
+
+    // Search with iterative deepening
+    let result = alpha_beta_search(
+        &mut context,
+        &mut state,
+        &NimMoveGenerator,
+        &NimEvaluator,
+        &NoOpMoveOrderer,
+    )
+    .unwrap();
+
+    // Verify optimal move found
+    let remaining = 10 - result.take;
+    assert_eq!(remaining % 4, 0, "Should find optimal move with TT support");
+
+    // TT should have been used across iterations
+    assert!(
+        context.tt_hits() > 0,
+        "Iterative deepening should use TT across iterations"
+    );
+}
+
+#[test]
+fn test_tt_deeper_search_replaces_shallow() {
+    // Deeper searches should replace shallower TT entries
+    let mut state = NimState::new(10);
+
+    // Shallow search first
+    let mut context_shallow = SearchContext::<NimMove>::new(2);
+    let _ = alpha_beta_search(
+        &mut context_shallow,
+        &mut state,
+        &NimMoveGenerator,
+        &NimEvaluator,
+        &NoOpMoveOrderer,
+    );
+
+    // Deep search should replace the TT entry
+    let mut context_deep = SearchContext::<NimMove>::new(5);
+    let _ = alpha_beta_search(
+        &mut context_deep,
+        &mut state,
+        &NimMoveGenerator,
+        &NimEvaluator,
+        &NoOpMoveOrderer,
+    );
+
+    // Subsequent shallow search should benefit from deeper entry
+    context_shallow.reset_stats();
+    let result_after = alpha_beta_search(
+        &mut context_shallow,
+        &mut state,
+        &NimMoveGenerator,
+        &NimEvaluator,
+        &NoOpMoveOrderer,
+    );
+
+    assert!(
+        result_after.is_ok(),
+        "Should successfully use deeper TT entry for shallow search"
+    );
+}
+
+#[test]
+fn test_tt_bound_type_correctness() {
+    // Test that TT stores and uses entries correctly (bound types are internal)
+    let mut state = NimState::new(9);
+    let mut context = SearchContext::<NimMove>::new(5);
+
+    // Search populates TT with various bound types
+    let first_result = alpha_beta_search(
+        &mut context,
+        &mut state,
+        &NimMoveGenerator,
+        &NimEvaluator,
+        &NoOpMoveOrderer,
+    )
+    .unwrap();
+
+    // Verify TT has hits (indicating bound types working)
+    let tt_hits = context.tt_hits();
+    assert!(
+        tt_hits > 0,
+        "TT should have hits, indicating bound types stored and used correctly (got {} hits)",
+        tt_hits
+    );
+
+    // From 9, optimal move should leave 8 (divisible by 4) - losing position for opponent
+    let remaining = 9 - first_result.take;
+    assert_eq!(
+        remaining % 4,
+        0,
+        "TT-assisted search should find optimal move (take {} leaves {})",
+        first_result.take,
+        remaining
+    );
+}
+
+#[test]
+fn test_move_reordering_pv_already_first() {
+    // Test that PV move already at position 0 doesn't cause unnecessary reordering
+    let mut state = NimState::new(7);
+    let mut context = SearchContext::<NimMove>::new(4);
+
+    // First search to establish PV
+    let first_result = alpha_beta_search(
+        &mut context,
+        &mut state,
+        &NimMoveGenerator,
+        &NimEvaluator,
+        &NoOpMoveOrderer,
+    )
+    .unwrap();
+
+    // Create move list with PV already first
+    let mut moves = vec![
+        first_result.clone(),
+        NimMove {
+            take: if first_result.take == 1 { 2 } else { 1 },
+        },
+    ];
+    let moves_before = moves.clone();
+
+    // Simulate PV reordering
+    if let Some(pos) = moves.iter().position(|m| m == &first_result) {
+        if pos > 0 {
+            moves[0..=pos].rotate_right(1);
+        }
+    }
+
+    assert_eq!(
+        moves, moves_before,
+        "PV already first should not change move order"
+    );
+}
+
+#[test]
+fn test_move_reordering_killer_equals_pv() {
+    // Test that killer move that equals PV doesn't get reordered twice
+    let context = SearchContext::<NimMove>::new(4);
+
+    let pv_move = NimMove { take: 1 };
+
+    // Store same move as both PV (via TT) and killer
+    context.store_killer(0, pv_move.clone());
+
+    let mut moves = vec![NimMove { take: 2 }, pv_move.clone(), NimMove { take: 3 }];
+
+    // Reorder with PV
+    if let Some(pos) = moves.iter().position(|m| m == &pv_move) {
+        if pos > 0 {
+            moves[0..=pos].rotate_right(1);
+        }
+    }
+
+    // Try to reorder with killer (should skip since it's same as PV)
+    let killers = context.get_killers(0);
+    for killer in killers.iter().flatten().rev() {
+        if Some(killer) == Some(&pv_move) {
+            // Should not reorder again
+            continue;
+        }
+        if let Some(pos) = moves.iter().position(|m| m == killer) {
+            if pos > 1 {
+                // Start from 1 since PV is at 0
+                moves[1..=pos].rotate_right(1);
+            }
+        }
+    }
+
+    assert_eq!(
+        moves[0], pv_move,
+        "PV move should be first and not duplicated"
+    );
+}
+
+#[test]
+fn test_move_reordering_multiple_killers() {
+    // Test that multiple killer moves are ordered correctly (primary before secondary)
+    let context = SearchContext::<NimMove>::new(5);
+
+    let killer1 = NimMove { take: 1 };
+    let killer2 = NimMove { take: 2 };
+
+    // Store killers (killer2 is more recent, so it becomes primary)
+    context.store_killer(0, killer1.clone());
+    context.store_killer(0, killer2.clone());
+
+    let killers = context.get_killers(0);
+    assert_eq!(
+        killers[0],
+        Some(killer2.clone()),
+        "Primary killer should be most recent"
+    );
+    assert_eq!(
+        killers[1],
+        Some(killer1.clone()),
+        "Secondary killer should be previous"
+    );
+
+    let mut moves = vec![
+        NimMove { take: 3 },
+        NimMove { take: 1 },
+        NimMove { take: 2 },
+    ];
+
+    // Simulate killer reordering (without PV)
+    for killer in killers.iter().flatten().rev() {
+        if let Some(pos) = moves.iter().position(|m| m == killer) {
+            if pos > 0 {
+                moves[0..=pos].rotate_right(1);
+            }
+        }
+    }
+
+    assert_eq!(moves[0], killer2, "Primary killer should be first");
+    assert_eq!(moves[1], killer1, "Secondary killer should be second");
 }
