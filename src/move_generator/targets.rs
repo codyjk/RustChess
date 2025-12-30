@@ -1,9 +1,12 @@
 //! Move and attack target generation for chess pieces.
 //!
 //! **Performance optimizations:**
-//! - Iterate only occupied squares (not all 64): 32.7% improvement for sliding pieces, 32.2% for knights/kings
-//! - Bitboard shifts for pawn moves: 2.2% improvement over index arithmetic
-//! - Magic table lookups use `#[inline]` attributes for better inlining
+//! - Iterate only occupied squares instead of all 64 squares for better cache locality
+//! - Bitboard shifts for pawn moves instead of index arithmetic
+//! - Magic table lookups with `#[inline]` attributes for better inlining
+//! - Direct bitboard accumulation for attack targets without intermediate SmallVec allocations
+//! - Simplified bit operations (AND-NOT instead of XOR combinations)
+//! - Batch processing of pawn attacks using parallel bitboard operations
 
 use crate::board::color::Color;
 use crate::board::piece::Piece;
@@ -44,27 +47,14 @@ impl Default for Targets {
 
 impl Targets {
     pub fn generate_attack_targets(&self, board: &Board, color: Color) -> Bitboard {
-        let mut piece_targets: PieceTargetList = smallvec![];
         let mut attack_targets = Bitboard::EMPTY;
 
-        generate_pawn_attack_targets(&mut piece_targets, board, color);
-        self.generate_sliding_targets(&mut piece_targets, board, color);
-        self.generate_targets_from_precomputed_tables(
-            &mut piece_targets,
-            board,
-            color,
-            Piece::Knight,
-        );
-        self.generate_targets_from_precomputed_tables(
-            &mut piece_targets,
-            board,
-            color,
-            Piece::King,
-        );
-
-        for (_piece, targets) in piece_targets {
-            attack_targets |= targets;
-        }
+        attack_targets |= generate_pawn_attack_targets_bitboard(board, color);
+        attack_targets |= self.generate_sliding_targets_bitboard(board, color);
+        attack_targets |=
+            self.generate_targets_from_precomputed_tables_bitboard(board, color, Piece::Knight);
+        attack_targets |=
+            self.generate_targets_from_precomputed_tables_bitboard(board, color, Piece::King);
 
         attack_targets
     }
@@ -104,8 +94,7 @@ impl Targets {
         while !rooks.is_empty() {
             let square = rooks.pop_lsb().to_square();
             let targets_including_own_pieces = self.magic_table.get_rook_targets(square, occupied);
-            let target_squares =
-                targets_including_own_pieces ^ (own_occupied & targets_including_own_pieces);
+            let target_squares = targets_including_own_pieces & !own_occupied;
             piece_targets.push((square, target_squares));
         }
 
@@ -115,8 +104,7 @@ impl Targets {
             let square = bishops.pop_lsb().to_square();
             let targets_including_own_pieces =
                 self.magic_table.get_bishop_targets(square, occupied);
-            let target_squares =
-                targets_including_own_pieces ^ (own_occupied & targets_including_own_pieces);
+            let target_squares = targets_including_own_pieces & !own_occupied;
             piece_targets.push((square, target_squares));
         }
 
@@ -126,8 +114,7 @@ impl Targets {
             let square = queens.pop_lsb().to_square();
             let targets_including_own_pieces = self.magic_table.get_rook_targets(square, occupied)
                 | self.magic_table.get_bishop_targets(square, occupied);
-            let target_squares =
-                targets_including_own_pieces ^ (own_occupied & targets_including_own_pieces);
+            let target_squares = targets_including_own_pieces & !own_occupied;
             piece_targets.push((square, target_squares));
         }
     }
@@ -138,6 +125,56 @@ impl Targets {
             Piece::King => self.kings[square.index() as usize],
             _ => panic!("invalid piece type for precomputed targets: {}", piece),
         }
+    }
+
+    fn generate_sliding_targets_bitboard(&self, board: &Board, color: Color) -> Bitboard {
+        let occupied = board.occupied();
+        let own_occupied = board.pieces(color).occupied();
+        let mut attack_targets = Bitboard::EMPTY;
+
+        let mut rooks = board.pieces(color).locate(Piece::Rook);
+        while !rooks.is_empty() {
+            let square = rooks.pop_lsb().to_square();
+            let targets_including_own_pieces = self.magic_table.get_rook_targets(square, occupied);
+            attack_targets |= targets_including_own_pieces & !own_occupied;
+        }
+
+        let mut bishops = board.pieces(color).locate(Piece::Bishop);
+        while !bishops.is_empty() {
+            let square = bishops.pop_lsb().to_square();
+            let targets_including_own_pieces =
+                self.magic_table.get_bishop_targets(square, occupied);
+            attack_targets |= targets_including_own_pieces & !own_occupied;
+        }
+
+        let mut queens = board.pieces(color).locate(Piece::Queen);
+        while !queens.is_empty() {
+            let square = queens.pop_lsb().to_square();
+            let targets_including_own_pieces = self.magic_table.get_rook_targets(square, occupied)
+                | self.magic_table.get_bishop_targets(square, occupied);
+            attack_targets |= targets_including_own_pieces & !own_occupied;
+        }
+
+        attack_targets
+    }
+
+    fn generate_targets_from_precomputed_tables_bitboard(
+        &self,
+        board: &Board,
+        color: Color,
+        piece: Piece,
+    ) -> Bitboard {
+        let mut pieces = board.pieces(color).locate(piece);
+        let occupied = board.pieces(color).occupied();
+        let mut attack_targets = Bitboard::EMPTY;
+
+        while !pieces.is_empty() {
+            let square = pieces.pop_lsb().to_square();
+            let candidates = self.get_precomputed_targets(square, piece) & !occupied;
+            attack_targets |= candidates;
+        }
+
+        attack_targets
     }
 }
 
@@ -232,6 +269,23 @@ pub fn generate_pawn_attack_targets(
         }
 
         piece_targets.push((pawn.to_square(), targets));
+    }
+}
+
+pub fn generate_pawn_attack_targets_bitboard(board: &Board, color: Color) -> Bitboard {
+    let pawns = board.pieces(color).locate(Piece::Pawn);
+
+    match color {
+        Color::White => {
+            let attacks_west = (pawns << 9) & !Bitboard::A_FILE;
+            let attacks_east = (pawns << 7) & !Bitboard::H_FILE;
+            attacks_west | attacks_east
+        }
+        Color::Black => {
+            let attacks_west = (pawns >> 7) & !Bitboard::A_FILE;
+            let attacks_east = (pawns >> 9) & !Bitboard::H_FILE;
+            attacks_west | attacks_east
+        }
     }
 }
 
