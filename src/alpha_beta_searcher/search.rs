@@ -210,6 +210,28 @@ where
     result
 }
 
+/// Updates best score and move if new score is better.
+/// Returns true if best_score was updated.
+fn update_best<M: Clone>(
+    score: i16,
+    candidate_move: &M,
+    maximizing_player: bool,
+    best_score: &mut i16,
+    best_move: &mut Option<M>,
+) -> bool {
+    let is_better = if maximizing_player {
+        score > *best_score
+    } else {
+        score < *best_score
+    };
+
+    if is_better {
+        *best_score = score;
+        *best_move = Some(candidate_move.clone());
+    }
+    is_better
+}
+
 #[must_use = "search returns the best move found"]
 pub fn alpha_beta_search<S, G, E, O>(
     context: &mut SearchContext<G::Move>,
@@ -366,15 +388,13 @@ where
             )
         })?;
 
-        if maximizing_player {
-            if score > best_score {
-                best_score = score;
-                best_move = Some(game_move.clone());
-            }
-        } else if score < best_score {
-            best_score = score;
-            best_move = Some(game_move.clone());
-        }
+        update_best(
+            score,
+            game_move,
+            maximizing_player,
+            &mut best_score,
+            &mut best_move,
+        );
     }
 
     Ok((best_score, best_move))
@@ -433,15 +453,13 @@ where
     let mut best_move = None;
 
     for (score, game_move) in results {
-        if maximizing_player {
-            if score > best_score {
-                best_score = score;
-                best_move = Some(game_move);
-            }
-        } else if score < best_score {
-            best_score = score;
-            best_move = Some(game_move);
-        }
+        update_best(
+            score,
+            &game_move,
+            maximizing_player,
+            &mut best_score,
+            &mut best_move,
+        );
     }
 
     Ok((best_score, best_move))
@@ -669,17 +687,17 @@ where
             )
         })?;
 
+        update_best(
+            score,
+            game_move,
+            maximizing_player,
+            &mut best_score,
+            &mut best_move,
+        );
+
         if maximizing_player {
-            if score > best_score {
-                best_score = score;
-                best_move = Some(game_move.clone());
-            }
             alpha = max(alpha, score);
         } else {
-            if score < best_score {
-                best_score = score;
-                best_move = Some(game_move.clone());
-            }
             beta = min(beta, score);
         }
 
