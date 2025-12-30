@@ -55,11 +55,13 @@ impl GameMode for HumanVsComputer {
                 .last_search_duration
                 .map_or("-".to_string(), |d| format!("{:?}", d))
         );
+        let opening_name = engine.get_book_line_name();
         ui.render_game_state(
             engine.board(),
             current_turn,
             last_move,
             Some(&stats_display),
+            opening_name.as_deref(),
         );
         if current_turn == self.human_color {
             println!("Enter your move:");
@@ -93,11 +95,13 @@ impl GameMode for ComputerVsComputer {
                 .last_search_duration
                 .map_or("-".to_string(), |d| format!("{:?}", d))
         );
+        let opening_name = engine.get_book_line_name();
         ui.render_game_state(
             engine.board(),
             current_turn,
             last_move,
             Some(&stats_display),
+            opening_name.as_deref(),
         );
     }
 
@@ -118,7 +122,14 @@ impl GameMode for HumanVsHuman {
         current_turn: Color,
         last_move: Option<(&ChessMove, &str)>,
     ) {
-        ui.render_game_state(engine.board(), current_turn, last_move, None);
+        let opening_name = engine.get_book_line_name();
+        ui.render_game_state(
+            engine.board(),
+            current_turn,
+            last_move,
+            None,
+            opening_name.as_deref(),
+        );
         println!("Enter your move:");
     }
 

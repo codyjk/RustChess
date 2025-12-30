@@ -32,6 +32,7 @@ impl GameDisplay {
         current_turn: Color,
         last_move: Option<(&ChessMove, &str)>,
         stats: Option<&str>,
+        opening_name: Option<&str>,
     ) {
         self.clear();
 
@@ -65,6 +66,11 @@ impl GameDisplay {
         // Board footer
         self.buffer
             .push_str("    a   b   c   d   e   f   g   h\n\n");
+
+        // Opening name
+        if let Some(opening) = opening_name {
+            self.buffer.push_str(&format!("Opening: {}\n", opening));
+        }
 
         // Game info
         self.buffer.push_str(&format!("Turn: {}\n", current_turn));

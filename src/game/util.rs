@@ -26,5 +26,12 @@ pub fn print_board_and_stats(
         engine.get_search_stats().depth
     );
 
-    ui.render_game_state(engine.board(), current_turn, last_move, Some(&stats));
+    let opening_name = engine.get_book_line_name();
+    ui.render_game_state(
+        engine.board(),
+        current_turn,
+        last_move,
+        Some(&stats),
+        opening_name.as_deref(),
+    );
 }

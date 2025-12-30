@@ -6,7 +6,7 @@ use std::fmt;
 impl fmt::Display for Board {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut ui = GameDisplay::new();
-        ui.render_game_state(self, self.turn(), None, None);
+        ui.render_game_state(self, self.turn(), None, None, None);
         write!(f, "{}", ui.buffer())
     }
 }
