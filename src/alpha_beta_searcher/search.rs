@@ -232,6 +232,54 @@ where
     }
 }
 
+/// Attempts null move pruning to cut search early.
+///
+/// Returns Some(beta) if null move causes cutoff, None otherwise.
+///
+/// Prerequisites: depth >= 3, not in check, not endgame.
+#[allow(clippy::too_many_arguments)]
+fn try_null_move_pruning<S, G, E, O>(
+    context: &SearchContext<G::Move>,
+    state: &mut S,
+    move_generator: &G,
+    evaluator: &E,
+    move_orderer: &O,
+    depth: u8,
+    ply: u8,
+    beta: i16,
+    maximizing_player: bool,
+) -> Result<Option<i16>, SearchError>
+where
+    S: GameState,
+    G: MoveGenerator<S>,
+    G::Move: GameMove<State = S>,
+    E: Evaluator<S>,
+    O: MoveOrderer<S, G::Move>,
+{
+    if depth < 3 || state.is_in_check() || state.is_endgame() {
+        return Ok(None);
+    }
+
+    const NULL_MOVE_REDUCTION: u8 = 2;
+
+    state.toggle_turn();
+    let null_score = -alpha_beta_minimax(
+        context,
+        state,
+        move_generator,
+        evaluator,
+        move_orderer,
+        depth - 1 - NULL_MOVE_REDUCTION,
+        ply + 1,
+        -beta,
+        -beta + 1,
+        !maximizing_player,
+    )?;
+    state.toggle_turn();
+
+    Ok(if null_score >= beta { Some(beta) } else { None })
+}
+
 #[must_use = "search returns the best move found"]
 pub fn alpha_beta_search<S, G, E, O>(
     context: &mut SearchContext<G::Move>,
@@ -604,27 +652,19 @@ where
         );
     }
 
-    // Null move pruning: give opponent a free move; if they still can't beat beta, prune branch
-    if depth >= 3 && !state.is_in_check() && !state.is_endgame() {
-        const NULL_MOVE_REDUCTION: u8 = 2;
-        state.toggle_turn();
-        let null_score = -alpha_beta_minimax(
-            context,
-            state,
-            move_generator,
-            evaluator,
-            move_orderer,
-            depth - 1 - NULL_MOVE_REDUCTION,
-            ply + 1,
-            -beta,
-            -beta + 1,
-            !maximizing_player,
-        )?;
-        state.toggle_turn();
-
-        if null_score >= beta {
-            return Ok(beta);
-        }
+    // Null move pruning
+    if let Some(score) = try_null_move_pruning(
+        context,
+        state,
+        move_generator,
+        evaluator,
+        move_orderer,
+        depth,
+        ply,
+        beta,
+        maximizing_player,
+    )? {
+        return Ok(score);
     }
 
     let mut candidates = move_generator.generate_moves(state);
