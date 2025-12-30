@@ -632,6 +632,7 @@ const MAX_QUIESCENCE_DEPTH: u8 = 8;
 fn quiescence_search<S, G, E, O>(
     context: &SearchContext<G::Move>,
     state: &mut S,
+    hash: u64,
     move_generator: &G,
     evaluator: &E,
     move_orderer: &O,
@@ -650,12 +651,40 @@ where
     context.increment_position_count();
     context.increment_quiescence();
 
+    // Probe TT for cached quiescence result
+    context.increment_tt_probes();
+    let (cutoff_score, _tt_move) = context
+        .transposition_table
+        .probe_with_move(hash, qdepth, alpha, beta);
+
+    // Track miss
+    if cutoff_score.is_none() {
+        context.increment_tt_misses();
+    }
+
+    // Early return on TT hit
+    if let Some(score) = cutoff_score {
+        return Ok(score);
+    }
+
+    // Save original alpha for bound type determination
+    let original_alpha = alpha;
+
     if qdepth >= MAX_QUIESCENCE_DEPTH {
-        return Ok(evaluator.evaluate(state, 0));
+        let score = evaluator.evaluate(state, 0);
+        context.increment_tt_stores();
+        context
+            .transposition_table
+            .store(hash, score, qdepth, BoundType::Exact, None);
+        return Ok(score);
     }
 
     let stand_pat = evaluator.evaluate(state, 0);
     if stand_pat >= beta {
+        context.increment_tt_stores();
+        context
+            .transposition_table
+            .store(hash, beta, qdepth, BoundType::Lower, None);
         return Ok(beta);
     }
     if stand_pat > alpha {
@@ -665,6 +694,10 @@ where
     context.increment_move_gen();
     let candidates = move_generator.generate_moves(state);
     if candidates.is_empty() {
+        context.increment_tt_stores();
+        context
+            .transposition_table
+            .store(hash, stand_pat, qdepth, BoundType::Exact, None);
         return Ok(stand_pat);
     }
 
@@ -676,6 +709,10 @@ where
         .collect();
 
     if tactical_moves.is_empty() {
+        context.increment_tt_stores();
+        context
+            .transposition_table
+            .store(hash, stand_pat, qdepth, BoundType::Exact, None);
         return Ok(stand_pat);
     }
 
@@ -689,9 +726,11 @@ where
             .expect("move application should succeed in quiescence");
         state.toggle_turn();
 
+        let child_hash = state.position_hash();
         let score = -quiescence_search(
             context,
             state,
+            child_hash,
             move_generator,
             evaluator,
             move_orderer,
@@ -707,6 +746,10 @@ where
         state.toggle_turn();
 
         if score >= beta {
+            context.increment_tt_stores();
+            context
+                .transposition_table
+                .store(hash, beta, qdepth, BoundType::Lower, None);
             return Ok(beta);
         }
         if score > alpha {
@@ -716,6 +759,17 @@ where
             best_score = score;
         }
     }
+
+    // Store result with appropriate bound type
+    let bound_type = if best_score <= original_alpha {
+        BoundType::Upper
+    } else {
+        BoundType::Exact
+    };
+    context.increment_tt_stores();
+    context
+        .transposition_table
+        .store(hash, best_score, qdepth, bound_type, None);
 
     Ok(best_score)
 }
@@ -786,6 +840,7 @@ where
         return quiescence_search(
             context,
             state,
+            hash,
             move_generator,
             evaluator,
             move_orderer,
