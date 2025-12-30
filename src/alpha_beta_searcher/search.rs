@@ -1,17 +1,45 @@
 //! Alpha-beta search algorithm implementation.
 //!
-//! Optimizations:
-//! - Thread-local storage for killer moves to eliminate lock contention in parallel search
-//! - Transposition tables for position caching
-//! - Move ordering heuristics (PV moves, killer moves, captures)
-//! - Quiescence search: continues searching tactical moves (captures, checks) beyond the
-//!   nominal depth limit to avoid horizon effects. Games opt-in by implementing `is_tactical`
-//!   on their move type.
-//! - Null move pruning: gives opponent a free move; if they still can't beat beta, prunes the
-//!   branch. Games opt-in by implementing `is_in_check` and `is_endgame` on their state type.
-//! - Iterative deepening: searches at increasing depths (1..target), using previous results to
-//!   improve move ordering. The best move from depth N-1 is prioritized at depth N, improving
-//!   alpha-beta pruning efficiency.
+//! # Core Algorithm
+//!
+//! Alpha-beta pruning is an optimization of minimax search that maintains a window [alpha, beta]
+//! representing the range of scores that matter. Moves that fall outside this window can be
+//! pruned without affecting the final result. The algorithm guarantees finding the same move as
+//! minimax but explores fewer nodes.
+//!
+//! # Optimizations
+//!
+//! ## Iterative Deepening
+//! Searches at increasing depths (1..target_depth), using results from shallower searches to
+//! improve move ordering at deeper levels. The best move from depth N-1 (stored in the
+//! transposition table) is prioritized at depth N, dramatically improving pruning efficiency.
+//!
+//! ## Transposition Tables
+//! Caches position evaluations by Zobrist hash to avoid re-searching identical positions that
+//! arise through move transpositions. Stores the score, depth, bound type (exact/upper/lower),
+//! and best move for each position.
+//!
+//! ## Move Ordering
+//! Orders moves to maximize alpha-beta cutoffs:
+//! 1. PV (Principal Variation) move from transposition table
+//! 2. Killer moves (quiet moves that caused cutoffs at the same ply)
+//! 3. History heuristic and capture moves (via MoveOrderer trait)
+//!
+//! Better move ordering leads to more cutoffs and faster search.
+//!
+//! ## Null Move Pruning
+//! Gives the opponent a free move (depth >= 3, not in check, not endgame). If they still can't
+//! achieve beta even with this advantage, the position is too good and the branch is pruned.
+//! Games opt in by implementing `is_in_check` and `is_endgame` on their state type.
+//!
+//! ## Quiescence Search
+//! Extends search beyond the nominal depth for tactical moves (captures, checks) to avoid the
+//! horizon effect where the engine stops analyzing just before a critical tactical sequence.
+//! Games opt in by implementing `is_tactical` on their move type.
+//!
+//! ## Parallel Search
+//! Root moves can be searched in parallel using thread-local storage for killer moves to
+//! eliminate lock contention.
 
 use std::cmp::{max, min};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -280,6 +308,30 @@ where
     Ok(if null_score >= beta { Some(beta) } else { None })
 }
 
+/// Searches for the best move using alpha-beta pruning with iterative deepening.
+///
+/// This is the main entry point for the search algorithm. It performs iterative deepening,
+/// searching at depths 1 through the target depth. Each iteration uses the best move from
+/// the previous depth (stored in the transposition table) to improve move ordering.
+///
+/// # Returns
+///
+/// - `Ok(best_move)` - The best move found at the target depth
+/// - `Err(SearchError::DepthTooLow)` - If search depth is < 1
+/// - `Err(SearchError::NoAvailableMoves)` - If no legal moves available
+///
+/// # Examples
+///
+/// ```ignore
+/// let mut context = SearchContext::new(6);
+/// let best_move = alpha_beta_search(
+///     &mut context,
+///     &mut board,
+///     &move_gen,
+///     &evaluator,
+///     &move_orderer,
+/// )?;
+/// ```
 #[must_use = "search returns the best move found"]
 pub fn alpha_beta_search<S, G, E, O>(
     context: &mut SearchContext<G::Move>,
@@ -514,6 +566,25 @@ where
 
 const MAX_QUIESCENCE_DEPTH: u8 = 8;
 
+/// Quiescence search to avoid the horizon effect.
+///
+/// Extends the search beyond the nominal depth by only considering tactical moves
+/// (captures, checks, promotions). This prevents the evaluation from being distorted
+/// by stopping the search in the middle of a tactical sequence.
+///
+/// The search continues until reaching a "quiet" position where no tactical moves
+/// are available, or until MAX_QUIESCENCE_DEPTH is reached.
+///
+/// # Parameters
+///
+/// - `alpha` - Lower bound of search window
+/// - `beta` - Upper bound of search window
+/// - `maximizing_player` - True if current player wants to maximize score
+/// - `qdepth` - Current quiescence depth (limited to MAX_QUIESCENCE_DEPTH)
+///
+/// # Returns
+///
+/// The evaluation score for this position within the [alpha, beta] window.
 #[allow(clippy::too_many_arguments, clippy::only_used_in_recursion)]
 fn quiescence_search<S, G, E, O>(
     context: &SearchContext<G::Move>,
@@ -604,6 +675,29 @@ where
     Ok(best_score)
 }
 
+/// Core alpha-beta minimax search with pruning.
+///
+/// Recursively searches the game tree using alpha-beta pruning. The [alpha, beta] window
+/// represents the range of scores that matter - moves outside this window can be pruned.
+///
+/// # Search Optimizations
+///
+/// - **Transposition Table Lookup**: Checks for cached results at this position
+/// - **Null Move Pruning**: Attempts to prune the branch by giving opponent a free move
+/// - **Move Ordering**: Prioritizes PV move, killer moves, then other moves
+/// - **Quiescence Extension**: Calls quiescence_search at depth 0 to avoid horizon effect
+///
+/// # Parameters
+///
+/// - `depth` - Remaining search depth (decrements each ply)
+/// - `ply` - Current distance from root (increments each ply, used for killer moves)
+/// - `alpha` - Lower bound of search window
+/// - `beta` - Upper bound of search window
+/// - `maximizing_player` - True if current player wants to maximize score
+///
+/// # Returns
+///
+/// The evaluation score for this position within the [alpha, beta] window.
 #[allow(clippy::too_many_arguments)]
 fn alpha_beta_minimax<S, G, E, O>(
     context: &SearchContext<G::Move>,
