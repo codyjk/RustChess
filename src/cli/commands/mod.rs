@@ -4,6 +4,7 @@ pub trait Command {
     fn execute(self);
 }
 
+pub mod benchmark_alpha_beta;
 pub mod calculate_best_move;
 pub mod count_positions;
 pub mod determine_stockfish_elo;

@@ -107,6 +107,7 @@ dependencies = [
  "rand",
  "ratatui",
  "rayon",
+ "rayon-core",
  "regex",
  "rustc-hash",
  "smallvec",

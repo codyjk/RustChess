@@ -3,9 +3,9 @@
 use structopt::StructOpt;
 
 use crate::cli::commands::{
-    calculate_best_move::CalculateBestMoveArgs, count_positions::CountPositionsArgs,
-    determine_stockfish_elo::DetermineStockfishEloArgs, play::PlayArgs, pvp::PvpArgs, uci::UciArgs,
-    watch::WatchArgs,
+    benchmark_alpha_beta::BenchmarkAlphaBetaArgs, calculate_best_move::CalculateBestMoveArgs,
+    count_positions::CountPositionsArgs, determine_stockfish_elo::DetermineStockfishEloArgs,
+    play::PlayArgs, pvp::PvpArgs, uci::UciArgs, watch::WatchArgs,
 };
 
 #[derive(StructOpt)]
@@ -34,6 +34,11 @@ pub enum Chess {
         about = "Use the chess engine to determine the best move from a given position, provided in FEN notation with `--fen` (required). You can optionally specify the depth of the search with the `--depth` arg (default: 4)."
     )]
     CalculateBestMove(CalculateBestMoveArgs),
+    #[structopt(
+        name = "benchmark-alpha-beta",
+        about = "Run a quick alpha-beta performance benchmark on a curated set of positions. Reports nodes/sec, transposition table hit rate, and other metrics for fast iteration. Use `--depth` (default: 4) and `--parallel` flag to test different configurations."
+    )]
+    BenchmarkAlphaBeta(BenchmarkAlphaBetaArgs),
     #[structopt(
         name = "determine-stockfish-elo",
         about = "Determine the ELO rating of the engine at a given `--depth` (default: 4) and `--starting-elo` (default: 1000). The engine will increment the Stockfish ELO until it plateaus at a 50% win rate, at which point the rating is reported."
@@ -66,6 +71,7 @@ impl crate::cli::commands::Command for Chess {
             Pvp(cmd),
             Watch(cmd),
             CalculateBestMove(cmd),
+            BenchmarkAlphaBeta(cmd),
             DetermineStockfishElo(cmd),
             CountPositions(cmd),
             Uci(cmd),

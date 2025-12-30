@@ -1,5 +1,6 @@
 //! Game loop and engine coordination.
 
+pub mod alpha_beta_benchmark;
 pub mod display;
 pub mod engine;
 pub mod input_source;

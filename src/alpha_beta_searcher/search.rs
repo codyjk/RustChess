@@ -127,6 +127,10 @@ impl<M: Clone + Send + Sync> SearchContext<M> {
         self.last_search_duration
     }
 
+    pub fn tt_hits(&self) -> usize {
+        self.transposition_table.hits()
+    }
+
     fn increment_position_count(&self) {
         self.searched_position_count.fetch_add(1, Ordering::SeqCst);
     }
