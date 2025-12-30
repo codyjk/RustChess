@@ -1,5 +1,5 @@
 # `chess`
-A chess engine written in Rust, using the classical [alpha-beta pruning](https://en.wikipedia.org/wiki/Alpha–beta_pruning) algorithm for best-move selection.
+A high-performance chess engine written in Rust, using the classical [alpha-beta pruning](https://en.wikipedia.org/wiki/Alpha–beta_pruning) algorithm for best-move selection. The engine achieves ~117M positions/second in pure search and features UCI protocol support for integration with chess GUIs.
 
 ![Example of player playing against the engine](./demo.gif)
 
@@ -28,6 +28,9 @@ FLAGS:
     -V, --version    Prints version information
 
 SUBCOMMANDS:
+    benchmark-alpha-beta       Run a quick alpha-beta performance benchmark on a curated set of positions. Reports
+                               nodes/sec, transposition table hit rate, and other metrics for fast iteration. Use
+                               `--depth` (default: 4) and `--parallel` flag to test different configurations.
     calculate-best-move        Use the chess engine to determine the best move from a given position, provided in
                                FEN notation with `--fen` (required). You can optionally specify the depth of the
                                search with the `--depth` arg (default: 4).
@@ -44,6 +47,9 @@ SUBCOMMANDS:
                                specified using FEN notation with `--fen` (default: starting position).
     pvp                        Play a game against another human on this local machine. The initial position can be
                                specified using FEN notation with `--fen` (default: starting position).
+    uci                        Start UCI (Universal Chess Interface) mode for integration with external chess GUIs
+                               like Arena, cutechess-cli, or lichess. Reads UCI commands from stdin and responds on
+                               stdout.
     watch                      Watch the computer play against itself at the given `--depth` (default: 4). The
                                initial position can be specified using FEN notation with `--fen` (default: starting
                                position).
@@ -74,38 +80,72 @@ Qb3#
 
 This evaluates the position using the engine at a default `--depth` of `4`, and writes the result to `stdout` in algebraic notation.
 
+### UCI Protocol Support
+
+The engine supports the Universal Chess Interface (UCI) protocol, allowing it to integrate with external chess GUIs and online platforms:
+
+```console
+$ chess uci
+```
+
+This starts UCI mode, where the engine reads UCI commands from `stdin` and responds on `stdout`. You can use this with popular chess GUIs like Arena, cutechess-cli, or for integration with online platforms like lichess.
+
 ## Performance
 
 ### Throughput
 
-On an M1 MacBook Pro, the engine plateaus at around 45 million positions per second.
+On an M1 MacBook Pro, the engine achieves approximately 117 million positions per second in pure depth-first search.
 
 ```console
 $ chess count-positions --depth 6
-depth: 0, positions: 20, positions per second: 344827.5862068965
-depth: 1, positions: 420, positions per second: 36910.09754811495
-depth: 2, positions: 9322, positions per second: 924159.8096559928
-depth: 3, positions: 206603, positions per second: 7812258.942751266
-depth: 4, positions: 5072262, positions per second: 30028309.929195575
-depth: 5, positions: 124135208, positions per second: 44738631.82584201
-depth: 6, positions: 3320182902, positions per second: 44980862.13103737
-total positions: 3449606737, total duration: 76.804796s, positions per second: 44913949.6054387
+depth: 1, positions: 420, positions per second: 568335.5886332883
+depth: 2, positions: 9322, positions per second: 17655303.030303027
+depth: 3, positions: 206603, positions per second: 39693179.63496637
+depth: 4, positions: 5072212, positions per second: 58039110.68392205
+depth: 5, positions: 124132536, positions per second: 110713308.06889361
+depth: 6, positions: 3320034396, positions per second: 117432945.10356736
+total positions: 3449455489, total duration: 29.486818s, positions per second: 116982968.08424701
+
+Board clones: 5286510
+MoveGen creates: 1
 ```
 
 This is a pure depth-first search of all possible positions - no pruning is applied.
 
-[Alpha-beta pruning](https://en.wikipedia.org/wiki/Alpha–beta_pruning), which incorporates the engine's scoring heuristic to prune branches of the search tree, is used to search for the "best" move in actual gameplay. Using this approach, the engine plateaus at around 900,000 positions per second:
+[Alpha-beta pruning](https://en.wikipedia.org/wiki/Alpha–beta_pruning), which incorporates the engine's scoring heuristic to prune branches of the search tree, is used to search for the "best" move in actual gameplay. Using this approach, the engine achieves approximately 488,000 positions per second:
 
 ```console
-❯ chess count-positions --depth 6 --strategy alpha-beta
-depth: 0, positions: 20, positions per second: 1125.4924029262802
-depth: 1, positions: 420, positions per second: 32218.471923903035
-depth: 2, positions: 4434, positions per second: 254359.79807251034
-depth: 3, positions: 19494, positions per second: 588444.8200917653
-depth: 4, positions: 501500, positions per second: 927077.8837852877
-depth: 5, positions: 1122179, positions per second: 869289.6124067038
-depth: 6, positions: 26710588, positions per second: 951893.6850460902
-total positions: 28358635, total duration: 29.973702s, positions per second: 946117.1996705646
+$ chess count-positions --depth 6 --strategy alpha-beta
+depth: 1, positions: 20, positions per second: 6942.034015966678
+depth: 2, positions: 420, positions per second: 153677.27771679472
+depth: 3, positions: 1684, positions per second: 240331.0974739546
+depth: 4, positions: 12692, positions per second: 636381.8692338548
+depth: 5, positions: 52373, positions per second: 306079.75033458206
+depth: 6, positions: 358498, positions per second: 536615.813864374
+total positions: 425687, total duration: 871.746ms, positions per second: 488315.40379881294
+
+Board clones: 120
+MoveGen creates: 13
+```
+
+Note that with alpha-beta, the number of positions searched is dramatically reduced (425K vs 3.4B) due to effective pruning, and the total search completes in under a second. This demonstrates that the goal of alpha-beta isn't raw throughput, but rather finding the best move quickly by eliminating irrelevant branches. The low latency enables the engine to reach much higher search depths during actual gameplay.
+
+For more realistic gameplay performance on curated positions, you can use the `benchmark-alpha-beta` subcommand:
+
+```console
+$ chess benchmark-alpha-beta --depth 6
+======================================================================
+Alpha-Beta Performance Benchmark (depth: 6, parallel: false)
+======================================================================
+...
+======================================================================
+SUMMARY
+----------------------------------------------------------------------
+  Total nodes:       6,030,428
+  Total time:            46.56s
+  Avg speed:               130k nodes/s
+  TT hit rate:             4.3%
+======================================================================
 ```
 
 These figures vary by hardware. To achieve the best performance, make sure to use the release build, which leverages [compiler optimizations](./Cargo.toml#L28-L33):
@@ -126,7 +166,12 @@ There are numerous optimizations used to increase the engine's performance. This
 * The board state is represented using [bitboards](common/src/bitboard/bitboard.rs) (64-bit integers) and [squares](common/src/bitboard/square.rs) (newtype-wrapped u8 indices). This enables the engine to leverage the CPU's bitwise operations to quickly calculate moves, attacks, and other common board state changes.
 * The [alpha-beta search algorithm](src/alpha_beta_searcher/mod.rs) is implemented as a generic, game-agnostic algorithm using Rust traits. This allows for clean separation of concerns and comprehensive testing of the search algorithm independent of chess-specific logic.
 * [Alpha-beta pruning](https://en.wikipedia.org/wiki/Alpha–beta_pruning) is used to quickly eliminate branches of the search tree that are unlikely to lead to a winning position. The move order is sorted in an attempt to prioritize the "best" moves first, so that worse moves come later in the search and are therefore pruned (and not searched entirely), reducing the search space/time.
+* **Move ordering optimizations** including MVV-LVA (Most Valuable Victim - Least Valuable Attacker) for capture ordering, killer move heuristics, and principal variation ordering significantly improve search efficiency.
+* **Parallel search** is enabled by default for root-level move exploration, leveraging multi-core processors for improved performance.
+* **Transposition tables** cache previously evaluated positions to avoid redundant computation during the search.
 * The [Zobrist hashing](./precompile/src/zobrist/mod.rs) tables are generated at compile time using the [precompile](./precompile/src/main.rs) build script. This hashing approach enables quick incremental hashing of the board state so that various computations can be cached (e.g. move generation) by the engine during gameplay.
+* **UCI protocol support** enables the engine to integrate with external chess GUIs and online platforms like lichess.
+* **Modern TUI** built with ratatui provides an enhanced interactive experience with real-time game visualization.
 * Macros are used throughout the codebase to improve the developer experience. See below for one example.
 
 ```rust
