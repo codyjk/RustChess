@@ -203,6 +203,35 @@ fn update_best<M: Clone>(
     is_better
 }
 
+/// Reorders moves for better alpha-beta pruning.
+///
+/// Priority: 1) PV move from transposition table, 2) Killer moves, 3) Other moves.
+/// The PV move is placed first if present, followed by killer moves, then remaining moves.
+fn reorder_moves_with_heuristics<M>(moves: &mut [M], pv_move: Option<&M>, killers: [Option<M>; 2])
+where
+    M: PartialEq + Clone,
+{
+    // Move PV to front (highest priority)
+    if let Some(pv) = pv_move {
+        if let Some(pos) = moves.iter().position(|m| m == pv) {
+            if pos > 0 {
+                moves[0..=pos].rotate_right(1);
+            }
+        }
+    }
+
+    // Move killers to front after PV
+    let killer_start = if pv_move.is_some() { 1 } else { 0 };
+    for killer in killers.iter().flatten().rev() {
+        if let Some(pos) = moves.iter().position(|m| m == killer) {
+            // Only move if beyond insertion point and not the PV move
+            if pos > killer_start && Some(killer) != pv_move {
+                moves[killer_start..=pos].rotate_right(1);
+            }
+        }
+    }
+}
+
 #[must_use = "search returns the best move found"]
 pub fn alpha_beta_search<S, G, E, O>(
     context: &mut SearchContext<G::Move>,
@@ -607,31 +636,8 @@ where
 
     move_orderer.order_moves(candidates.as_mut(), state);
 
-    let moves_slice = candidates.as_mut();
-
-    // Boost PV move from TT to front first (highest priority)
-    if let Some(ref pv_move) = tt_move {
-        if let Some(pos) = moves_slice.iter().position(|m| m == pv_move) {
-            // Only reorder if not already first
-            if pos > 0 {
-                moves_slice[0..=pos].rotate_right(1);
-            }
-        }
-    }
-
-    // Boost killer moves to front after PV move
-    // Start from position 1 if PV move exists, 0 otherwise
-    let killer_start = if tt_move.is_some() { 1 } else { 0 };
     let killers = context.get_killers(ply);
-
-    for killer in killers.iter().flatten().rev() {
-        if let Some(pos) = moves_slice.iter().position(|m| m == killer) {
-            // Only move if it's beyond the killer insertion point and not the PV move
-            if pos > killer_start && Some(killer) != tt_move.as_ref() {
-                moves_slice[killer_start..=pos].rotate_right(1);
-            }
-        }
-    }
+    reorder_moves_with_heuristics(candidates.as_mut(), tt_move.as_ref(), killers);
 
     let mut best_move = None;
     let mut best_score = if maximizing_player {
