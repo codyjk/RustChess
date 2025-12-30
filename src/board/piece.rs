@@ -29,13 +29,14 @@ const ASCII_PIECE_CHARS: [[char; 2]; 6] = [
 ];
 
 /// Used when rendering the Unicode board.
+/// Both colors use filled characters - distinction is made via foreground color
 const UNICODE_PIECE_CHARS: [[char; 2]; 6] = [
-    ['♙', '♟'],
-    ['♘', '♞'],
-    ['♗', '♝'],
-    ['♖', '♜'],
-    ['♕', '♛'],
-    ['♔', '♚'],
+    ['♟', '♟'], // Pawn: filled for both colors
+    ['♞', '♞'], // Knight: filled for both colors
+    ['♝', '♝'], // Bishop: filled for both colors
+    ['♜', '♜'], // Rook: filled for both colors
+    ['♛', '♛'], // Queen: filled for both colors
+    ['♚', '♚'], // King: filled for both colors
 ];
 
 /// Used in `Display` implementations.

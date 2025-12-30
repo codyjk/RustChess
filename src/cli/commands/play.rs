@@ -3,7 +3,7 @@
 use chess::board::color::Color;
 use chess::board::Board;
 use chess::game::input_source::ConditionalInput;
-use chess::game::renderer::ConditionalStatsRenderer;
+use chess::game::renderer::TuiRenderer;
 use chess::input_handler::fen::STARTING_POSITION_FEN;
 use structopt::StructOpt;
 
@@ -23,14 +23,18 @@ pub struct PlayArgs {
 impl Command for PlayArgs {
     fn execute(self) {
         let config = create_config(self.depth, self.starting_position);
-        run_game_loop(
-            ConditionalInput {
-                human_color: self.color,
-            },
-            ConditionalStatsRenderer {
-                human_color: self.color,
-            },
-            config,
-        );
+        let input = ConditionalInput {
+            human_color: self.color,
+        };
+
+        match TuiRenderer::new(Some(self.color)) {
+            Ok(renderer) => {
+                run_game_loop(input, renderer, config);
+            }
+            Err(e) => {
+                eprintln!("Failed to initialize TUI: {}", e);
+                std::process::exit(1);
+            }
+        }
     }
 }

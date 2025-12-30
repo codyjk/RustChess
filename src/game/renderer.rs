@@ -1,8 +1,12 @@
+use std::cell::RefCell;
+use std::io;
+use std::time::Duration;
+
 use crate::board::color::Color;
 use crate::chess_move::chess_move::ChessMove;
 use crate::game::display::GameDisplay;
 use crate::game::engine::Engine;
-use std::time::Duration;
+use crate::tui::TuiApp;
 
 pub trait GameRenderer {
     fn render(
@@ -111,6 +115,48 @@ impl GameRenderer for ConditionalStatsRenderer {
         if current_turn == self.human_color {
             println!("Enter your move:");
         }
+    }
+
+    fn frame_delay(&self) -> Option<Duration> {
+        None
+    }
+}
+
+pub struct TuiRenderer {
+    app: RefCell<TuiApp>,
+    human_color: Option<Color>, // None means both players are human (pvp mode)
+}
+
+impl TuiRenderer {
+    pub fn new(human_color: Option<Color>) -> io::Result<Self> {
+        Ok(Self {
+            app: RefCell::new(TuiApp::new()?),
+            human_color,
+        })
+    }
+}
+
+impl GameRenderer for TuiRenderer {
+    fn render(
+        &self,
+        _ui: &mut GameDisplay,
+        engine: &Engine,
+        current_turn: Color,
+        last_move: Option<(&ChessMove, &str)>,
+    ) {
+        // Clear screen once at the start of each render for clean display
+        print!("\x1B[2J\x1B[1;1H");
+
+        let opening_name = engine.get_book_line_name();
+        let _ = self.app.borrow_mut().run(
+            engine,
+            current_turn,
+            last_move,
+            opening_name.as_deref(),
+            self.human_color,
+        );
+
+        // Input prompt is now integrated into the TUI layout
     }
 
     fn frame_delay(&self) -> Option<Duration> {

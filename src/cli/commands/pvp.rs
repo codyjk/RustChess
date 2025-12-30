@@ -2,7 +2,7 @@
 
 use chess::board::Board;
 use chess::game::input_source::HumanInput;
-use chess::game::renderer::SimpleRenderer;
+use chess::game::renderer::TuiRenderer;
 use chess::input_handler::fen::STARTING_POSITION_FEN;
 use structopt::StructOpt;
 
@@ -18,6 +18,15 @@ pub struct PvpArgs {
 impl Command for PvpArgs {
     fn execute(self) {
         let config = create_config(0, self.starting_position);
-        run_game_loop(HumanInput, SimpleRenderer, config);
+
+        match TuiRenderer::new(None) {
+            Ok(renderer) => {
+                run_game_loop(HumanInput, renderer, config);
+            }
+            Err(e) => {
+                eprintln!("Failed to initialize TUI: {}", e);
+                std::process::exit(1);
+            }
+        }
     }
 }
