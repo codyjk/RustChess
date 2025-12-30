@@ -24,6 +24,13 @@ pub trait GameMove: Clone + Send + Sync + PartialEq + Debug {
 
     /// Undoes this move on the given state.
     fn undo(&self, state: &mut Self::State) -> Result<(), Self::Error>;
+
+    /// Returns true if this move is "tactical" and should be searched in quiescence.
+    /// Tactical moves are those that change the material balance or create immediate threats
+    /// (e.g., captures, checks, promotions). Default implementation returns false.
+    fn is_tactical(&self, _state: &Self::State) -> bool {
+        false
+    }
 }
 
 /// Generates all legal moves from a given game state.

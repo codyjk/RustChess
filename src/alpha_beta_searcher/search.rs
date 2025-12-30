@@ -4,6 +4,9 @@
 //! - Thread-local storage for killer moves to eliminate lock contention in parallel search
 //! - Transposition tables for position caching
 //! - Move ordering heuristics (PV moves, killer moves, captures)
+//! - Quiescence search: continues searching tactical moves (captures, checks) beyond the
+//!   nominal depth limit to avoid horizon effects. Games opt-in by implementing `is_tactical`
+//!   on their move type.
 
 use std::cmp::{max, min};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -398,6 +401,98 @@ where
     Ok((best_score, best_move))
 }
 
+const MAX_QUIESCENCE_DEPTH: u8 = 8;
+
+#[allow(clippy::too_many_arguments, clippy::only_used_in_recursion)]
+fn quiescence_search<S, G, E, O>(
+    context: &SearchContext<G::Move>,
+    state: &mut S,
+    move_generator: &G,
+    evaluator: &E,
+    move_orderer: &O,
+    mut alpha: i16,
+    beta: i16,
+    maximizing_player: bool,
+    qdepth: u8,
+) -> Result<i16, SearchError>
+where
+    S: GameState,
+    G: MoveGenerator<S>,
+    G::Move: GameMove<State = S>,
+    E: Evaluator<S>,
+    O: MoveOrderer<S, G::Move>,
+{
+    context.increment_position_count();
+
+    if qdepth >= MAX_QUIESCENCE_DEPTH {
+        return Ok(evaluator.evaluate(state, 0));
+    }
+
+    let stand_pat = evaluator.evaluate(state, 0);
+    if stand_pat >= beta {
+        return Ok(beta);
+    }
+    if stand_pat > alpha {
+        alpha = stand_pat;
+    }
+
+    let candidates = move_generator.generate_moves(state);
+    if candidates.is_empty() {
+        return Ok(stand_pat);
+    }
+
+    let mut tactical_moves: Vec<G::Move> = candidates
+        .as_ref()
+        .iter()
+        .filter(|mv| mv.is_tactical(state))
+        .cloned()
+        .collect();
+
+    if tactical_moves.is_empty() {
+        return Ok(stand_pat);
+    }
+
+    move_orderer.order_moves(&mut tactical_moves, state);
+
+    let mut best_score = stand_pat;
+
+    for game_move in tactical_moves.iter() {
+        game_move
+            .apply(state)
+            .expect("move application should succeed in quiescence");
+        state.toggle_turn();
+
+        let score = -quiescence_search(
+            context,
+            state,
+            move_generator,
+            evaluator,
+            move_orderer,
+            -beta,
+            -alpha,
+            !maximizing_player,
+            qdepth + 1,
+        )?;
+
+        game_move
+            .undo(state)
+            .expect("move undo should succeed in quiescence");
+        state.toggle_turn();
+
+        if score >= beta {
+            return Ok(beta);
+        }
+        if score > alpha {
+            alpha = score;
+        }
+        if score > best_score {
+            best_score = score;
+        }
+    }
+
+    Ok(best_score)
+}
+
 #[allow(clippy::too_many_arguments)]
 fn alpha_beta_minimax<S, G, E, O>(
     context: &SearchContext<G::Move>,
@@ -433,8 +528,17 @@ where
     }
 
     if depth == 0 {
-        let score = evaluator.evaluate(state, depth);
-        return Ok(score);
+        return quiescence_search(
+            context,
+            state,
+            move_generator,
+            evaluator,
+            move_orderer,
+            alpha,
+            beta,
+            maximizing_player,
+            0,
+        );
     }
 
     let mut candidates = move_generator.generate_moves(state);

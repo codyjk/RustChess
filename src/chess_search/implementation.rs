@@ -5,7 +5,7 @@ use crate::alpha_beta_searcher::{
     SearchContext, SearchError,
 };
 use crate::board::{error::BoardError, Board};
-use crate::chess_move::chess_move::ChessMove;
+use crate::chess_move::{chess_move::ChessMove, chess_move_effect::ChessMoveEffect};
 use crate::move_generator::{ChessMoveList, MoveGenerator as ChessMoveGen};
 use crate::{evaluate, move_generator};
 
@@ -40,6 +40,16 @@ impl GameMove for ChessMove {
     #[inline]
     fn undo(&self, state: &mut Board) -> Result<(), BoardError> {
         ChessMove::undo(self, state)
+    }
+
+    #[inline]
+    fn is_tactical(&self, _state: &Board) -> bool {
+        self.captures().is_some()
+            || matches!(
+                self.effect(),
+                Some(ChessMoveEffect::Check | ChessMoveEffect::Checkmate)
+            )
+            || matches!(self, ChessMove::PawnPromotion(_))
     }
 }
 

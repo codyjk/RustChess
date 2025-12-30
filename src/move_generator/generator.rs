@@ -452,11 +452,8 @@ fn remove_invalid_moves(
     color: Color,
     targets: &Targets,
 ) {
-    // Optimized: Pre-allocate with capacity to avoid reallocations
     let mut valid_moves = ChessMoveList::with_capacity(candidates.len());
 
-    // Simulate each chess_move and see if it leaves the player's king in check.
-    // If it does, it's invalid.
     for chess_move in candidates.drain(..) {
         chess_move
             .apply(board)
