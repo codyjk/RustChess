@@ -187,6 +187,29 @@ impl<M: Clone + Send + Sync + 'static> SearchContext<M> {
     }
 }
 
+/// Applies a move, executes a closure with the new state, then undoes the move.
+/// Handles turn toggling automatically.
+fn with_move_applied<S, M, F, R>(game_move: &M, state: &mut S, f: F) -> Result<R, SearchError>
+where
+    S: GameState,
+    M: GameMove<State = S>,
+    F: FnOnce(&mut S) -> Result<R, SearchError>,
+{
+    game_move
+        .apply(state)
+        .expect("move application should succeed in search");
+    state.toggle_turn();
+
+    let result = f(state);
+
+    game_move
+        .undo(state)
+        .expect("move undo should succeed in search");
+    state.toggle_turn();
+
+    result
+}
+
 #[must_use = "search returns the best move found"]
 pub fn alpha_beta_search<S, G, E, O>(
     context: &mut SearchContext<G::Move>,
@@ -328,28 +351,20 @@ where
     let mut best_move = None;
 
     for game_move in candidates.as_ref().iter() {
-        game_move
-            .apply(state)
-            .expect("move application should succeed in search");
-        state.toggle_turn();
-
-        let score = alpha_beta_minimax(
-            context,
-            state,
-            move_generator,
-            evaluator,
-            move_orderer,
-            depth - 1,
-            0, // ply starts at 0 for root
-            i16::MIN,
-            i16::MAX,
-            !maximizing_player,
-        )?;
-
-        game_move
-            .undo(state)
-            .expect("move undo should succeed in search");
-        state.toggle_turn();
+        let score = with_move_applied(game_move, state, |state| {
+            alpha_beta_minimax(
+                context,
+                state,
+                move_generator,
+                evaluator,
+                move_orderer,
+                depth - 1,
+                0, // ply starts at 0 for root
+                i16::MIN,
+                i16::MAX,
+                !maximizing_player,
+            )
+        })?;
 
         if maximizing_player {
             if score > best_score {
@@ -390,23 +405,20 @@ where
         .map(|game_move| {
             let mut cloned_state = state.clone();
 
-            game_move
-                .apply(&mut cloned_state)
-                .expect("move application should succeed in search");
-            cloned_state.toggle_turn();
-
-            let score = alpha_beta_minimax(
-                context,
-                &mut cloned_state,
-                move_generator,
-                evaluator,
-                move_orderer,
-                depth - 1,
-                0, // ply starts at 0 for root
-                i16::MIN,
-                i16::MAX,
-                !maximizing_player,
-            )
+            let score = with_move_applied(game_move, &mut cloned_state, |state| {
+                alpha_beta_minimax(
+                    context,
+                    state,
+                    move_generator,
+                    evaluator,
+                    move_orderer,
+                    depth - 1,
+                    0, // ply starts at 0 for root
+                    i16::MIN,
+                    i16::MAX,
+                    !maximizing_player,
+                )
+            })
             .expect("minimax should succeed in parallel search");
 
             (score, game_move.clone())
@@ -642,28 +654,20 @@ where
     let original_alpha = alpha;
 
     for game_move in candidates.as_ref().iter() {
-        game_move
-            .apply(state)
-            .expect("move application should succeed in search");
-        state.toggle_turn();
-
-        let score = alpha_beta_minimax(
-            context,
-            state,
-            move_generator,
-            evaluator,
-            move_orderer,
-            depth - 1,
-            ply + 1,
-            alpha,
-            beta,
-            !maximizing_player,
-        )?;
-
-        game_move
-            .undo(state)
-            .expect("move undo should succeed in search");
-        state.toggle_turn();
+        let score = with_move_applied(game_move, state, |state| {
+            alpha_beta_minimax(
+                context,
+                state,
+                move_generator,
+                evaluator,
+                move_orderer,
+                depth - 1,
+                ply + 1,
+                alpha,
+                beta,
+                !maximizing_player,
+            )
+        })?;
 
         if maximizing_player {
             if score > best_score {
