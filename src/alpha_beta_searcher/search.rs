@@ -9,6 +9,9 @@
 //!   on their move type.
 //! - Null move pruning: gives opponent a free move; if they still can't beat beta, prunes the
 //!   branch. Games opt-in by implementing `is_in_check` and `is_endgame` on their state type.
+//! - Iterative deepening: searches at increasing depths (1..target), using previous results to
+//!   improve move ordering. The best move from depth N-1 is prioritized at depth N, improving
+//!   alpha-beta pruning efficiency.
 
 use std::cmp::{max, min};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -201,9 +204,9 @@ where
     O: MoveOrderer<S, G::Move>,
 {
     debug!("alpha-beta search depth: {}", context.search_depth());
-    let depth = context.search_depth();
+    let target_depth = context.search_depth();
 
-    if depth < 1 {
+    if target_depth < 1 {
         return Err(SearchError::DepthTooLow);
     }
 
@@ -211,54 +214,83 @@ where
     let current_player_is_maximizing = state.is_maximizing_player();
     let mut candidates = move_generator.generate_moves(state);
 
+    if candidates.is_empty() {
+        return Err(SearchError::NoAvailableMoves);
+    }
+
     move_orderer.order_moves(candidates.as_mut(), state);
 
     let hash = state.position_hash();
-    if let Some((score, Some(ref mv))) =
-        context
-            .transposition_table
-            .probe(hash, depth, i16::MIN, i16::MAX)
-    {
-        if candidates.as_ref().iter().any(|c| c == mv) {
-            debug!("Using transposition table hit");
-            context.last_score = Some(score);
-            context.last_search_duration = Some(start.elapsed());
-            return Ok(mv.clone());
+
+    // Iterative deepening: search at increasing depths, using previous results for move ordering
+    let mut best_move = None;
+    let mut best_score = if current_player_is_maximizing {
+        i16::MIN
+    } else {
+        i16::MAX
+    };
+
+    for depth in 1..=target_depth {
+        // Check if we already have an exact result at this depth from TT
+        if let Some((score, Some(ref mv))) =
+            context
+                .transposition_table
+                .probe(hash, depth, i16::MIN, i16::MAX)
+        {
+            if candidates.as_ref().iter().any(|c| c == mv) {
+                debug!("Using transposition table hit at depth {}", depth);
+                best_move = Some(mv.clone());
+                best_score = score;
+                // Continue to next depth to ensure we search to target_depth
+                continue;
+            }
+        }
+
+        // Reorder moves: prioritize best move from previous iteration
+        if let Some(ref prev_best) = best_move {
+            if let Some(pos) = candidates.as_mut().iter().position(|m| m == prev_best) {
+                if pos > 0 {
+                    candidates.as_mut()[0..=pos].rotate_right(1);
+                }
+            }
+        }
+
+        let (score, move_found) = if context.parallel {
+            search_root_parallel(
+                context,
+                state,
+                move_generator,
+                evaluator,
+                move_orderer,
+                &candidates,
+                depth,
+                current_player_is_maximizing,
+            )?
+        } else {
+            search_root_sequential(
+                context,
+                state,
+                move_generator,
+                evaluator,
+                move_orderer,
+                &candidates,
+                depth,
+                current_player_is_maximizing,
+            )?
+        };
+
+        if let Some(mv) = move_found {
+            best_move = Some(mv);
+            best_score = score;
         }
     }
-
-    let (best_score, best_move) = if context.parallel {
-        // Parallel search: clone state for each thread
-        search_root_parallel(
-            context,
-            state,
-            move_generator,
-            evaluator,
-            move_orderer,
-            &candidates,
-            depth,
-            current_player_is_maximizing,
-        )?
-    } else {
-        // Sequential search: use move apply/undo (no cloning overhead)
-        search_root_sequential(
-            context,
-            state,
-            move_generator,
-            evaluator,
-            move_orderer,
-            &candidates,
-            depth,
-            current_player_is_maximizing,
-        )?
-    };
 
     let best_move = best_move.ok_or(SearchError::NoAvailableMoves)?;
 
     context.transposition_table.store(
         hash,
         best_score,
-        depth,
+        target_depth,
         BoundType::Exact,
         Some(best_move.clone()),
     );
