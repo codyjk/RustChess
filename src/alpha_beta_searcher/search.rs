@@ -20,20 +20,10 @@ use std::time::{Duration, Instant};
 use log::debug;
 use rayon::prelude::*;
 use thiserror::Error;
-use thread_local::ThreadLocal;
 
+use super::killer_moves::KillerMovesManager;
 use super::transposition_table::{BoundType, TranspositionTable};
 use super::{Evaluator, GameMove, GameState, MoveCollection, MoveGenerator, MoveOrderer};
-
-type KillerMovePair = [Option<Box<dyn std::any::Any + Send + Sync>>; 2];
-type KillerMovesVec = Vec<KillerMovePair>;
-type KillerMovesStorage = std::cell::RefCell<Option<KillerMovesVec>>;
-static KILLER_MOVES: ThreadLocal<KillerMovesStorage> = ThreadLocal::new();
-
-/// Creates a new killer move storage vector.
-fn create_killer_vec(max_ply: usize) -> KillerMovesVec {
-    (0..=max_ply).map(|_| [None, None]).collect()
-}
 
 #[derive(Error, Debug)]
 pub enum SearchError {
@@ -49,6 +39,7 @@ pub struct SearchContext<M: Clone + Send + Sync + 'static> {
     last_score: Option<i16>,
     last_search_duration: Option<Duration>,
     transposition_table: TranspositionTable<M>,
+    killer_manager: KillerMovesManager,
     parallel: bool,
 }
 
@@ -60,6 +51,7 @@ impl<M: Clone + Send + Sync + 'static> SearchContext<M> {
             last_score: None,
             last_search_duration: None,
             transposition_table: TranspositionTable::default(),
+            killer_manager: KillerMovesManager::new(depth),
             parallel: true,
         }
     }
@@ -71,6 +63,7 @@ impl<M: Clone + Send + Sync + 'static> SearchContext<M> {
             last_score: None,
             last_search_duration: None,
             transposition_table: TranspositionTable::default(),
+            killer_manager: KillerMovesManager::new(depth),
             parallel,
         }
     }
@@ -88,71 +81,19 @@ impl<M: Clone + Send + Sync + 'static> SearchContext<M> {
         self.last_search_duration = None;
         self.searched_position_count.store(0, Ordering::SeqCst);
         self.transposition_table.clear();
-        self.clear_killers();
-    }
-
-    fn ensure_killer_storage(&self, max_ply: usize) {
-        let storage = KILLER_MOVES.get_or(|| std::cell::RefCell::new(None));
-        let mut storage_ref = storage.borrow_mut();
-
-        let needs_init = storage_ref.is_none()
-            || storage_ref
-                .as_ref()
-                .map_or(false, |killers| killers.len() <= max_ply);
-
-        if needs_init {
-            *storage_ref = Some(create_killer_vec(max_ply));
-        }
+        self.killer_manager.clear();
     }
 
     pub fn store_killer(&self, ply: u8, killer: M) {
-        let ply = ply as usize;
-        let max_depth = self.search_depth as usize;
-        self.ensure_killer_storage(max_depth);
-
-        let storage = KILLER_MOVES.get().expect("storage should be initialized");
-        if let Some(ref mut killers) = *storage.borrow_mut() {
-            if ply < killers.len() {
-                let old_first = killers[ply][0].take();
-                killers[ply][1] = old_first;
-                killers[ply][0] = Some(Box::new(killer));
-            }
-        }
+        self.killer_manager.store(ply, killer);
     }
 
     pub fn get_killers(&self, ply: u8) -> [Option<M>; 2] {
-        let ply = ply as usize;
-        let max_depth = self.search_depth as usize;
-        self.ensure_killer_storage(max_depth);
-
-        let storage = KILLER_MOVES.get().expect("storage should be initialized");
-        if let Some(ref killers) = *storage.borrow() {
-            if ply < killers.len() {
-                let mut result = [None, None];
-                for (i, stored) in killers[ply].iter().enumerate() {
-                    if let Some(boxed) = stored {
-                        if let Some(killer) = boxed.downcast_ref::<M>() {
-                            result[i] = Some(killer.clone());
-                        }
-                    }
-                }
-                return result;
-            }
-        }
-        [None, None]
+        self.killer_manager.get(ply)
     }
 
     pub fn clear_killers(&mut self) {
-        if let Some(storage) = KILLER_MOVES.get() {
-            if let Some(ref mut killers) = *storage.borrow_mut() {
-                for killer in killers.iter_mut() {
-                    *killer = [
-                        None::<Box<dyn std::any::Any + Send + Sync>>,
-                        None::<Box<dyn std::any::Any + Send + Sync>>,
-                    ];
-                }
-            }
-        }
+        self.killer_manager.clear();
     }
 
     pub fn searched_position_count(&self) -> usize {

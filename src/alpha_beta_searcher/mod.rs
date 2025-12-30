@@ -1,5 +1,6 @@
 //! Generic alpha-beta search algorithm.
 
+mod killer_moves;
 pub mod search;
 mod traits;
 mod transposition_table;
