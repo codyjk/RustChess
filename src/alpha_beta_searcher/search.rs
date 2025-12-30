@@ -30,6 +30,11 @@ type KillerMovesVec = Vec<KillerMovePair>;
 type KillerMovesStorage = std::cell::RefCell<Option<KillerMovesVec>>;
 static KILLER_MOVES: ThreadLocal<KillerMovesStorage> = ThreadLocal::new();
 
+/// Creates a new killer move storage vector.
+fn create_killer_vec(max_ply: usize) -> KillerMovesVec {
+    (0..=max_ply).map(|_| [None, None]).collect()
+}
+
 #[derive(Error, Debug)]
 pub enum SearchError {
     #[error("no available moves")]
@@ -89,26 +94,14 @@ impl<M: Clone + Send + Sync + 'static> SearchContext<M> {
     fn ensure_killer_storage(&self, max_ply: usize) {
         let storage = KILLER_MOVES.get_or(|| std::cell::RefCell::new(None));
         let mut storage_ref = storage.borrow_mut();
-        if storage_ref.is_none() {
-            let mut vec = Vec::with_capacity(max_ply + 1);
-            for _ in 0..=max_ply {
-                vec.push([
-                    None::<Box<dyn std::any::Any + Send + Sync>>,
-                    None::<Box<dyn std::any::Any + Send + Sync>>,
-                ]);
-            }
-            *storage_ref = Some(vec);
-        } else if let Some(ref killers) = *storage_ref {
-            if killers.len() <= max_ply {
-                let mut vec = Vec::with_capacity(max_ply + 1);
-                for _ in 0..=max_ply {
-                    vec.push([
-                        None::<Box<dyn std::any::Any + Send + Sync>>,
-                        None::<Box<dyn std::any::Any + Send + Sync>>,
-                    ]);
-                }
-                *storage_ref = Some(vec);
-            }
+
+        let needs_init = storage_ref.is_none()
+            || storage_ref
+                .as_ref()
+                .map_or(false, |killers| killers.len() <= max_ply);
+
+        if needs_init {
+            *storage_ref = Some(create_killer_vec(max_ply));
         }
     }
 
