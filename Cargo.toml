@@ -25,6 +25,7 @@ rayon = "=1.10.0"
 rayon-core = "=1.12.1"
 ratatui = "0.28"
 crossterm = "0.28"
+thread_local = "1.1"
 
 [build-dependencies]
 precompile = { path = "precompile" }

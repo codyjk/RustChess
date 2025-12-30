@@ -1,16 +1,26 @@
 //! Alpha-beta search algorithm implementation.
+//!
+//! Optimizations:
+//! - Thread-local storage for killer moves to eliminate lock contention in parallel search
+//! - Transposition tables for position caching
+//! - Move ordering heuristics (PV moves, killer moves, captures)
 
 use std::cmp::{max, min};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use log::debug;
 use rayon::prelude::*;
 use thiserror::Error;
+use thread_local::ThreadLocal;
 
 use super::transposition_table::{BoundType, TranspositionTable};
 use super::{Evaluator, GameMove, GameState, MoveCollection, MoveGenerator, MoveOrderer};
+
+type KillerMovePair = [Option<Box<dyn std::any::Any + Send + Sync>>; 2];
+type KillerMovesVec = Vec<KillerMovePair>;
+type KillerMovesStorage = std::cell::RefCell<Option<KillerMovesVec>>;
+static KILLER_MOVES: ThreadLocal<KillerMovesStorage> = ThreadLocal::new();
 
 #[derive(Error, Debug)]
 pub enum SearchError {
@@ -20,17 +30,16 @@ pub enum SearchError {
     DepthTooLow,
 }
 
-pub struct SearchContext<M: Clone + Send + Sync> {
+pub struct SearchContext<M: Clone + Send + Sync + 'static> {
     search_depth: u8,
     searched_position_count: AtomicUsize,
     last_score: Option<i16>,
     last_search_duration: Option<Duration>,
     transposition_table: TranspositionTable<M>,
     parallel: bool,
-    killer_moves: Mutex<Vec<[Option<M>; 2]>>, // 2 killer moves per ply
 }
 
-impl<M: Clone + Send + Sync> SearchContext<M> {
+impl<M: Clone + Send + Sync + 'static> SearchContext<M> {
     pub fn new(depth: u8) -> Self {
         Self {
             search_depth: depth,
@@ -39,7 +48,6 @@ impl<M: Clone + Send + Sync> SearchContext<M> {
             last_search_duration: None,
             transposition_table: TranspositionTable::default(),
             parallel: true,
-            killer_moves: Mutex::new(vec![[None, None]; depth as usize + 1]),
         }
     }
 
@@ -51,7 +59,6 @@ impl<M: Clone + Send + Sync> SearchContext<M> {
             last_search_duration: None,
             transposition_table: TranspositionTable::default(),
             parallel,
-            killer_moves: Mutex::new(vec![[None, None]; depth as usize + 1]),
         }
     }
 
@@ -71,42 +78,78 @@ impl<M: Clone + Send + Sync> SearchContext<M> {
         self.clear_killers();
     }
 
+    fn ensure_killer_storage(&self, max_ply: usize) {
+        let storage = KILLER_MOVES.get_or(|| std::cell::RefCell::new(None));
+        let mut storage_ref = storage.borrow_mut();
+        if storage_ref.is_none() {
+            let mut vec = Vec::with_capacity(max_ply + 1);
+            for _ in 0..=max_ply {
+                vec.push([
+                    None::<Box<dyn std::any::Any + Send + Sync>>,
+                    None::<Box<dyn std::any::Any + Send + Sync>>,
+                ]);
+            }
+            *storage_ref = Some(vec);
+        } else if let Some(ref killers) = *storage_ref {
+            if killers.len() <= max_ply {
+                let mut vec = Vec::with_capacity(max_ply + 1);
+                for _ in 0..=max_ply {
+                    vec.push([
+                        None::<Box<dyn std::any::Any + Send + Sync>>,
+                        None::<Box<dyn std::any::Any + Send + Sync>>,
+                    ]);
+                }
+                *storage_ref = Some(vec);
+            }
+        }
+    }
+
     pub fn store_killer(&self, ply: u8, killer: M) {
         let ply = ply as usize;
-        let start = std::time::Instant::now();
-        if let Ok(mut killers) = self.killer_moves.lock() {
-            let lock_time = start.elapsed();
-            if lock_time > std::time::Duration::from_micros(100) {
-                debug!("Slow killer store lock: {:?}", lock_time);
-            }
+        let max_depth = self.search_depth as usize;
+        self.ensure_killer_storage(max_depth);
+
+        let storage = KILLER_MOVES.get().expect("storage should be initialized");
+        if let Some(ref mut killers) = *storage.borrow_mut() {
             if ply < killers.len() {
-                // Shift killers: new killer becomes first, first becomes second
-                let old_first = killers[ply][0].clone();
+                let old_first = killers[ply][0].take();
                 killers[ply][1] = old_first;
-                killers[ply][0] = Some(killer);
+                killers[ply][0] = Some(Box::new(killer));
             }
         }
     }
 
     pub fn get_killers(&self, ply: u8) -> [Option<M>; 2] {
         let ply = ply as usize;
-        let start = std::time::Instant::now();
-        if let Ok(killers) = self.killer_moves.lock() {
-            let lock_time = start.elapsed();
-            if lock_time > std::time::Duration::from_micros(100) {
-                debug!("Slow killer get lock: {:?}", lock_time);
-            }
+        let max_depth = self.search_depth as usize;
+        self.ensure_killer_storage(max_depth);
+
+        let storage = KILLER_MOVES.get().expect("storage should be initialized");
+        if let Some(ref killers) = *storage.borrow() {
             if ply < killers.len() {
-                return killers[ply].clone();
+                let mut result = [None, None];
+                for (i, stored) in killers[ply].iter().enumerate() {
+                    if let Some(boxed) = stored {
+                        if let Some(killer) = boxed.downcast_ref::<M>() {
+                            result[i] = Some(killer.clone());
+                        }
+                    }
+                }
+                return result;
             }
         }
         [None, None]
     }
 
     pub fn clear_killers(&mut self) {
-        if let Ok(mut killers) = self.killer_moves.lock() {
-            for killer in killers.iter_mut() {
-                *killer = [None, None];
+        if let Some(storage) = KILLER_MOVES.get() {
+            if let Some(ref mut killers) = *storage.borrow_mut() {
+                for killer in killers.iter_mut() {
+                    *killer = [
+                        None::<Box<dyn std::any::Any + Send + Sync>>,
+                        None::<Box<dyn std::any::Any + Send + Sync>>,
+                    ];
+                }
             }
         }
     }
