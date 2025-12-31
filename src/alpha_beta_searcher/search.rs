@@ -886,22 +886,64 @@ where
         i16::MAX
     };
     let original_alpha = alpha;
+    let mut first_move = true;
 
     for game_move in candidates.as_ref().iter() {
-        let score = with_move_applied(game_move, state, |state| {
-            alpha_beta_minimax(
-                context,
-                state,
-                move_generator,
-                evaluator,
-                move_orderer,
-                depth - 1,
-                ply + 1,
-                alpha,
-                beta,
-                !maximizing_player,
-            )
-        })?;
+        let score = if first_move {
+            // Search first move with full window
+            with_move_applied(game_move, state, |state| {
+                alpha_beta_minimax(
+                    context,
+                    state,
+                    move_generator,
+                    evaluator,
+                    move_orderer,
+                    depth - 1,
+                    ply + 1,
+                    alpha,
+                    beta,
+                    !maximizing_player,
+                )
+            })?
+        } else {
+            // PV-Search: Try null window search for non-first moves
+            let null_window_score = with_move_applied(game_move, state, |state| {
+                alpha_beta_minimax(
+                    context,
+                    state,
+                    move_generator,
+                    evaluator,
+                    move_orderer,
+                    depth - 1,
+                    ply + 1,
+                    if maximizing_player { alpha } else { beta - 1 },
+                    if maximizing_player { alpha + 1 } else { beta },
+                    !maximizing_player,
+                )
+            })?;
+
+            // If null window search fails (score is in (alpha, beta)), re-search with full window
+            if null_window_score > alpha && null_window_score < beta {
+                with_move_applied(game_move, state, |state| {
+                    alpha_beta_minimax(
+                        context,
+                        state,
+                        move_generator,
+                        evaluator,
+                        move_orderer,
+                        depth - 1,
+                        ply + 1,
+                        alpha,
+                        beta,
+                        !maximizing_player,
+                    )
+                })?
+            } else {
+                null_window_score
+            }
+        };
+
+        first_move = false;
 
         update_best(
             score,
