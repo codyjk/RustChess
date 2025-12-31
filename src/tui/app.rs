@@ -1,6 +1,6 @@
 //! Main TUI application state and rendering
 
-use std::io;
+use std::io::{self, Write};
 
 use crossterm::event::{self, Event, KeyCode};
 use ratatui::{
@@ -48,6 +48,9 @@ pub struct TuiApp {
 impl TuiApp {
     /// Create a new TUI application
     pub fn new() -> io::Result<Self> {
+        // Enable raw mode for proper keyboard event handling
+        crossterm::terminal::enable_raw_mode()?;
+
         // Setup terminal without alternate screen for compatibility with stdin input
         let stdout = io::stdout();
         let backend = CrosstermBackend::new(stdout);
@@ -96,8 +99,7 @@ impl TuiApp {
             let height = self.terminal.size()?.height;
             // Input panel is at height - 3, cursor goes after prompt text
             print!("\x1B[{};19H", height - 1); // Row: height-1, Column: 19 (after prompt)
-            use std::io::Write;
-            std::io::stdout().flush()?;
+            io::stdout().flush()?;
         }
 
         Ok(())
@@ -269,16 +271,20 @@ impl TuiApp {
         theme: &Theme,
     ) {
         let prompt_text = if let Some(ending) = game_state.game_ending {
-            match ending {
+            let ending_msg = match ending {
                 GameEnding::Checkmate => "Checkmate!",
                 GameEnding::Stalemate => "Stalemate!",
                 GameEnding::Draw => "Draw!",
-            }
+            };
+            format!(
+                "{} [1] Restart  [2] Play  [3] Watch  [4] PvP  [q] Exit",
+                ending_msg
+            )
         } else {
             match game_state.human_color {
-                None => "Watch mode - engines playing...", // Watch mode - both sides are engine
-                Some(color) if game_state.current_turn == color => "Enter your move: _",
-                Some(_) => "Engine is thinking...",
+                None => "Watch mode - engines playing...".to_string(),
+                Some(color) if game_state.current_turn == color => "Enter your move: _".to_string(),
+                Some(_) => "Engine is thinking...".to_string(),
             }
         };
 
@@ -311,6 +317,7 @@ impl TuiApp {
 
 impl Drop for TuiApp {
     fn drop(&mut self) {
-        // Cleanup is minimal since we don't use alternate screen or raw mode
+        // Disable raw mode that we enabled in new()
+        let _ = crossterm::terminal::disable_raw_mode();
     }
 }

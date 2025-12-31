@@ -4,4 +4,4 @@ pub mod fen;
 pub mod fen_serialize;
 pub mod input;
 
-pub use input::{parse_move_input, InputError, MoveInput};
+pub use input::{parse_menu_input, parse_move_input, InputError, MenuInput, MoveInput};

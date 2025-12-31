@@ -1,12 +1,9 @@
 //! PvP command - play a game against another human.
 
 use chess::board::Board;
-use chess::game::input_source::HumanInput;
-use chess::game::renderer::TuiRenderer;
 use chess::input_handler::fen::STARTING_POSITION_FEN;
 use structopt::StructOpt;
 
-use super::util::{create_config, run_game_loop};
 use super::Command;
 
 #[derive(StructOpt)]
@@ -17,16 +14,13 @@ pub struct PvpArgs {
 
 impl Command for PvpArgs {
     fn execute(self) {
-        let config = create_config(0, self.starting_position);
-
-        match TuiRenderer::new(None) {
-            Ok(renderer) => {
-                run_game_loop(HumanInput, renderer, config);
-            }
-            Err(e) => {
-                eprintln!("Failed to initialize TUI: {}", e);
-                std::process::exit(1);
-            }
-        }
+        use super::util::run_game_with_mode_switching;
+        use chess::game::action::GameMode;
+        run_game_with_mode_switching(
+            GameMode::Pvp,
+            0,                                 // Depth not used in PvP
+            chess::board::color::Color::White, // Not used in PvP
+            self.starting_position,
+        );
     }
 }
