@@ -720,7 +720,22 @@ where
 
     let mut best_score = stand_pat;
 
+    // Delta pruning: get maximum possible tactical gain
+    let max_gain = evaluator.max_tactical_gain(state);
+
     for game_move in tactical_moves.iter() {
+        // Delta pruning: skip moves that cannot possibly raise alpha
+        // Only apply if max_gain is reasonable (not i16::MAX which means no pruning)
+        if max_gain < i16::MAX {
+            // Even if we gain the maximum possible (e.g., capture queen), we still can't reach alpha
+            if let Some(optimistic_score) = stand_pat.checked_add(max_gain) {
+                if optimistic_score < alpha {
+                    // All remaining moves are futile
+                    break;
+                }
+            }
+        }
+
         game_move
             .apply(state)
             .expect("move application should succeed in quiescence");

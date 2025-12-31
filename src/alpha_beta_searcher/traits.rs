@@ -47,6 +47,14 @@ pub trait MoveGenerator<S: GameState>: Clone + Send + Sync {
 pub trait Evaluator<S: GameState>: Clone + Send + Sync {
     /// Evaluates the given state. Higher scores favor the maximizing player.
     fn evaluate(&self, state: &mut S, remaining_depth: u8) -> i16;
+
+    /// Returns the maximum possible gain from a tactical move in the current position.
+    /// Used for delta pruning in quiescence search. Returns a conservative upper bound
+    /// on the evaluation improvement possible from any single tactical move.
+    /// Default implementation returns a very large value (no pruning).
+    fn max_tactical_gain(&self, _state: &S) -> i16 {
+        i16::MAX
+    }
 }
 
 /// Orders moves to improve alpha-beta pruning efficiency.

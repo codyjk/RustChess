@@ -105,6 +105,13 @@ impl Evaluator<Board> for ChessEvaluator {
     fn evaluate(&self, state: &mut Board, remaining_depth: u8) -> i16 {
         evaluate::score(state, &self.move_generator, state.turn(), remaining_depth)
     }
+
+    #[inline]
+    fn max_tactical_gain(&self, _state: &Board) -> i16 {
+        // Maximum gain is capturing a queen (900) plus a margin for positional gains
+        // This is a conservative upper bound for delta pruning in quiescence
+        900 + 200
+    }
 }
 
 /// Searches for the best chess move from the given position.
