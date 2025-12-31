@@ -4,6 +4,7 @@ use std::time::Duration;
 
 use crate::board::color::Color;
 use crate::chess_move::chess_move::ChessMove;
+use crate::evaluate::GameEnding;
 use crate::game::display::GameDisplay;
 use crate::game::engine::Engine;
 use crate::tui::TuiApp;
@@ -15,6 +16,7 @@ pub trait GameRenderer {
         engine: &Engine,
         current_turn: Color,
         last_move: Option<(&ChessMove, &str)>,
+        game_ending: Option<&GameEnding>,
     );
     fn frame_delay(&self) -> Option<Duration>;
 }
@@ -28,6 +30,7 @@ impl GameRenderer for SimpleRenderer {
         engine: &Engine,
         current_turn: Color,
         last_move: Option<(&ChessMove, &str)>,
+        game_ending: Option<&GameEnding>,
     ) {
         let opening_name = engine.get_book_line_name();
         ui.render_game_state(
@@ -37,7 +40,15 @@ impl GameRenderer for SimpleRenderer {
             None,
             opening_name.as_deref(),
         );
-        println!("Enter your move:");
+        if let Some(ending) = game_ending {
+            match ending {
+                GameEnding::Checkmate => println!("Checkmate!"),
+                GameEnding::Stalemate => println!("Stalemate!"),
+                GameEnding::Draw => println!("Draw!"),
+            }
+        } else {
+            println!("Enter your move:");
+        }
     }
 
     fn frame_delay(&self) -> Option<Duration> {
@@ -56,6 +67,7 @@ impl GameRenderer for StatsRenderer {
         engine: &Engine,
         current_turn: Color,
         last_move: Option<(&ChessMove, &str)>,
+        game_ending: Option<&GameEnding>,
     ) {
         let stats = engine.get_search_stats();
         let stats_display = format!(
@@ -75,6 +87,13 @@ impl GameRenderer for StatsRenderer {
             Some(&stats_display),
             opening_name.as_deref(),
         );
+        if let Some(ending) = game_ending {
+            match ending {
+                GameEnding::Checkmate => println!("Checkmate!"),
+                GameEnding::Stalemate => println!("Stalemate!"),
+                GameEnding::Draw => println!("Draw!"),
+            }
+        }
     }
 
     fn frame_delay(&self) -> Option<Duration> {
@@ -93,6 +112,7 @@ impl GameRenderer for ConditionalStatsRenderer {
         engine: &Engine,
         current_turn: Color,
         last_move: Option<(&ChessMove, &str)>,
+        game_ending: Option<&GameEnding>,
     ) {
         let stats = engine.get_search_stats();
         let stats_display = format!(
@@ -112,7 +132,13 @@ impl GameRenderer for ConditionalStatsRenderer {
             Some(&stats_display),
             opening_name.as_deref(),
         );
-        if current_turn == self.human_color {
+        if let Some(ending) = game_ending {
+            match ending {
+                GameEnding::Checkmate => println!("Checkmate!"),
+                GameEnding::Stalemate => println!("Stalemate!"),
+                GameEnding::Draw => println!("Draw!"),
+            }
+        } else if current_turn == self.human_color {
             println!("Enter your move:");
         }
     }
@@ -143,6 +169,7 @@ impl GameRenderer for TuiRenderer {
         engine: &Engine,
         current_turn: Color,
         last_move: Option<(&ChessMove, &str)>,
+        game_ending: Option<&GameEnding>,
     ) {
         // Clear screen once at the start of each render for clean display
         print!("\x1B[2J\x1B[1;1H");
@@ -154,6 +181,7 @@ impl GameRenderer for TuiRenderer {
             last_move,
             opening_name.as_deref(),
             self.human_color,
+            game_ending,
         );
 
         // Input prompt is now integrated into the TUI layout

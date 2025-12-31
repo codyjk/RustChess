@@ -1,4 +1,3 @@
-use crate::evaluate::GameEnding;
 use crate::game::display::GameDisplay;
 use crate::game::engine::{Engine, EngineConfig};
 use crate::game::input_source::InputSource;
@@ -23,14 +22,8 @@ impl<I: InputSource, R: GameRenderer> GameLoop<I, R> {
 
     pub fn run(&mut self) {
         loop {
-            if let Some(ending) = self.engine.check_game_over() {
-                match ending {
-                    GameEnding::Checkmate => println!("Checkmate!"),
-                    GameEnding::Stalemate => println!("Stalemate!"),
-                    GameEnding::Draw => println!("Draw!"),
-                }
-                break;
-            }
+            // Check for game ending before processing moves
+            let game_ending = self.engine.check_game_over();
 
             let valid_moves = self.engine.get_valid_moves();
             let current_turn = self.engine.board().turn();
@@ -41,8 +34,19 @@ impl<I: InputSource, R: GameRenderer> GameLoop<I, R> {
                     .map(|(m, n)| (m, n.as_str()))
             });
 
-            self.renderer
-                .render(&mut self.ui, &self.engine, current_turn, last_move);
+            // Render the current position (including final position if game ended)
+            self.renderer.render(
+                &mut self.ui,
+                &self.engine,
+                current_turn,
+                last_move,
+                game_ending.as_ref(),
+            );
+
+            // If game ended, break after rendering
+            if game_ending.is_some() {
+                break;
+            }
 
             match self.input_source.get_move(current_turn) {
                 Some(input) => match self.engine.make_move_from_input(input) {

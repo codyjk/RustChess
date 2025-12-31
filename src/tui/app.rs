@@ -12,6 +12,7 @@ use ratatui::{
 
 use crate::board::color::Color;
 use crate::chess_move::ChessMove;
+use crate::evaluate::GameEnding;
 use crate::game::engine::Engine;
 use crate::tui::{board_widget::BoardWidget, Theme};
 
@@ -21,6 +22,7 @@ struct GameState<'a> {
     last_move: Option<(&'a ChessMove, &'a str)>,
     opening_name: Option<&'a str>,
     human_color: Option<Color>,
+    game_ending: Option<&'a GameEnding>,
 }
 
 /// Format large numbers with thousand separators
@@ -66,28 +68,29 @@ impl TuiApp {
         last_move: Option<(&ChessMove, &str)>,
         opening_name: Option<&str>,
         human_color: Option<Color>,
+        game_ending: Option<&GameEnding>,
     ) -> io::Result<()> {
         // Clear terminal backend state to force full redraw after manual screen clear
         self.terminal.clear()?;
 
         let theme = &self.theme;
+        let game_state = GameState {
+            current_turn,
+            last_move,
+            opening_name,
+            human_color,
+            game_ending,
+        };
         self.terminal.draw(|f| {
-            Self::render_frame(
-                f,
-                engine,
-                current_turn,
-                last_move,
-                opening_name,
-                theme,
-                human_color,
-            );
+            Self::render_frame(f, engine, &game_state, theme);
         })?;
 
-        // Position cursor in the input box when it's a human's turn
-        let should_show_cursor = match human_color {
-            None => true, // PvP - always show cursor
-            Some(color) => current_turn == color,
-        };
+        // Position cursor in the input box when it's a human's turn and game hasn't ended
+        let should_show_cursor = game_state.game_ending.is_none()
+            && match game_state.human_color {
+                None => true, // PvP - always show cursor
+                Some(color) => game_state.current_turn == color,
+            };
 
         if should_show_cursor {
             let height = self.terminal.size()?.height;
@@ -104,11 +107,8 @@ impl TuiApp {
     fn render_frame(
         frame: &mut ratatui::Frame,
         engine: &Engine,
-        current_turn: Color,
-        last_move: Option<(&ChessMove, &str)>,
-        opening_name: Option<&str>,
+        game_state: &GameState,
         theme: &Theme,
-        human_color: Option<Color>,
     ) {
         let size = frame.area();
 
@@ -129,16 +129,10 @@ impl TuiApp {
         frame.render_widget(board_widget, board_chunks[0]);
 
         // Render info panel
-        let game_state = GameState {
-            current_turn,
-            last_move,
-            opening_name,
-            human_color,
-        };
-        Self::render_info_panel(frame, board_chunks[1], engine, &game_state, theme);
+        Self::render_info_panel(frame, board_chunks[1], engine, game_state, theme);
 
         // Render input panel at bottom
-        Self::render_input_panel(frame, main_chunks[1], current_turn, human_color, theme);
+        Self::render_input_panel(frame, main_chunks[1], game_state, theme);
     }
 
     /// Render the info panel with game details
@@ -271,14 +265,21 @@ impl TuiApp {
     fn render_input_panel(
         frame: &mut ratatui::Frame,
         area: Rect,
-        current_turn: Color,
-        human_color: Option<Color>,
+        game_state: &GameState,
         theme: &Theme,
     ) {
-        let prompt_text = match human_color {
-            None => "Watch mode - engines playing...", // Watch mode - both sides are engine
-            Some(color) if current_turn == color => "Enter your move: _",
-            Some(_) => "Engine is thinking...",
+        let prompt_text = if let Some(ending) = game_state.game_ending {
+            match ending {
+                GameEnding::Checkmate => "Checkmate!",
+                GameEnding::Stalemate => "Stalemate!",
+                GameEnding::Draw => "Draw!",
+            }
+        } else {
+            match game_state.human_color {
+                None => "Watch mode - engines playing...", // Watch mode - both sides are engine
+                Some(color) if game_state.current_turn == color => "Enter your move: _",
+                Some(_) => "Engine is thinking...",
+            }
         };
 
         let paragraph = Paragraph::new(prompt_text)
