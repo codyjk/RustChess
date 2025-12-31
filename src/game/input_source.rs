@@ -1,23 +1,27 @@
 use crate::board::color::Color;
-use crate::input_handler::MoveInput;
+use crate::input_handler::{InputError, MoveInput};
 
 pub trait InputSource {
-    fn get_move(&self, current_turn: Color) -> Option<MoveInput>;
+    fn get_move(&self, current_turn: Color) -> Result<Option<MoveInput>, InputError>;
 }
 
 pub struct HumanInput;
 
 impl InputSource for HumanInput {
-    fn get_move(&self, _current_turn: Color) -> Option<MoveInput> {
-        crate::input_handler::parse_move_input().ok()
+    fn get_move(&self, _current_turn: Color) -> Result<Option<MoveInput>, InputError> {
+        match crate::input_handler::parse_move_input() {
+            Ok(move_input) => Ok(Some(move_input)),
+            Err(InputError::UserExit) => Err(InputError::UserExit),
+            Err(_) => Ok(None), // Other errors treated as invalid input
+        }
     }
 }
 
 pub struct EngineInput;
 
 impl InputSource for EngineInput {
-    fn get_move(&self, _current_turn: Color) -> Option<MoveInput> {
-        Some(MoveInput::UseEngine)
+    fn get_move(&self, _current_turn: Color) -> Result<Option<MoveInput>, InputError> {
+        Ok(Some(MoveInput::UseEngine))
     }
 }
 
@@ -26,11 +30,15 @@ pub struct ConditionalInput {
 }
 
 impl InputSource for ConditionalInput {
-    fn get_move(&self, current_turn: Color) -> Option<MoveInput> {
+    fn get_move(&self, current_turn: Color) -> Result<Option<MoveInput>, InputError> {
         if current_turn == self.human_color {
-            crate::input_handler::parse_move_input().ok()
+            match crate::input_handler::parse_move_input() {
+                Ok(move_input) => Ok(Some(move_input)),
+                Err(InputError::UserExit) => Err(InputError::UserExit),
+                Err(_) => Ok(None), // Other errors treated as invalid input
+            }
         } else {
-            Some(MoveInput::UseEngine)
+            Ok(Some(MoveInput::UseEngine))
         }
     }
 }

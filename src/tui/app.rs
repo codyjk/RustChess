@@ -2,7 +2,11 @@
 
 use std::io::{self, Write};
 
-use crossterm::event::{self, Event, KeyCode};
+use crossterm::{
+    cursor,
+    event::{self, Event, KeyCode},
+    execute, terminal,
+};
 use ratatui::{
     backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout, Rect},
@@ -317,6 +321,13 @@ impl TuiApp {
 
 impl Drop for TuiApp {
     fn drop(&mut self) {
+        // Clear screen and reset cursor position
+        let _ = execute!(
+            std::io::stdout(),
+            terminal::Clear(terminal::ClearType::All),
+            cursor::MoveTo(0, 0)
+        );
+
         // Disable raw mode that we enabled in new()
         let _ = crossterm::terminal::disable_raw_mode();
     }

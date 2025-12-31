@@ -41,7 +41,9 @@ use crate::game::display::GameDisplay;
 use crate::game::engine::{Engine, EngineConfig};
 use crate::game::input_source::InputSource;
 use crate::game::renderer::GameRenderer;
-use crate::input_handler::{MenuInput, MoveInput};
+use crate::input_handler::{InputError, MenuInput, MoveInput};
+
+use crossterm::event::{self, Event, KeyCode, KeyModifiers};
 
 /// Current state of the game loop
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -87,6 +89,11 @@ impl<I: InputSource, R: GameRenderer> GameLoop<I, R> {
     /// Update phase: processes game logic, input, and state transitions
     /// Returns Some(action) if the game should exit or switch modes
     fn update(&mut self) -> Option<GameAction> {
+        // Check for Ctrl-C on every update, regardless of game state
+        if self.check_for_interrupt() {
+            return Some(GameAction::Exit);
+        }
+
         match self.state {
             GameLoopState::Playing => self.update_playing(),
             GameLoopState::GameEnded => self.update_game_ended(),
@@ -101,11 +108,17 @@ impl<I: InputSource, R: GameRenderer> GameLoop<I, R> {
         }
 
         let current_turn = self.engine.board().turn();
-        if let Some(input) = self.input_source.get_move(current_turn) {
-            self.execute_move_input(input)
-        } else {
-            eprintln!("Invalid input");
-            None
+        match self.input_source.get_move(current_turn) {
+            Ok(Some(input)) => self.execute_move_input(input),
+            Ok(None) => {
+                eprintln!("Invalid input");
+                None
+            }
+            Err(InputError::UserExit) => Some(GameAction::Exit),
+            Err(_) => {
+                eprintln!("Input error");
+                None
+            }
         }
     }
 
@@ -118,6 +131,7 @@ impl<I: InputSource, R: GameRenderer> GameLoop<I, R> {
             }
             Ok(MenuInput::SwitchGameMode { target }) => Some(GameAction::SwitchGameMode { target }),
             Ok(MenuInput::Exit) => Some(GameAction::Exit),
+            Err(InputError::UserExit) => Some(GameAction::Exit),
             Err(_) => None, // Invalid input, continue waiting
         }
     }
@@ -182,6 +196,22 @@ impl<I: InputSource, R: GameRenderer> GameLoop<I, R> {
         if let Some(delay) = self.renderer.frame_delay() {
             std::thread::sleep(delay);
         }
+    }
+
+    /// Check for user interrupt (Ctrl-C) without blocking
+    fn check_for_interrupt(&self) -> bool {
+        use std::time::Duration;
+
+        if event::poll(Duration::from_millis(0)).unwrap_or(false) {
+            if let Ok(Event::Key(key_event)) = event::read() {
+                if key_event.code == KeyCode::Char('c')
+                    && key_event.modifiers.contains(KeyModifiers::CONTROL)
+                {
+                    return true;
+                }
+            }
+        }
+        false
     }
 }
 

@@ -2,7 +2,7 @@
 
 use std::str::FromStr;
 
-use crossterm::event::{self, Event, KeyCode, KeyEvent};
+use crossterm::event::{self, Event, KeyCode, KeyModifiers};
 use once_cell::sync::Lazy;
 use regex::Regex;
 use thiserror::Error;
@@ -22,6 +22,8 @@ pub enum InputError {
     IOError { error: String },
     #[error("invalid input: {input:?}")]
     InvalidInput { input: String },
+    #[error("user requested exit (Ctrl-C)")]
+    UserExit,
 }
 
 #[derive(Debug)]
@@ -111,12 +113,17 @@ pub fn parse_move_input() -> Result<MoveInput, InputError> {
         if event::poll(std::time::Duration::from_millis(100)).map_err(|e| InputError::IOError {
             error: format!("Failed to poll event: {}", e),
         })? {
-            if let Event::Key(KeyEvent { code, .. }) =
-                event::read().map_err(|e| InputError::IOError {
-                    error: format!("Failed to read event: {}", e),
-                })?
-            {
-                match code {
+            if let Event::Key(key_event) = event::read().map_err(|e| InputError::IOError {
+                error: format!("Failed to read event: {}", e),
+            })? {
+                // Handle Ctrl-C
+                if key_event.code == KeyCode::Char('c')
+                    && key_event.modifiers.contains(KeyModifiers::CONTROL)
+                {
+                    return Err(InputError::UserExit);
+                }
+
+                match key_event.code {
                     KeyCode::Enter => {
                         if !input.is_empty() {
                             println!(); // Move to next line after input
@@ -139,12 +146,6 @@ pub fn parse_move_input() -> Result<MoveInput, InputError> {
                             })?;
                         }
                     }
-                    KeyCode::Esc => {
-                        // Allow Ctrl-C style exit
-                        return Err(InputError::IOError {
-                            error: "Input cancelled".to_string(),
-                        });
-                    }
                     _ => {}
                 }
             }
@@ -161,12 +162,17 @@ pub fn parse_menu_input() -> Result<MenuInput, InputError> {
         if event::poll(std::time::Duration::from_millis(100)).map_err(|e| InputError::IOError {
             error: format!("Failed to poll event: {}", e),
         })? {
-            if let Event::Key(KeyEvent { code, .. }) =
-                event::read().map_err(|e| InputError::IOError {
-                    error: format!("Failed to read event: {}", e),
-                })?
-            {
-                match code {
+            if let Event::Key(key_event) = event::read().map_err(|e| InputError::IOError {
+                error: format!("Failed to read event: {}", e),
+            })? {
+                // Handle Ctrl-C
+                if key_event.code == KeyCode::Char('c')
+                    && key_event.modifiers.contains(KeyModifiers::CONTROL)
+                {
+                    return Err(InputError::UserExit);
+                }
+
+                match key_event.code {
                     KeyCode::Char('1') => return Ok(MenuInput::StartOver),
                     KeyCode::Char('q') => return Ok(MenuInput::Exit),
                     KeyCode::Char('2') => return Ok(MenuInput::switch_to_play()),
