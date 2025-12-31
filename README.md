@@ -8,7 +8,7 @@ A high-performance chess engine written in Rust, using the classical [alpha-beta
 Clone this repository, and then run:
 
 ```shell
-cargo install --path .
+make
 ```
 
 Once installed, you can run the engine with `chess`, so long as you have the `chess` binary in your `PATH` (e.g. `export PATH="$PATH:$HOME/.cargo/bin"`).
@@ -182,114 +182,65 @@ At alpha-beta search depth 6, you can observe the engine winning against Stockfi
 
 ## Implementation details
 
-There are numerous optimizations used to increase the engine's performance. This list is not exhaustive, but should give you a sense of the techniques used:
-* The board state is represented using [bitboards](common/src/bitboard/bitboard.rs) (64-bit integers) and [squares](common/src/bitboard/square.rs) (newtype-wrapped u8 indices). This enables the engine to leverage the CPU's bitwise operations to quickly calculate moves, attacks, and other common board state changes.
-* The [alpha-beta search algorithm](src/alpha_beta_searcher/mod.rs) is implemented as a generic, game-agnostic algorithm using Rust traits. This allows for clean separation of concerns and comprehensive testing of the search algorithm independent of chess-specific logic.
-* [Alpha-beta pruning](https://en.wikipedia.org/wiki/Alpha–beta_pruning) is used to quickly eliminate branches of the search tree that are unlikely to lead to a winning position. The move order is sorted in an attempt to prioritize the "best" moves first, so that worse moves come later in the search and are therefore pruned (and not searched entirely), reducing the search space/time.
-* **Move ordering optimizations** including MVV-LVA (Most Valuable Victim - Least Valuable Attacker) for capture ordering, killer move heuristics, and principal variation ordering significantly improve search efficiency.
-* **Parallel search** is enabled by default for root-level move exploration, leveraging multi-core processors for improved performance.
-* **Transposition tables** cache previously evaluated positions to avoid redundant computation during the search.
-* The [Zobrist hashing](./precompile/src/zobrist/mod.rs) tables are generated at compile time using the [precompile](./precompile/src/main.rs) build script. This hashing approach enables quick incremental hashing of the board state so that various computations can be cached (e.g. move generation) by the engine during gameplay.
-* **UCI protocol support** enables the engine to integrate with external chess GUIs and online platforms like lichess.
-* **Modern TUI** built with ratatui provides an enhanced interactive experience with real-time game visualization. The TUI colors can be customized by editing `tui_colors.toml` in the current working directory without rebuilding.
-* Macros are used throughout the codebase to improve the developer experience. See below for one example.
-
-```rust
-use crate::board::castle_rights::CastleRights;
-
-// The `chess_position!` macro is used to instantiate a board state from
-// an ascii representation of the board. For example, here is the starting
-// position:
-
-let board = chess_position! {
-    rnbqkbnr
-    pppppppp
-    ........
-    ........
-    ........
-    ........
-    PPPPPPPP
-    RNBQKBNR
-}
-
-// This is used extensively in tests, where various positions are instantiated
-// to exercise the engine's logic with. For example:
-
-#[test]
-fn test_find_back_rank_mate_in_2_black() {
-    let mut context = SearchContext::new(4);
-
-    let mut board = chess_position! {
-        ....r..k
-        ....q...
-        ........
-        ........
-        ........
-        ........
-        .....PPP
-        R.....K.
-    };
-    board.set_turn(Color::Black);
-    board.lose_castle_rights(CastleRights::all());
-
-    let best_move = search_best_move(&mut context, &mut board).unwrap();
-    // ... assertions ...
-}
-```
-
-## Profiling
-
-For detailed profiling and optimization guidance, see [PERFORMANCE_GUIDE.md](./PERFORMANCE_GUIDE.md).
+The engine employs a sophisticated combination of algorithms and optimizations to achieve high performance:
+* **[Bitboard representation](common/src/bitboard/bitboard.rs)** with [magic bitboards](src/move_generator/magic_table.rs) for sliding pieces (rooks, bishops, queens) enables O(1) attack generation via precomputed lookup tables. The board state uses 64-bit integers for efficient bitwise operations and newtype-wrapped u8 indices for type-safe square indexing.
+* **[Alpha-beta search](src/alpha_beta_searcher/search.rs)** with iterative deepening and quiescence search. Iterative deepening searches at increasing depths (1..target), using transposition table results to improve move ordering at each level. Quiescence search extends beyond the nominal depth for tactical moves to avoid the horizon effect.
+* **[Transposition tables](src/alpha_beta_searcher/transposition_table.rs)** use an LRU cache (64MB default) to store position evaluations by [Zobrist hash](./precompile/src/zobrist/mod.rs), avoiding redundant computation of transposed positions. Each entry stores score, depth, bound type (exact/upper/lower), and the best move for move ordering.
+* **Advanced move ordering** prioritizes moves likely to cause cutoffs: principal variation moves from the transposition table, [killer moves](src/alpha_beta_searcher/killer_moves.rs) stored in thread-local storage (eliminating lock contention), and MVV-LVA (Most Valuable Victim - Least Valuable Attacker) for capture ordering.
+* **Parallel search** with thread-local killer move storage enables lock-free parallelization at the root level. [Move generation](src/move_generator/generator.rs) uses conditional cloning (only when parallelizing) and MoveGenerator sharing to minimize allocations.
+* **[Zobrist hashing](./precompile/src/zobrist/mod.rs)** tables are generated at compile time via the [precompile](./precompile/src/main.rs) build script, enabling incremental position hashing for efficient caching of move generation and transposition table lookups.
+* **Generic trait-based architecture** implements the alpha-beta algorithm as a game-agnostic search using Rust traits, enabling clean separation between search logic and chess-specific implementations for comprehensive testing and maintainability.
+* **[Simple TUI](src/tui/app.rs)** built with ratatui and crossterm provides real-time game visualization with customizable colors. [UCI protocol support](src/uci/mod.rs) enables integration with external chess GUIs and online platforms like lichess.
 
 ## Codebase structure
 
-* [`common`](./common) contains code that is shared between the engine and the precompiler. This includes the [`Bitboard`](./common/src/bitboard/bitboard.rs) type (64-bit integer for sets of squares) and the [`Square`](./common/src/bitboard/square.rs) type (newtype-wrapped u8 for individual squares).
-* [`precompile`](./precompile) contains the precompiler, which generates the [`ZobristHashTable`](./precompile/src/zobrist/mod.rs) tables and [magic bitboard](./precompile/src/magic/find_magics.rs) calculation (see [this](https://www.chessprogramming.org/Magic_Bitboards) for background).
-* [`src`](./src) contains the engine's main logic:
+```
+RustChess/
+├── common/              # Shared code between engine and precompiler
+│   └── src/bitboard/      # Bitboard and Square types
+├── precompile/            # Build-time code generation
+│   ├── src/zobrist/      # Zobrist hash table generation
+│   ├── src/magic/        # Magic bitboard calculation
+│   └── src/book/         # Opening book generation
+└── src/                   # Main engine implementation
+    ├── prelude.rs         # Common type re-exports
+    ├── alpha_beta_searcher/  # Generic search algorithm
+    ├── chess_search/      # Chess-specific search implementations
+    ├── board/            # Board state representation
+    ├── chess_move/       # Move types and application
+    ├── move_generator/   # Legal move generation
+    ├── evaluate/         # Position evaluation
+    ├── game/             # Game loop and engine coordination
+    ├── book/             # Opening book lookup
+    ├── input_handler/    # FEN parsing and input handling
+    ├── cli/              # Command-line interface
+    ├── uci/              # UCI protocol implementation
+    ├── tui/              # Terminal user interface
+    └── diagnostics/      # Memory profiling and diagnostics
+```
+
+**Key directories:**
+
+* [`common`](./common) - Shared types between engine and precompiler: [`Bitboard`](./common/src/bitboard/bitboard.rs) (64-bit integer for sets of squares) and [`Square`](./common/src/bitboard/square.rs) (newtype-wrapped u8 for individual squares).
+
+* [`precompile`](./precompile) - Build-time code generation: [`ZobristHashTable`](./precompile/src/zobrist/mod.rs) tables and [magic bitboard](./precompile/src/magic/find_magics.rs) calculation (see [this](https://www.chessprogramming.org/Magic_Bitboards) for background).
+
+* [`src`](./src) - Main engine implementation:
   * [`prelude`](./src/prelude.rs) - Common types re-exported for convenience (`Board`, `Color`, `Piece`, `ChessMove`, `Bitboard`, `Square`)
   * [`alpha_beta_searcher`](./src/alpha_beta_searcher/mod.rs) - Generic alpha-beta search algorithm, independent of chess
   * [`chess_search`](./src/chess_search/mod.rs) - Chess-specific trait implementations for the search algorithm
   * [`board`](./src/board/mod.rs) - Chess board state representation, including newtype wrappers (`CastleRights`, `HalfmoveClock`, `FullmoveNumber`) and state management (`StateStack`)
   * [`chess_move`](./src/chess_move/mod.rs) - Chess move types and application logic
-  * [`move_generator`](./src/move_generator/mod.rs) - Chess move generation
+  * [`move_generator`](./src/move_generator/mod.rs) - Chess move generation with magic bitboards
+  * [`evaluate`](./src/evaluate/mod.rs) - Position evaluation (material + piece-square tables)
   * [`game`](./src/game/mod.rs) - Game loop and engine coordination, with separate `InputSource` and `GameRenderer` traits for modularity
+  * [`book`](./src/book/mod.rs) - Opening book lookup for move suggestions
+  * [`input_handler`](./src/input_handler/mod.rs) - FEN parsing and position validation
+  * [`cli`](./src/cli/mod.rs) - Command-line interface with subcommands
+  * [`uci`](./src/uci/mod.rs) - UCI protocol implementation for GUI integration
+  * [`tui`](./src/tui/mod.rs) - Terminal user interface with ratatui
+  * [`diagnostics`](./src/diagnostics/mod.rs) - Memory profiling and performance diagnostics
 
-## Module structure standards
+## Contributing
 
-The codebase follows idiomatic Rust module organization practices:
-
-### Module organization
-
-* **`mod.rs` files** serve only as module declarations and re-exports. They do not contain substantial implementation code.
-* **Implementation files** are placed in dedicated `.rs` files within their module directories (e.g., `board/board.rs`, `evaluate/evaluation.rs`).
-* **Module-level docstrings** (`//!`) are required at the top of all `mod.rs` files and implementation files to describe the module's purpose.
-
-### Import organization
-
-All imports follow a consistent ordering standard (enforced by the pre-commit hook):
-
-1. **Standard library** (`std::`, `core::`)
-2. **External crates** (third-party dependencies like `common`, `rayon`, `smallvec`, etc.)
-3. **Crate imports** (`crate::`)
-4. **Relative imports** (`super::`, `self::`)
-
-Each group is separated by a blank line. Within each group, imports are alphabetically sorted when possible and grouped by module when importing multiple items from the same module.
-
-Example:
-```rust
-use std::io;
-use std::str::FromStr;
-
-use common::bitboard::Square;
-use rayon::prelude::*;
-
-use crate::board::Board;
-use crate::chess_move::ChessMove;
-
-use super::helper::Helper;
-```
-
-### Code quality enforcement
-
-* **`rustfmt.toml`** - Configuration file documenting the import style standard and other formatting rules.
-* **Pre-commit hook** (`.git/hooks/pre-commit`) - Automatically runs `cargo fmt -- --check` and `cargo clippy -- -D warnings` before each commit to ensure code quality and consistency.
+For information on development setup, architecture, code standards, and profiling/optimization workflows, see [CONTRIBUTING.md](./CONTRIBUTING.md).
