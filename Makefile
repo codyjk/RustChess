@@ -1,4 +1,4 @@
-.PHONY: help install build test bench fmt clippy clean watch play lint pre-commit ci info
+.PHONY: help install build test bench fmt clippy clean clean-cache watch play lint pre-commit ci info
 
 RUSTFLAGS := RUSTFLAGS="-C target-cpu=native"
 
@@ -33,6 +33,11 @@ lint: fmt-check clippy ## Run format check and clippy
 
 clean: ## Clean build artifacts
 	cargo clean
+
+clean-cache: ## Clear precompiled caches (opening book, zobrist, magic tables)
+	@echo "Clearing build cache to force regeneration of precompiled tables..."
+	cargo clean
+	@echo "Cache cleared. Next build will regenerate all tables."
 
 watch: install ## Watch engine play itself
 	chess watch --depth 4

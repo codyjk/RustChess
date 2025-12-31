@@ -15,6 +15,14 @@ use crate::chess_move::ChessMove;
 use crate::game::engine::Engine;
 use crate::tui::{board_widget::BoardWidget, Theme};
 
+/// Game state information for rendering
+struct GameState<'a> {
+    current_turn: Color,
+    last_move: Option<(&'a ChessMove, &'a str)>,
+    opening_name: Option<&'a str>,
+    human_color: Option<Color>,
+}
+
 /// Format large numbers with thousand separators
 fn format_number(n: u64) -> String {
     let s = n.to_string();
@@ -121,15 +129,13 @@ impl TuiApp {
         frame.render_widget(board_widget, board_chunks[0]);
 
         // Render info panel
-        Self::render_info_panel(
-            frame,
-            board_chunks[1],
-            engine,
+        let game_state = GameState {
             current_turn,
             last_move,
             opening_name,
-            theme,
-        );
+            human_color,
+        };
+        Self::render_info_panel(frame, board_chunks[1], engine, &game_state, theme);
 
         // Render input panel at bottom
         Self::render_input_panel(frame, main_chunks[1], current_turn, human_color, theme);
@@ -140,23 +146,29 @@ impl TuiApp {
         frame: &mut ratatui::Frame,
         area: Rect,
         engine: &Engine,
-        current_turn: Color,
-        last_move: Option<(&ChessMove, &str)>,
-        opening_name: Option<&str>,
+        game_state: &GameState,
         theme: &Theme,
     ) {
         let mut info_text = String::new();
+        let is_watch_mode = game_state.human_color.is_none();
 
-        // Opening name
-        if let Some(opening) = opening_name {
-            info_text.push_str(&format!("Opening: {}\n\n", opening));
+        // Opening name with deviation info
+        if let Some(opening) = game_state.opening_name {
+            info_text.push_str(&format!("Opening: {}", opening));
+            if let Some(deviation_move) = engine.opening_deviation_move() {
+                info_text.push_str(&format!(" (ended on move {})", deviation_move));
+            }
+            info_text.push_str("\n\n");
         }
 
+        // FEN
+        info_text.push_str(&format!("FEN: {}\n\n", engine.board().to_fen()));
+
         // Current turn
-        info_text.push_str(&format!("Turn: {}\n\n", current_turn));
+        info_text.push_str(&format!("Turn: {}\n\n", game_state.current_turn));
 
         // Last move
-        if let Some((_mv, notation)) = last_move {
+        if let Some((_mv, notation)) = game_state.last_move {
             info_text.push_str(&format!("Last Move: {}\n\n", notation));
         }
 
@@ -184,9 +196,68 @@ impl TuiApp {
 
         // Show score or placeholder
         if let Some(score) = stats.last_score {
-            info_text.push_str(&format!("  Score: {}\n", score));
+            info_text.push_str(&format!("  Score: {}\n\n", score));
         } else {
-            info_text.push_str("  Score: -\n");
+            info_text.push_str("  Score: -\n\n");
+        }
+
+        // Move history table (at bottom so it grows downward)
+        let move_history = engine.move_history();
+        if !move_history.is_empty() {
+            info_text.push_str("Move History:\n");
+
+            // Table header
+            if is_watch_mode {
+                info_text.push_str("  # │ White      │ Black      │ Score\n");
+                info_text.push_str("  ──┼────────────┼────────────┼────────\n");
+            } else {
+                info_text.push_str("  # │ White      │ Black\n");
+                info_text.push_str("  ──┼────────────┼────────────\n");
+            }
+
+            // Process moves in pairs
+            for i in (0..move_history.len()).step_by(2) {
+                let move_number = (i / 2) + 1;
+                let white_move = &move_history[i];
+                let black_move = move_history.get(i + 1);
+
+                if is_watch_mode {
+                    let white_score = white_move
+                        .score
+                        .map(|s| format!("{:>6}", s))
+                        .unwrap_or_else(|| "     -".to_string());
+                    let black_score = black_move
+                        .and_then(|m| m.score)
+                        .map(|s| format!("{:>6}", s))
+                        .unwrap_or_else(|| "     -".to_string());
+
+                    if let Some(black) = black_move {
+                        info_text.push_str(&format!(
+                            " {:>2} │ {:<10} │ {:<10} │ {}/{}\n",
+                            move_number,
+                            white_move.notation,
+                            black.notation,
+                            white_score,
+                            black_score
+                        ));
+                    } else {
+                        info_text.push_str(&format!(
+                            " {:>2} │ {:<10} │            │ {}\n",
+                            move_number, white_move.notation, white_score
+                        ));
+                    }
+                } else if let Some(black) = black_move {
+                    info_text.push_str(&format!(
+                        " {:>2} │ {:<10} │ {:<10}\n",
+                        move_number, white_move.notation, black.notation
+                    ));
+                } else {
+                    info_text.push_str(&format!(
+                        " {:>2} │ {:<10} │\n",
+                        move_number, white_move.notation
+                    ));
+                }
+            }
         }
 
         let paragraph = Paragraph::new(info_text)
@@ -205,7 +276,7 @@ impl TuiApp {
         theme: &Theme,
     ) {
         let prompt_text = match human_color {
-            None => "Enter your move: _", // PvP mode - both sides are human
+            None => "Watch mode - engines playing...", // Watch mode - both sides are engine
             Some(color) if current_turn == color => "Enter your move: _",
             Some(_) => "Engine is thinking...",
         };

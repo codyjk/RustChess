@@ -71,4 +71,92 @@ Réti King's Indian Attack: g1f3 d7d5 g2g3
 Bird's Opening: f2f4
 Trompowsky Attack: d2d4 g8f6 c1g5
 London System: d2d4 d7d5 g1f3 g8f6 c1f4
+London System Accelerated: d2d4 g8f6 c1f4
 Colle System: d2d4 d7d5 g1f3 g8f6 e2e3
+Colle-Zukertort: d2d4 d7d5 g1f3 g8f6 e2e3 e7e6 f1d3 c7c5 b2b3
+Torre Attack: d2d4 g8f6 g1f3 e7e6 c1g5
+Blackmar-Diemer Gambit: d2d4 d7d5 e2e4
+Stonewall Attack: d2d4 e7e6 e2e3 g8f6 f1d3 c7c5 c2c3 b8c6 f2f4
+Veresov Opening: d2d4 g8f6 b1c3 d7d5 c1g5
+Richter-Veresov Attack: d2d4 d7d5 b1c3 g8f6 c1g5
+King's Indian Attack: g1f3 g8f6 g2g3 d7d5 f1g2
+King's Fianchetto Opening: g2g3
+Queen's Pawn Game: d2d4 d7d5
+Zukertort Opening: g1f3
+Nimzo-Larsen Attack: b2b3
+Larsen's Opening: b2b3 e7e5 c1b2 b8c6 e2e3
+Reti Opening Advanced: g1f3 d7d5 c2c4
+Reti Gambit: g1f3 d7d5 c2c4 d5c4
+Catalan Open: d2d4 g8f6 c2c4 e7e6 g2g3 d7d5 f1g2 d5c4
+Catalan Closed: d2d4 g8f6 c2c4 e7e6 g2g3 d7d5 f1g2 f8e7
+Neo-Catalan: d2d4 g8f6 g1f3 d7d5 g2g3
+Vienna Gambit: e2e4 e7e5 b1c3 g8f6 f2f4
+Vienna Game Falkbeer: e2e4 e7e5 b1c3 g8f6
+Vienna Game Max Lange: e2e4 e7e5 b1c3 b8c6 f1c4 g8f6
+King's Gambit Accepted: e2e4 e7e5 f2f4 e5f4
+King's Gambit Declined: e2e4 e7e5 f2f4 f8c5
+Falkbeer Counter-Gambit: e2e4 e7e5 f2f4 d7d5
+Scotch Opening: e2e4 e7e5 g1f3 b8c6 d2d4 e5d4
+Scotch Gambit: e2e4 e7e5 g1f3 b8c6 d2d4 e5d4 f1c4
+Göring Gambit: e2e4 e7e5 g1f3 b8c6 d2d4 e5d4 c2c3
+Italian Game Giuoco Pianissimo: e2e4 e7e5 g1f3 b8c6 f1c4 f8c5 d2d3
+Italian Game Giuoco Piano: e2e4 e7e5 g1f3 b8c6 f1c4 f8c5 c2c3 g8f6
+Two Knights Defense Fried Liver: e2e4 e7e5 g1f3 b8c6 f1c4 g8f6 f3g5 d7d5 e4d5 f6d5 g5f7
+Two Knights Defense Modern: e2e4 e7e5 g1f3 b8c6 f1c4 g8f6 d2d4
+Ruy Lopez Berlin Defense: e2e4 e7e5 g1f3 b8c6 f1b5 g8f6
+Ruy Lopez Morphy Defense: e2e4 e7e5 g1f3 b8c6 f1b5 a7a6
+Ruy Lopez Exchange: e2e4 e7e5 g1f3 b8c6 f1b5 a7a6 b5c6
+Ruy Lopez Closed: e2e4 e7e5 g1f3 b8c6 f1b5 a7a6 b5a4 g8f6 e1g1 f8e7
+Ruy Lopez Marshall Attack: e2e4 e7e5 g1f3 b8c6 f1b5 a7a6 b5a4 g8f6 e1g1 f8e7 f1e1 b7b5 a4b3 e1e8 c2c3 d7d5
+Ruy Lopez Open: e2e4 e7e5 g1f3 b8c6 f1b5 a7a6 b5a4 g8f6 e1g1 f6e4
+Ruy Lopez Schliemann Defense: e2e4 e7e5 g1f3 b8c6 f1b5 f7f5
+Philidor Defense Hanham: e2e4 e7e5 g1f3 d7d6 d2d4 b8d7
+Petrov Defense Classical: e2e4 e7e5 g1f3 g8f6 f3e5 d7d6 e5f3 f6e4
+Sicilian Najdorf Main Line: e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6 f1e2
+Sicilian Dragon Yugoslav: e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 g7g6 f1e3
+Sicilian Scheveningen Classical: e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 e7e6 f1e2
+Sicilian Sveshnikov Main Line: e2e4 c7c5 g1f3 b8c6 d2d4 c5d4 f3d4 g8f6 b1c3 e7e5 d4b5 d7d6
+Sicilian Richter-Rauzer: e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 b8c6 c1g5
+Sicilian Moscow: e2e4 c7c5 g1f3 d7d6 f1b5
+Sicilian Rossolimo: e2e4 c7c5 g1f3 b8c6 f1b5
+Sicilian Wing Gambit: e2e4 c7c5 b2b4
+Sicilian Smith-Morra: e2e4 c7c5 d2d4 c5d4 c2c3
+French Winawer Advance: e2e4 e7e6 d2d4 d7d5 b1c3 f8b4 e4e5
+French Tarrasch Open: e2e4 e7e6 d2d4 d7d5 b1d2 c7c5
+French Rubinstein: e2e4 e7e6 d2d4 d7d5 b1c3 d5e4
+Caro-Kann Two Knights: e2e4 c7c6 d2d4 d7d5 b1c3 d5e4 c3e4 b8d7 e4g5
+Caro-Kann Fantasy: e2e4 c7c6 d2d4 d7d5 f2f3
+Alekhine Defense Modern: e2e4 g8f6 e4e5 f6d5 d2d4 d7d6 g1f3
+Scandinavian Mieses-Kotroc: e2e4 d7d5 e4d5 d8d5
+Owen's Defense: e2e4 b7b6
+Nimzowitsch Defense: e2e4 b8c6
+Center Counter Defense: e2e4 d7d5
+Budapest Gambit: d2d4 g8f6 c2c4 e7e5
+Old Benoni: d2d4 c7c5
+Czech Benoni: d2d4 g8f6 c2c4 c7c5 d4d5 e7e5
+Modern Benoni: d2d4 g8f6 c2c4 c7c5 d4d5 e7e6
+King's Indian Orthodox: d2d4 g8f6 c2c4 g7g6 b1c3 f8g7 e2e4 d7d6 g1f3 e1e8 f1e2 e7e5
+King's Indian Four Pawns: d2d4 g8f6 c2c4 g7g6 b1c3 f8g7 e2e4 d7d6 f2f4
+King's Indian Averbakh: d2d4 g8f6 c2c4 g7g6 b1c3 f8g7 e2e4 d7d6 c1e3
+Grünfeld Exchange: d2d4 g8f6 c2c4 g7g6 b1c3 d7d5 c4d5 f6d5 e2e4 d5c3 b2c3
+Grünfeld Russian: d2d4 g8f6 c2c4 g7g6 b1c3 d7d5 g1f3 f8g7 d1b3
+Queen's Gambit Accepted Main Line: d2d4 d7d5 c2c4 d5c4 g1f3 g8f6 e2e3 e7e6 f1c4 c7c5
+Queen's Gambit Declined Orthodox: d2d4 d7d5 c2c4 e7e6 b1c3 g8f6 c1g5 f8e7 e2e3 e1e8
+Queen's Gambit Declined Tartakower: d2d4 d7d5 c2c4 e7e6 b1c3 g8f6 c1g5 f8e7 e2e3 e1e8 g1f3 h7h6 g5h4 b7b6
+Queen's Gambit Declined Exchange: d2d4 d7d5 c2c4 e7e6 b1c3 g8f6 c4d5
+Semi-Slav Meran: d2d4 d7d5 c2c4 c7c6 g1f3 g8f6 b1c3 e7e6 e2e3 b8d7 f1d3 d5c4
+Semi-Slav Botvinnik: d2d4 d7d5 c2c4 c7c6 b1c3 g8f6 g1f3 e7e6 c1g5
+Slav Defense Czech: d2d4 d7d5 c2c4 c7c6 g1f3 g8f6 b1c3 d5c4
+Slav Defense Exchange: d2d4 d7d5 c2c4 c7c6 c4d5
+Nimzo-Indian Classical: d2d4 g8f6 c2c4 e7e6 b1c3 f8b4 d1c2
+Nimzo-Indian Samisch: d2d4 g8f6 c2c4 e7e6 b1c3 f8b4 a2a3
+Nimzo-Indian Leningrad: d2d4 g8f6 c2c4 e7e6 b1c3 f8b4 c1g5
+Queen's Indian Fianchetto: d2d4 g8f6 c2c4 e7e6 g1f3 b7b6 g2g3 c1b7
+Bogo-Indian Nimzowitsch: d2d4 g8f6 c2c4 e7e6 g1f3 f8b4 b1d2
+Dutch Leningrad: d2d4 f7f5 g2g3 g8f6 f1g2 g7g6 g1f3 f8g7
+Dutch Classical: d2d4 f7f5 c2c4 g8f6 g2g3 e7e6 f1g2 f8e7
+Benko Gambit Accepted: d2d4 g8f6 c2c4 c7c5 d4d5 b7b5 c4b5 a7a6
+Benko Gambit Declined: d2d4 g8f6 c2c4 c7c5 d4d5 b7b5 b1d2
+English Four Knights: c2c4 g8f6 b1c3 e7e5 g1f3 b8c6
+English Anglo-Indian: c2c4 g8f6 b1c3 e7e6
+English Reversed Sicilian: c2c4 e7e5

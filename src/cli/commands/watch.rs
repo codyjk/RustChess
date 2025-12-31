@@ -2,7 +2,6 @@
 
 use std::time::Duration;
 
-use chess::board::color::Color;
 use chess::board::Board;
 use chess::game::input_source::EngineInput;
 use chess::game::renderer::TuiRenderer;
@@ -14,7 +13,7 @@ use super::Command;
 
 #[derive(StructOpt)]
 pub struct WatchArgs {
-    #[structopt(short, long, default_value = "4")]
+    #[structopt(short, long, default_value = "6")]
     pub depth: u8,
     #[structopt(long = "fen", default_value = STARTING_POSITION_FEN)]
     pub starting_position: Board,
@@ -30,7 +29,7 @@ impl Command for WatchArgs {
     fn execute(self) {
         let config = create_config(self.depth, self.starting_position);
 
-        match TuiRenderer::new(Some(Color::White)) {
+        match TuiRenderer::new(None) {
             Ok(renderer) => {
                 run_game_loop(EngineInput, renderer, config);
 

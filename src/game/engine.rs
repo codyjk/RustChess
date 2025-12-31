@@ -30,12 +30,22 @@ impl Default for EngineConfig {
     }
 }
 
+/// Represents a move in the game history with its notation and score
+#[derive(Clone, Debug)]
+pub struct MoveHistoryEntry {
+    pub chess_move: ChessMove,
+    pub notation: String,
+    pub score: Option<i16>,
+}
+
 /// Game state and runtime info
 #[derive(Clone)]
 pub struct GameState {
     board: Board,
-    move_history: Vec<ChessMove>,
+    move_history: Vec<MoveHistoryEntry>,
     last_score: Option<i16>,
+    opening_deviation_move: Option<usize>,
+    last_known_opening: Option<String>,
 }
 
 impl Default for GameState {
@@ -50,6 +60,8 @@ impl GameState {
             board: starting_position,
             move_history: Vec::new(),
             last_score: None,
+            opening_deviation_move: None,
+            last_known_opening: None,
         }
     }
 }
@@ -116,31 +128,27 @@ impl Engine {
         from: Square,
         to: Square,
     ) -> Result<ChessMove, EngineError> {
-        let turn = self.state.board.turn();
-        let candidates = self
-            .move_generator
-            .generate_moves(&mut self.state.board, turn);
+        let valid_moves_with_notation = self.get_valid_moves();
 
-        let chess_move = candidates
+        let (chess_move, notation) = valid_moves_with_notation
             .iter()
-            .find(|m| m.from_square() == from && m.to_square() == to)
+            .find(|(m, _)| m.from_square() == from && m.to_square() == to)
             .ok_or(EngineError::InvalidMove)?
             .clone();
 
-        self.apply_chess_move(chess_move.clone())?;
+        self.apply_chess_move_with_notation(chess_move.clone(), notation, self.state.last_score)?;
         Ok(chess_move)
     }
 
     pub fn make_move_algebraic(&mut self, algebraic: String) -> Result<ChessMove, EngineError> {
         let valid_moves = self.get_valid_moves();
-        let chess_move = valid_moves
+        let (chess_move, notation) = valid_moves
             .iter()
-            .find(|m| m.1 == algebraic)
+            .find(|(_, n)| n == &algebraic)
             .ok_or(EngineError::InvalidMove)?
-            .0
             .clone();
 
-        self.apply_chess_move(chess_move.clone())?;
+        self.apply_chess_move_with_notation(chess_move.clone(), notation, self.state.last_score)?;
         Ok(chess_move)
     }
 
@@ -157,7 +165,20 @@ impl Engine {
 
     pub fn make_best_move(&mut self) -> Result<ChessMove, EngineError> {
         let best_move = self.get_best_move()?;
-        self.apply_chess_move(best_move.clone())?;
+
+        // Get notation for the move
+        // Match by squares (from/to) instead of full equality to handle cases where
+        // check/checkmate effects aren't set on the best_move yet
+        let valid_moves = self.get_valid_moves();
+        let notation = valid_moves
+            .iter()
+            .find(|(m, _)| {
+                m.from_square() == best_move.from_square() && m.to_square() == best_move.to_square()
+            })
+            .map(|(_, n)| n.clone())
+            .expect("best_move should always be in valid_moves");
+
+        self.apply_chess_move_with_notation(best_move.clone(), notation, self.state.last_score)?;
         Ok(best_move)
     }
 
@@ -176,19 +197,76 @@ impl Engine {
 
     pub fn get_book_line_name(&self) -> Option<String> {
         let line = self.get_book_line();
-        self.book.get_line(line)
+        let current_opening = self.book.get_line(line);
+
+        // Return current opening if available, otherwise return last known opening
+        current_opening.or_else(|| self.state.last_known_opening.clone())
     }
 
     pub fn last_move(&self) -> Option<ChessMove> {
-        self.state.move_history.last().cloned()
+        self.state.move_history.last().map(|e| e.chess_move.clone())
     }
 
+    pub fn move_history(&self) -> &[MoveHistoryEntry] {
+        &self.state.move_history
+    }
+
+    pub fn opening_deviation_move(&self) -> Option<usize> {
+        self.state.opening_deviation_move
+    }
+
+    /// Apply a chess move without tracking notation or score (for internal use)
     pub fn apply_chess_move(&mut self, chess_move: ChessMove) -> Result<(), EngineError> {
         chess_move
             .apply(&mut self.state.board)
             .map_err(|error| EngineError::BoardError { error })?;
 
-        self.state.move_history.push(chess_move);
+        // For moves applied without notation, we still need to add to history
+        // Use UCI notation (e.g., "e2e4") for compact display
+        let notation = chess_move.to_uci();
+        self.state.move_history.push(MoveHistoryEntry {
+            chess_move,
+            notation,
+            score: None,
+        });
+
+        Ok(())
+    }
+
+    pub fn apply_chess_move_with_notation(
+        &mut self,
+        chess_move: ChessMove,
+        notation: String,
+        score: Option<i16>,
+    ) -> Result<(), EngineError> {
+        // Check if this move deviates from the opening book
+        if self.state.opening_deviation_move.is_none() {
+            // Save the current opening name before checking deviation
+            let current_line = self.get_book_line();
+            if let Some(opening_name) = self.book.get_line(current_line) {
+                self.state.last_known_opening = Some(opening_name);
+            }
+
+            let next_moves = self.book.get_next_moves(self.get_book_line());
+            let book_move =
+                crate::book::BookMove::new(chess_move.from_square(), chess_move.to_square());
+            let is_in_book = next_moves.iter().any(|(mv, _)| *mv == book_move);
+
+            if !is_in_book {
+                self.state.opening_deviation_move = Some(self.state.move_history.len() + 1);
+            }
+        }
+
+        chess_move
+            .apply(&mut self.state.board)
+            .map_err(|error| EngineError::BoardError { error })?;
+
+        self.state.move_history.push(MoveHistoryEntry {
+            chess_move,
+            notation,
+            score,
+        });
+
         Ok(())
     }
 
@@ -242,7 +320,9 @@ impl Engine {
         self.state
             .move_history
             .iter()
-            .map(|m| BookMove::new(m.from_square(), m.to_square()))
+            .map(|entry| {
+                BookMove::new(entry.chess_move.from_square(), entry.chess_move.to_square())
+            })
             .collect()
     }
 }

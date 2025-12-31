@@ -227,6 +227,11 @@ impl Board {
     pub fn current_position_hash(&self) -> u64 {
         self.position_info.current_position_hash()
     }
+
+    /// Convert the board position to FEN (Forsyth-Edwards Notation) string
+    pub fn to_fen(&self) -> String {
+        crate::input_handler::fen_serialize::to_fen(self)
+    }
 }
 
 impl Clone for Board {

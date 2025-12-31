@@ -12,7 +12,7 @@ use super::Command;
 
 #[derive(StructOpt)]
 pub struct PlayArgs {
-    #[structopt(short, long, default_value = "4")]
+    #[structopt(short, long, default_value = "6")]
     pub depth: u8,
     #[structopt(short = "c", long = "color", default_value = "random")]
     pub color: Color,

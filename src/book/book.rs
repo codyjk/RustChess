@@ -111,12 +111,17 @@ impl Book {
 
     pub fn get_line(&self, line: Vec<BookMove>) -> Option<String> {
         let mut curr_node = &self.root;
+        let mut last_line_name: Option<String> = None;
 
         for book_move in line {
             curr_node = curr_node.lines.get(&book_move)?;
+            // Track the most recent opening name we've seen
+            if curr_node.line_name.is_some() {
+                last_line_name.clone_from(&curr_node.line_name);
+            }
         }
 
-        curr_node.line_name.clone()
+        last_line_name.or(curr_node.line_name.clone())
     }
 }
 
