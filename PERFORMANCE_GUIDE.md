@@ -41,6 +41,8 @@ The engine includes instrumentation for tracking allocations:
 sudo cargo flamegraph --bench pvp_benchmark
 ```
 
+![Flamegraph of the `pvp_benchmark` benchmark](./pvp_benchmark.svg)
+
 ### Debug Logging for Lock Contention
 
 The engine includes debug-level logging for monitoring lock contention in critical sections. These messages are useful for identifying synchronization bottlenecks:

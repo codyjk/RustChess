@@ -1,7 +1,7 @@
 # `chess`
 A high-performance chess engine written in Rust, using the classical [alpha-beta pruning](https://en.wikipedia.org/wiki/Alpha–beta_pruning) algorithm for best-move selection. The engine achieves ~117M positions/second in pure search and features UCI protocol support for integration with chess GUIs.
 
-![Example of player playing against the engine](./demo.gif)
+![Example of player playing against the engine](./chess.gif)
 
 ## Installation
 
@@ -240,24 +240,6 @@ fn test_find_back_rank_mate_in_2_black() {
 ## Profiling
 
 For detailed profiling and optimization guidance, see [PERFORMANCE_GUIDE.md](./PERFORMANCE_GUIDE.md).
-
-### Quick Start
-
-**Visual profiling with flamegraph:**
-```shell
-sudo cargo flamegraph --bench pvp_benchmark
-```
-
-![Flamegraph of the `pvp_benchmark` benchmark](./pvp_benchmark.svg)
-
-**CPU profiling:**
-- **macOS**: `sample $PID 30 -file /tmp/profile.txt`
-- **Linux**: `perf record -p $PID sleep 30 && perf report`
-
-**Memory profiling:**
-The engine includes built-in instrumentation that automatically tracks allocations. Run any command and check the output for memory profiler stats.
-
-Various other [benchmarks](https://doc.rust-lang.org/cargo/commands/cargo-bench.html) are available in the [`benches`](./benches) directory.
 
 ## Codebase structure
 
