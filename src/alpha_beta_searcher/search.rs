@@ -886,10 +886,13 @@ where
         i16::MAX
     };
     let original_alpha = alpha;
-    let mut first_move = true;
+    let mut move_count = 0;
 
     for game_move in candidates.as_ref().iter() {
-        let score = if first_move {
+        move_count += 1;
+        let is_first_move = move_count == 1;
+
+        let score = if is_first_move {
             // Search first move with full window
             with_move_applied(game_move, state, |state| {
                 alpha_beta_minimax(
@@ -906,21 +909,70 @@ where
                 )
             })?
         } else {
-            // PV-Search: Try null window search for non-first moves
-            let null_window_score = with_move_applied(game_move, state, |state| {
-                alpha_beta_minimax(
-                    context,
-                    state,
-                    move_generator,
-                    evaluator,
-                    move_orderer,
-                    depth - 1,
-                    ply + 1,
-                    if maximizing_player { alpha } else { beta - 1 },
-                    if maximizing_player { alpha + 1 } else { beta },
-                    !maximizing_player,
-                )
-            })?;
+            // Late Move Reductions (LMR): Reduce depth for late non-tactical moves
+            let is_tactical = game_move.is_tactical(state);
+            let do_lmr = depth >= 3 && move_count > 4 && !is_tactical;
+            let reduction = if do_lmr { 1 } else { 0 };
+
+            // Try reduced depth search first (if LMR applies)
+            let reduced_score = if do_lmr {
+                Some(with_move_applied(game_move, state, |state| {
+                    alpha_beta_minimax(
+                        context,
+                        state,
+                        move_generator,
+                        evaluator,
+                        move_orderer,
+                        depth - 1 - reduction,
+                        ply + 1,
+                        if maximizing_player { alpha } else { beta - 1 },
+                        if maximizing_player { alpha + 1 } else { beta },
+                        !maximizing_player,
+                    )
+                })?)
+            } else {
+                None
+            };
+
+            // PV-Search: Try null window search (skip if LMR failed low)
+            let null_window_score = if let Some(rs) = reduced_score {
+                if rs <= alpha {
+                    // Reduced search failed low, accept the score
+                    rs
+                } else {
+                    // Reduced search raised alpha, re-search with null window at full depth
+                    with_move_applied(game_move, state, |state| {
+                        alpha_beta_minimax(
+                            context,
+                            state,
+                            move_generator,
+                            evaluator,
+                            move_orderer,
+                            depth - 1,
+                            ply + 1,
+                            if maximizing_player { alpha } else { beta - 1 },
+                            if maximizing_player { alpha + 1 } else { beta },
+                            !maximizing_player,
+                        )
+                    })?
+                }
+            } else {
+                // No LMR, do regular null window search
+                with_move_applied(game_move, state, |state| {
+                    alpha_beta_minimax(
+                        context,
+                        state,
+                        move_generator,
+                        evaluator,
+                        move_orderer,
+                        depth - 1,
+                        ply + 1,
+                        if maximizing_player { alpha } else { beta - 1 },
+                        if maximizing_player { alpha + 1 } else { beta },
+                        !maximizing_player,
+                    )
+                })?
+            };
 
             // If null window search fails (score is in (alpha, beta)), re-search with full window
             if null_window_score > alpha && null_window_score < beta {
@@ -942,8 +994,6 @@ where
                 null_window_score
             }
         };
-
-        first_move = false;
 
         update_best(
             score,
