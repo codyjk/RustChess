@@ -1,0 +1,23 @@
+# TUI Color Configuration
+# Edit this file to customize chess board colors without rebuilding.
+# Colors are specified as RGB values "R, G, B" where each value is 0-255.
+# If this file is missing or invalid, default colors will be used.
+#
+# Design principles:
+# - Light squares: Medium-light tone (not too light, so white pieces contrast)
+# - Dark squares: Medium-dark tone (not too dark, so black pieces contrast)
+# - White pieces: Very light/white (visible on dark squares)
+# - Black pieces: Very dark/black (visible on light squares)
+
+# Light squares (medium-light beige - provides contrast for both piece colors)
+light_square = 200, 180, 150
+
+# Dark squares (medium-dark brown - provides contrast for both piece colors)
+dark_square = 120, 90, 60
+
+# White pieces (very light - clearly visible on dark squares)
+piece_white = 255, 255, 255
+
+# Black pieces (very dark - clearly visible on light squares)
+piece_black = 30, 30, 30
+

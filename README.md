@@ -90,6 +90,26 @@ $ chess uci
 
 This starts UCI mode, where the engine reads UCI commands from `stdin` and responds on `stdout`. You can use this with popular chess GUIs like Arena, cutechess-cli, or for integration with online platforms like lichess.
 
+### Customizing TUI Colors
+
+The TUI color scheme can be customized by creating a `tui_colors.toml` file in the current working directory. Edit this file to change colors without rebuilding:
+
+```toml
+# Light squares (traditional wheat/beige)
+light_square = 240, 217, 181
+
+# Dark squares (traditional sienna/brown)
+dark_square = 181, 136, 99
+
+# White pieces (traditional white)
+piece_white = 255, 255, 255
+
+# Black pieces (traditional dark gray/black)
+piece_black = 50, 50, 50
+```
+
+Colors are specified as RGB values (0-255). If the file is missing or invalid, default colors are used. Changes take effect immediately on the next run - no rebuild required.
+
 ## Performance
 
 ### Throughput
@@ -171,7 +191,7 @@ There are numerous optimizations used to increase the engine's performance. This
 * **Transposition tables** cache previously evaluated positions to avoid redundant computation during the search.
 * The [Zobrist hashing](./precompile/src/zobrist/mod.rs) tables are generated at compile time using the [precompile](./precompile/src/main.rs) build script. This hashing approach enables quick incremental hashing of the board state so that various computations can be cached (e.g. move generation) by the engine during gameplay.
 * **UCI protocol support** enables the engine to integrate with external chess GUIs and online platforms like lichess.
-* **Modern TUI** built with ratatui provides an enhanced interactive experience with real-time game visualization.
+* **Modern TUI** built with ratatui provides an enhanced interactive experience with real-time game visualization. The TUI colors can be customized by editing `tui_colors.toml` in the current working directory without rebuilding.
 * Macros are used throughout the codebase to improve the developer experience. See below for one example.
 
 ```rust
