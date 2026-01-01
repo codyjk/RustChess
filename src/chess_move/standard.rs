@@ -8,6 +8,8 @@ use common::bitboard::{
     square::{self, *},
 };
 use log::debug;
+#[cfg(feature = "instrumentation")]
+use tracing::instrument;
 
 use super::{
     capture::Capture, chess_move_effect::ChessMoveEffect, pawn_promotion::PawnPromotionChessMove,
@@ -59,6 +61,7 @@ impl StandardChessMove {
     }
 
     #[must_use = "move application may fail"]
+    #[cfg_attr(feature = "instrumentation", instrument(skip_all))]
     pub fn apply(&self, board: &mut Board) -> Result<(), BoardError> {
         let StandardChessMove {
             from_square,
@@ -113,6 +116,7 @@ impl StandardChessMove {
     }
 
     #[must_use = "move undo may fail"]
+    #[cfg_attr(feature = "instrumentation", instrument(skip_all))]
     pub fn undo(&self, board: &mut Board) -> Result<(), BoardError> {
         let StandardChessMove {
             from_square,

@@ -5,7 +5,7 @@ RUSTFLAGS := RUSTFLAGS="-C target-cpu=native"
 .DEFAULT_GOAL := install
 
 install: ## Build with native CPU optimizations and install to ~/.cargo/bin
-	$(RUSTFLAGS) cargo install --path .
+	$(RUSTFLAGS) cargo install --path . --locked
 	@which chess
 
 build: ## Build release with native CPU optimizations (no install)

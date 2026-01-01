@@ -3,6 +3,8 @@
 use std::str::FromStr;
 
 use common::bitboard::{Bitboard, Square};
+#[cfg(feature = "instrumentation")]
+use tracing::instrument;
 
 use crate::{
     chess_position,
@@ -69,6 +71,7 @@ impl Board {
         square.overlaps(self.occupied())
     }
 
+    #[cfg_attr(feature = "instrumentation", instrument(skip_all))]
     pub fn get(&self, square: Square) -> Option<(Piece, Color)> {
         let color = if self.white.is_occupied(square) {
             Color::White
@@ -105,6 +108,7 @@ impl Board {
         result
     }
 
+    #[cfg_attr(feature = "instrumentation", instrument(skip_all))]
     pub fn remove(&mut self, square: Square) -> Option<(Piece, Color)> {
         let (piece, color) = self.get(square)?;
         match color {
@@ -156,6 +160,7 @@ impl Board {
         self.move_info.peek_castle_rights()
     }
 
+    #[cfg_attr(feature = "instrumentation", instrument(skip_all))]
     pub fn lose_castle_rights(&mut self, lost_rights: CastleRights) -> CastleRights {
         let (old_rights, new_rights) = self.move_info.lose_castle_rights(lost_rights);
         self.position_info
@@ -165,6 +170,7 @@ impl Board {
         new_rights
     }
 
+    #[cfg_attr(feature = "instrumentation", instrument(skip_all))]
     pub fn pop_castle_rights(&mut self) -> CastleRights {
         let (old_rights, new_rights) = self.move_info.pop_castle_rights();
         self.position_info

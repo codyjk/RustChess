@@ -296,6 +296,39 @@ These messages help identify when thread contention on the `killer_moves` mutex 
 
 **Note:** These messages are logged at debug level by default and won't appear in normal operation. Use `RUST_LOG=debug` to enable them during profiling.
 
+#### Latency Instrumentation (Built-In)
+
+The engine includes compile-time instrumentation to measure function-level latency. This shows exactly where time is spent across all hot codepaths.
+
+**Build with instrumentation:**
+```bash
+cargo build --release --features instrumentation
+```
+
+**Run benchmark:**
+```bash
+./target/release/chess benchmark-alpha-beta --depth 4
+```
+
+**Output shows:**
+- Function call counts (e.g., `generate_moves`: 8.3M calls)
+- Total time per function (e.g., `quiescence_search`: 4,868s)
+- Average time per call (e.g., `apply`: 1.22µs average)
+
+**Example output:**
+```
+Function                                        Calls   Total (ms)     Avg (µs)
+--------------------------------------------------------------------------------
+quiescence_search                              536220   4867809.61      9078.01
+alpha_beta_minimax                             216718   4803848.15     22166.36
+generate_moves                                8317003   1275467.43       153.36
+remove_invalid_moves                          8317003   1216735.59       146.29
+generate_attack_targets                     336648619    454444.55         1.35
+apply                                       321011382    392248.92         1.22
+```
+
+**Overhead:** Instrumentation adds ~13x overhead. Use this for understanding bottlenecks, not measuring absolute performance. Disable instrumentation for normal builds.
+
 ### Optimization Workflow
 
 #### 1. Establish Baseline

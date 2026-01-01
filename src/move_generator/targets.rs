@@ -13,6 +13,8 @@ use crate::board::piece::Piece;
 use crate::board::Board;
 use common::bitboard::{Bitboard, Square};
 use smallvec::{smallvec, SmallVec};
+#[cfg(feature = "instrumentation")]
+use tracing::instrument;
 
 use super::magic_table::MagicTable;
 
@@ -46,6 +48,7 @@ impl Default for Targets {
 }
 
 impl Targets {
+    #[cfg_attr(feature = "instrumentation", instrument(skip_all))]
     pub fn generate_attack_targets(&self, board: &Board, color: Color) -> Bitboard {
         let mut attack_targets = Bitboard::EMPTY;
 
@@ -59,6 +62,7 @@ impl Targets {
         attack_targets
     }
 
+    #[cfg_attr(feature = "instrumentation", instrument(skip_all))]
     pub fn generate_targets_from_precomputed_tables(
         &self,
         piece_targets: &mut PieceTargetList,
@@ -80,6 +84,7 @@ impl Targets {
         }
     }
 
+    #[cfg_attr(feature = "instrumentation", instrument(skip_all))]
     pub fn generate_sliding_targets(
         &self,
         piece_targets: &mut PieceTargetList,

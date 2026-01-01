@@ -14,6 +14,8 @@
 
 use rayon::prelude::*;
 use smallvec::{smallvec, SmallVec};
+#[cfg(feature = "instrumentation")]
+use tracing::instrument;
 
 use common::bitboard::{Bitboard, *};
 
@@ -64,6 +66,7 @@ impl MoveGenerator {
         }
     }
 
+    #[cfg_attr(feature = "instrumentation", instrument(skip_all))]
     pub fn generate_moves_and_lazily_update_chess_move_effects(
         &self,
         board: &mut Board,
@@ -74,6 +77,7 @@ impl MoveGenerator {
         moves
     }
 
+    #[cfg_attr(feature = "instrumentation", instrument(skip_all))]
     pub fn generate_moves(&self, board: &mut Board, player: Color) -> ChessMoveList {
         generate_valid_moves(board, player, &self.targets)
     }
@@ -229,6 +233,7 @@ fn count_positions_inner(
 }
 
 /// Generates all valid moves for the given board state and color.
+#[cfg_attr(feature = "instrumentation", instrument(skip_all))]
 fn generate_valid_moves(board: &mut Board, color: Color, targets: &Targets) -> ChessMoveList {
     let mut moves = ChessMoveList::new();
 
@@ -243,6 +248,7 @@ fn generate_valid_moves(board: &mut Board, color: Color, targets: &Targets) -> C
 }
 
 /// Generates all pawn moves, regardless of which rank the pawn is on.
+#[cfg_attr(feature = "instrumentation", instrument(skip_all))]
 fn generate_pawn_moves(moves: &mut ChessMoveList, board: &Board, color: Color) {
     let mut piece_targets = generate_pawn_move_targets(board, color);
     let mut attack_targets: PieceTargetList = smallvec![];
@@ -327,6 +333,7 @@ fn generate_en_passant_moves(moves: &mut ChessMoveList, board: &Board, color: Co
     }
 }
 
+#[cfg_attr(feature = "instrumentation", instrument(skip_all))]
 fn generate_knight_moves(
     moves: &mut ChessMoveList,
     board: &Board,
@@ -343,6 +350,7 @@ fn generate_knight_moves(
     expand_piece_targets(moves, board, color, piece_targets)
 }
 
+#[cfg_attr(feature = "instrumentation", instrument(skip_all))]
 fn generate_sliding_moves(
     moves: &mut ChessMoveList,
     board: &Board,
@@ -355,6 +363,7 @@ fn generate_sliding_moves(
 }
 
 #[inline]
+#[cfg_attr(feature = "instrumentation", instrument(skip_all))]
 fn expand_piece_targets(
     moves: &mut ChessMoveList,
     board: &Board,
@@ -373,12 +382,14 @@ fn expand_piece_targets(
     }
 }
 
+#[cfg_attr(feature = "instrumentation", instrument(skip_all))]
 fn generate_king_moves(moves: &mut ChessMoveList, board: &Board, color: Color, targets: &Targets) {
     let mut piece_targets: PieceTargetList = smallvec![];
     targets.generate_targets_from_precomputed_tables(&mut piece_targets, board, color, Piece::King);
     expand_piece_targets(moves, board, color, piece_targets)
 }
 
+#[cfg_attr(feature = "instrumentation", instrument(skip_all))]
 fn generate_castle_moves(
     moves: &mut ChessMoveList,
     board: &Board,
@@ -446,6 +457,7 @@ fn generate_castle_moves(
     }
 }
 
+#[cfg_attr(feature = "instrumentation", instrument(skip_all))]
 fn remove_invalid_moves(
     candidates: &mut ChessMoveList,
     board: &mut Board,

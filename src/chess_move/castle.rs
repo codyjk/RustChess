@@ -1,6 +1,8 @@
 use core::fmt;
 
 use common::bitboard::{Bitboard, Square, *};
+#[cfg(feature = "instrumentation")]
+use tracing::instrument;
 
 use crate::board::{
     castle_rights::CastleRights, color::Color, error::BoardError, piece::Piece, Board,
@@ -92,6 +94,7 @@ impl CastleChessMove {
     }
 
     #[must_use = "move application may fail"]
+    #[cfg_attr(feature = "instrumentation", instrument(skip_all))]
     pub fn apply(&self, board: &mut Board) -> Result<(), BoardError> {
         let king_from = self.from_square;
         let king_to = self.to_square;
@@ -148,6 +151,7 @@ impl CastleChessMove {
     }
 
     #[must_use = "move undo may fail"]
+    #[cfg_attr(feature = "instrumentation", instrument(skip_all))]
     pub fn undo(&self, board: &mut Board) -> Result<(), BoardError> {
         let king_from = self.from_square;
         let king_to = self.to_square;

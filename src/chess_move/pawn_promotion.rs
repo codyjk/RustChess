@@ -1,6 +1,8 @@
 use core::fmt;
 
 use common::bitboard::Square;
+#[cfg(feature = "instrumentation")]
+use tracing::instrument;
 
 use crate::board::{error::BoardError, piece::Piece, Board};
 
@@ -62,6 +64,7 @@ impl PawnPromotionChessMove {
     }
 
     #[must_use = "move application may fail"]
+    #[cfg_attr(feature = "instrumentation", instrument(skip_all))]
     pub fn apply(&self, board: &mut Board) -> Result<(), BoardError> {
         let PawnPromotionChessMove {
             from_square,
@@ -88,6 +91,7 @@ impl PawnPromotionChessMove {
     }
 
     #[must_use = "move undo may fail"]
+    #[cfg_attr(feature = "instrumentation", instrument(skip_all))]
     pub fn undo(&self, board: &mut Board) -> Result<(), BoardError> {
         let PawnPromotionChessMove {
             from_square,

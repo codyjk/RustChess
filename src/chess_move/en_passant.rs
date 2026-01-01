@@ -1,6 +1,8 @@
 use core::fmt;
 
 use common::bitboard::Square;
+#[cfg(feature = "instrumentation")]
+use tracing::instrument;
 
 use crate::board::{color::Color, error::BoardError, piece::Piece, Board};
 
@@ -59,6 +61,7 @@ impl EnPassantChessMove {
     }
 
     #[must_use = "move application may fail"]
+    #[cfg_attr(feature = "instrumentation", instrument(skip_all))]
     pub fn apply(&self, board: &mut Board) -> Result<(), BoardError> {
         let EnPassantChessMove {
             from_square,
@@ -94,6 +97,7 @@ impl EnPassantChessMove {
     }
 
     #[must_use = "move undo may fail"]
+    #[cfg_attr(feature = "instrumentation", instrument(skip_all))]
     pub fn undo(&self, board: &mut Board) -> Result<(), BoardError> {
         let EnPassantChessMove {
             from_square,

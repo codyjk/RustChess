@@ -43,6 +43,8 @@ use std::time::{Duration, Instant};
 use log::debug;
 use rayon::prelude::*;
 use thiserror::Error;
+#[cfg(feature = "instrumentation")]
+use tracing::instrument;
 
 use super::killer_moves::KillerMovesManager;
 use super::transposition_table::{BoundType, TranspositionTable};
@@ -375,6 +377,7 @@ where
 /// )?;
 /// ```
 #[must_use = "search returns the best move found"]
+#[cfg_attr(feature = "instrumentation", instrument(skip_all))]
 pub fn alpha_beta_search<S, G, E, O>(
     context: &mut SearchContext<G::Move>,
     state: &mut S,
@@ -629,6 +632,7 @@ const MAX_QUIESCENCE_DEPTH: u8 = 8;
 ///
 /// The evaluation score for this position within the [alpha, beta] window.
 #[allow(clippy::too_many_arguments, clippy::only_used_in_recursion)]
+#[cfg_attr(feature = "instrumentation", instrument(skip_all))]
 fn quiescence_search<S, G, E, O>(
     context: &SearchContext<G::Move>,
     state: &mut S,
@@ -812,6 +816,7 @@ where
 ///
 /// The evaluation score for this position within the [alpha, beta] window.
 #[allow(clippy::too_many_arguments)]
+#[cfg_attr(feature = "instrumentation", instrument(skip_all))]
 fn alpha_beta_minimax<S, G, E, O>(
     context: &SearchContext<G::Move>,
     state: &mut S,

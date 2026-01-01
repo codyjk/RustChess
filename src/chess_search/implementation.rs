@@ -8,6 +8,8 @@ use crate::board::{error::BoardError, Board};
 use crate::chess_move::{chess_move::ChessMove, chess_move_effect::ChessMoveEffect};
 use crate::move_generator::{ChessMoveList, MoveGenerator as ChessMoveGen};
 use crate::{evaluate, move_generator};
+#[cfg(feature = "instrumentation")]
+use tracing::instrument;
 
 use super::move_orderer::{clear_history, ChessMoveOrderer};
 
@@ -102,6 +104,7 @@ impl ChessEvaluator {
 
 impl Evaluator<Board> for ChessEvaluator {
     #[inline]
+    #[cfg_attr(feature = "instrumentation", instrument(skip_all))]
     fn evaluate(&self, state: &mut Board, remaining_depth: u8) -> i16 {
         evaluate::score(state, &self.move_generator, state.turn(), remaining_depth)
     }

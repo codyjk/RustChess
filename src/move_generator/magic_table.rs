@@ -8,6 +8,8 @@ use common::bitboard::{
     bitboard::Bitboard,
     square::{Square, ORDERED_SQUARES},
 };
+#[cfg(feature = "instrumentation")]
+use tracing::instrument;
 
 include!(concat!(env!("OUT_DIR"), "/magic_table.rs"));
 
@@ -50,12 +52,14 @@ impl MagicTable {
     }
 
     #[inline]
+    #[cfg_attr(feature = "instrumentation", instrument(skip_all))]
     pub fn get_rook_targets(&self, square: Square, blockers: Bitboard) -> Bitboard {
         let magic = &ROOK_MAGICS[square.index() as usize];
         self.rook_table[magic_index(magic, blockers)]
     }
 
     #[inline]
+    #[cfg_attr(feature = "instrumentation", instrument(skip_all))]
     pub fn get_bishop_targets(&self, square: Square, blockers: Bitboard) -> Bitboard {
         let magic = &BISHOP_MAGICS[square.index() as usize];
         self.bishop_table[magic_index(magic, blockers)]
