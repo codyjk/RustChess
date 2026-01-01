@@ -245,25 +245,41 @@ fn generate_valid_moves(board: &mut Board, color: Color, targets: &Targets) -> C
     if check_info.in_double_check() {
         generate_king_moves(&mut moves, board, color, targets);
         // Still need to filter king moves to ensure they don't move into check
-        remove_invalid_moves(&mut moves, board, color, targets, check_info.in_check());
+        remove_invalid_king_moves(&mut moves, board, color, targets);
         return moves;
     }
 
-    // Generate all moves respecting pins
+    // Handle single check: only moves that capture checker or block check ray are legal
+    if check_info.in_check() {
+        // Legal target squares: capture the checker or block the check ray
+        let legal_targets = check_info.checkers | check_info.check_ray;
+
+        // Generate king moves (still need validation - king might move into check)
+        generate_king_moves(&mut moves, board, color, targets);
+
+        // Generate non-king moves restricted to legal targets
+        generate_knight_moves(&mut moves, board, color, targets, &pin_info);
+        generate_sliding_moves(&mut moves, board, color, targets, &pin_info);
+        generate_pawn_moves(&mut moves, board, color, &pin_info);
+
+        // Filter non-king moves to only those that address the check
+        filter_moves_by_target(&mut moves, board, color, legal_targets);
+
+        // Validate king moves only (non-king moves are guaranteed legal)
+        remove_invalid_king_moves(&mut moves, board, color, targets);
+
+        return moves;
+    }
+
+    // Not in check: Generate all moves respecting pins
     generate_knight_moves(&mut moves, board, color, targets, &pin_info);
     generate_sliding_moves(&mut moves, board, color, targets, &pin_info);
     generate_king_moves(&mut moves, board, color, targets);
     generate_pawn_moves(&mut moves, board, color, &pin_info);
+    generate_castle_moves(&mut moves, board, color, targets);
 
-    // Castling is never legal when in check
-    if !check_info.in_check() {
-        generate_castle_moves(&mut moves, board, color, targets);
-    }
-
-    // Filter moves based on check status
-    // When in check: must validate all moves (ensure they address the check)
-    // When not in check: only validate king moves, castle moves, and en passant
-    remove_invalid_moves(&mut moves, board, color, targets, check_info.in_check());
+    // Selective validation: only king moves, castle moves, and en passant need validation
+    remove_invalid_moves(&mut moves, board, color, targets, false);
 
     moves
 }
@@ -461,6 +477,16 @@ fn generate_castle_moves(
     color: Color,
     targets: &Targets,
 ) {
+    // Verify king is on its starting square before checking anything else
+    let king = board.pieces(color).locate(Piece::King);
+    let expected_king_square = match color {
+        Color::White => E1,
+        Color::Black => E8,
+    };
+    if !expected_king_square.overlaps(king) {
+        return;
+    }
+
     let attacked_squares = targets.generate_attack_targets(board, color.opposite());
 
     if board
@@ -522,6 +548,64 @@ fn generate_castle_moves(
     }
 }
 
+/// Filters moves to only those that land on legal target squares.
+/// Used when in check to restrict moves to those that capture the checker or block the check ray.
+#[cfg_attr(feature = "instrumentation", instrument(skip_all))]
+fn filter_moves_by_target(
+    candidates: &mut ChessMoveList,
+    board: &Board,
+    color: Color,
+    legal_targets: Bitboard,
+) {
+    let king_square = board.pieces(color).locate(Piece::King);
+
+    // Keep only moves that either:
+    // 1. Are king moves (handled separately), OR
+    // 2. Land on legal target squares (capture checker or block check ray)
+    candidates.retain(|chess_move| {
+        let is_king_move = chess_move.from_square().overlaps(king_square);
+        is_king_move || chess_move.to_square().overlaps(legal_targets)
+    });
+}
+
+/// Validates only king moves to ensure they don't move into check.
+/// Used when in check, where non-king moves are already guaranteed legal by check-aware generation.
+#[cfg_attr(feature = "instrumentation", instrument(skip_all))]
+fn remove_invalid_king_moves(
+    candidates: &mut ChessMoveList,
+    board: &mut Board,
+    color: Color,
+    targets: &Targets,
+) {
+    let mut valid_moves = ChessMoveList::with_capacity(candidates.len());
+    let king_square = board.pieces(color).locate(Piece::King);
+
+    for chess_move in candidates.drain(..) {
+        let is_king_move = chess_move.from_square().overlaps(king_square);
+
+        if is_king_move {
+            // Validate king moves by applying and checking if king is attacked
+            chess_move
+                .apply(board)
+                .expect("move application should succeed when validating moves");
+            let king = board.pieces(color).locate(Piece::King);
+            let attacked_squares = targets.generate_attack_targets(board, color.opposite());
+            chess_move
+                .undo(board)
+                .expect("move undo should succeed when validating moves");
+
+            if !king.overlaps(attacked_squares) {
+                valid_moves.push(chess_move);
+            }
+        } else {
+            // Non-king moves in check are guaranteed legal by check-aware generation
+            valid_moves.push(chess_move);
+        }
+    }
+
+    candidates.append(&mut valid_moves);
+}
+
 #[cfg_attr(feature = "instrumentation", instrument(skip_all))]
 fn remove_invalid_moves(
     candidates: &mut ChessMoveList,
@@ -537,25 +621,27 @@ fn remove_invalid_moves(
     for chess_move in candidates.drain(..) {
         // Determine if this move needs validation:
         // When IN CHECK: All moves need validation (must address the check)
-        // When NOT in check: Only king moves, castle moves, and en passant need validation
+        // When NOT in check: Only king moves and en passant need validation
+        //   - Castle moves are fully validated during generation (square occupation, attacks)
+        //   - Non-king moves are guaranteed legal by pin-aware generation
         let is_king_move = chess_move.from_square().overlaps(king_square);
-        let needs_validation = in_check
-            || is_king_move
-            || matches!(chess_move, ChessMove::Castle(_) | ChessMove::EnPassant(_));
+        let is_en_passant = matches!(chess_move, ChessMove::EnPassant(_));
+        let needs_validation = in_check || is_king_move || is_en_passant;
 
         if needs_validation {
-            chess_move
-                .apply(board)
-                .expect("move application should succeed when validating moves");
-            let king = board.pieces(color).locate(Piece::King);
-            let attacked_squares = targets.generate_attack_targets(board, color.opposite());
-            chess_move
-                .undo(board)
-                .expect("move undo should succeed when validating moves");
+            // Try to apply the move - if it fails, the move is invalid (skip it)
+            if let Ok(()) = chess_move.apply(board) {
+                let king = board.pieces(color).locate(Piece::King);
+                let attacked_squares = targets.generate_attack_targets(board, color.opposite());
+                chess_move
+                    .undo(board)
+                    .expect("move undo should succeed when validating moves");
 
-            if !king.overlaps(attacked_squares) {
-                valid_moves.push(chess_move);
+                if !king.overlaps(attacked_squares) {
+                    valid_moves.push(chess_move);
+                }
             }
+            // If apply failed, move is invalid - don't add it to valid_moves
         } else {
             // Pin-aware generation guarantees this move is legal
             valid_moves.push(chess_move);
