@@ -321,27 +321,29 @@ fn generate_pawn_moves(moves: &mut ChessMoveList, board: &Board, color: Color, p
         }
     });
 
-    let mut all_pawn_moves = ChessMoveList::new();
-    expand_piece_targets(&mut all_pawn_moves, board, color, piece_targets);
+    // Generate moves directly into output list, checking for promotions inline
+    // This avoids creating temporary SmallVecs and eliminates the partition operation
+    for (piece_sq, target_squares) in piece_targets {
+        let mut targets = target_squares;
+        while !targets.is_empty() {
+            let target_sq = targets.pop_lsb_as_square();
+            let capture = board.pieces(color.opposite()).get(target_sq).map(Capture);
 
-    // Optimized: Use pre-computed promotion_rank in partition closure
-    let (mut standard_pawn_moves, promotable_pawn_moves): (ChessMoveList, ChessMoveList) =
-        all_pawn_moves
-            .into_iter()
-            .partition(|chess_move| !chess_move.to_square().overlaps(promotion_rank));
-
-    // Generate promotion moves
-    for promotable_pawn_move in promotable_pawn_moves.iter() {
-        let from_square = promotable_pawn_move.from_square();
-        let to_square = promotable_pawn_move.to_square();
-        let captures = promotable_pawn_move.captures();
-        for &promotion in &PAWN_PROMOTIONS {
-            let pawn_promotion =
-                PawnPromotionChessMove::new(from_square, to_square, captures, promotion);
-            moves.push(ChessMove::PawnPromotion(pawn_promotion));
+            // Check if this is a promotion move
+            if target_sq.overlaps(promotion_rank) {
+                // Generate all four promotion variants
+                for &promotion in &PAWN_PROMOTIONS {
+                    let pawn_promotion =
+                        PawnPromotionChessMove::new(piece_sq, target_sq, capture, promotion);
+                    moves.push(ChessMove::PawnPromotion(pawn_promotion));
+                }
+            } else {
+                // Standard pawn move
+                let standard_move = StandardChessMove::new(piece_sq, target_sq, capture);
+                moves.push(ChessMove::Standard(standard_move));
+            }
         }
     }
-    moves.append(&mut standard_pawn_moves);
     generate_en_passant_moves(moves, board, color, pin_info);
 }
 
@@ -454,7 +456,7 @@ fn expand_piece_targets(
     for (piece_sq, target_squares) in piece_targets {
         let mut targets = target_squares;
         while !targets.is_empty() {
-            let target_sq = targets.pop_lsb().to_square();
+            let target_sq = targets.pop_lsb_as_square();
             let capture = board.pieces(color.opposite()).get(target_sq).map(Capture);
 
             let standard_move = StandardChessMove::new(piece_sq, target_sq, capture);
@@ -487,17 +489,28 @@ fn generate_castle_moves(
         return;
     }
 
-    let attacked_squares = targets.generate_attack_targets(board, color.opposite());
-
-    if board
-        .pieces(color)
-        .locate(Piece::King)
-        .overlaps(attacked_squares)
-    {
+    // Early exit if player has no castle rights - avoids expensive attack target generation
+    let castle_rights = board.peek_castle_rights();
+    let player_rights = match color {
+        Color::White => {
+            castle_rights & (CastleRights::white_kingside() | CastleRights::white_queenside())
+        }
+        Color::Black => {
+            castle_rights & (CastleRights::black_kingside() | CastleRights::black_queenside())
+        }
+    };
+    if player_rights.is_empty() {
         return;
     }
 
-    let castle_rights = board.peek_castle_rights();
+    let attacked_squares = targets.generate_attack_targets(board, color.opposite());
+
+    // Reuse the cached king bitboard instead of looking it up again
+    if king.overlaps(attacked_squares) {
+        return;
+    }
+
+    // Reuse the already-fetched castle_rights from above
     let (kingside_rights, queenside_rights) = match color {
         Color::White => (
             CastleRights::white_kingside() & castle_rights,

@@ -67,6 +67,15 @@ impl Bitboard {
         Bitboard(1 << lsb)
     }
 
+    /// Pops the least significant bit and returns it directly as a Square.
+    /// More efficient than `pop_lsb().to_square()` as it avoids intermediate Bitboard creation.
+    #[inline]
+    pub fn pop_lsb_as_square(&mut self) -> Square {
+        let lsb = self.0.trailing_zeros();
+        self.0 &= !(1 << lsb);
+        Square::new(lsb as u8)
+    }
+
     /// Converts a single-square bitboard to a Square.
     /// Panics if the bitboard does not represent exactly one square.
     #[inline]
