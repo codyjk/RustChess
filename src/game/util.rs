@@ -2,6 +2,7 @@ use crate::{board::color::Color, chess_move::chess_move::ChessMove};
 
 use super::{display::GameDisplay, engine::Engine};
 
+#[allow(dead_code)]
 pub fn print_board_and_stats(
     engine: &Engine,
     moves: Vec<(ChessMove, String)>,

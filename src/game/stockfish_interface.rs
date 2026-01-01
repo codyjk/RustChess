@@ -44,6 +44,7 @@ impl Stockfish {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn get_elo(&mut self) -> u32 {
         self.elo
     }
