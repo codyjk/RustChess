@@ -201,6 +201,13 @@ impl<M: Clone + Send + Sync + 'static> SearchContext<M> {
         self.killer_manager.clear();
     }
 
+    /// Reset stats and killers but keep transposition table entries.
+    /// Useful for benchmarking multiple positions with shared TT.
+    pub fn reset_stats_keep_tt(&mut self) {
+        self.stats.reset();
+        self.killer_manager.clear();
+    }
+
     pub fn store_killer(&self, ply: u8, killer: M) {
         self.killer_manager.store(ply, killer);
     }
@@ -231,6 +238,22 @@ impl<M: Clone + Send + Sync + 'static> SearchContext<M> {
 
     pub fn tt_hits(&self) -> usize {
         self.transposition_table.hits()
+    }
+
+    pub fn tt_depth_rejected(&self) -> usize {
+        self.transposition_table.depth_rejected()
+    }
+
+    pub fn tt_bound_rejected(&self) -> usize {
+        self.transposition_table.bound_rejected()
+    }
+
+    pub fn tt_overwrites(&self) -> usize {
+        self.transposition_table.overwrites()
+    }
+
+    pub fn tt_size(&self) -> usize {
+        self.transposition_table.size()
     }
 
     pub fn tt_probes(&self) -> usize {

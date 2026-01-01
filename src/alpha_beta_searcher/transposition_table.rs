@@ -23,6 +23,9 @@ const DEFAULT_TT_SIZE_MB: usize = 64;
 pub struct TranspositionTable<M: Clone + Send + Sync> {
     table: DashMap<u64, TTEntry<M>>,
     hits: AtomicUsize,
+    depth_rejected: AtomicUsize,
+    bound_rejected: AtomicUsize,
+    overwrites: AtomicUsize,
 }
 
 impl<M: Clone + Send + Sync> Default for TranspositionTable<M> {
@@ -39,6 +42,9 @@ impl<M: Clone + Send + Sync> TranspositionTable<M> {
         Self {
             table: DashMap::with_capacity(num_entries),
             hits: AtomicUsize::new(0),
+            depth_rejected: AtomicUsize::new(0),
+            bound_rejected: AtomicUsize::new(0),
+            overwrites: AtomicUsize::new(0),
         }
     }
 
@@ -59,10 +65,9 @@ impl<M: Clone + Send + Sync> TranspositionTable<M> {
 
         // Simple replacement strategy: always replace
         // DashMap handles concurrent access automatically
-        self.table.insert(hash, entry);
-
-        // Optional: evict random entries if we exceed capacity significantly
-        // For now, rely on DashMap's internal handling
+        if self.table.insert(hash, entry).is_some() {
+            self.overwrites.fetch_add(1, Ordering::Relaxed);
+        }
     }
 
     pub fn probe(&self, hash: u64, depth: u8, alpha: i16, beta: i16) -> Option<(i16, Option<M>)> {
@@ -82,8 +87,12 @@ impl<M: Clone + Send + Sync> TranspositionTable<M> {
                         self.hits.fetch_add(1, Ordering::Relaxed);
                         return Some((alpha, entry.best_move.clone()));
                     }
-                    _ => (),
+                    _ => {
+                        self.bound_rejected.fetch_add(1, Ordering::Relaxed);
+                    }
                 }
+            } else {
+                self.depth_rejected.fetch_add(1, Ordering::Relaxed);
             }
         }
         None
@@ -124,8 +133,12 @@ impl<M: Clone + Send + Sync> TranspositionTable<M> {
                         self.hits.fetch_add(1, Ordering::Relaxed);
                         return (Some(alpha), best_move);
                     }
-                    _ => (),
+                    _ => {
+                        self.bound_rejected.fetch_add(1, Ordering::Relaxed);
+                    }
                 }
+            } else {
+                self.depth_rejected.fetch_add(1, Ordering::Relaxed);
             }
             // Entry exists but doesn't allow cutoff - return move for ordering
             (None, best_move)
@@ -138,9 +151,28 @@ impl<M: Clone + Send + Sync> TranspositionTable<M> {
     pub fn clear(&self) {
         self.table.clear();
         self.hits.store(0, Ordering::Relaxed);
+        self.depth_rejected.store(0, Ordering::Relaxed);
+        self.bound_rejected.store(0, Ordering::Relaxed);
+        self.overwrites.store(0, Ordering::Relaxed);
     }
 
     pub fn hits(&self) -> usize {
         self.hits.load(Ordering::Relaxed)
+    }
+
+    pub fn size(&self) -> usize {
+        self.table.len()
+    }
+
+    pub fn depth_rejected(&self) -> usize {
+        self.depth_rejected.load(Ordering::Relaxed)
+    }
+
+    pub fn bound_rejected(&self) -> usize {
+        self.bound_rejected.load(Ordering::Relaxed)
+    }
+
+    pub fn overwrites(&self) -> usize {
+        self.overwrites.load(Ordering::Relaxed)
     }
 }
