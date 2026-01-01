@@ -44,11 +44,6 @@ impl Stockfish {
         Ok(())
     }
 
-    #[allow(dead_code)]
-    pub fn get_elo(&mut self) -> u32 {
-        self.elo
-    }
-
     pub fn get_best_move(
         &mut self,
         position: &str,

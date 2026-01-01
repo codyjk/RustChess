@@ -11,4 +11,3 @@ pub mod position_counter;
 pub mod renderer;
 pub mod stockfish_elo;
 mod stockfish_interface;
-mod util;
