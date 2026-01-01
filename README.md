@@ -1,5 +1,5 @@
 # `chess`
-A high-performance chess engine written in Rust, using the classical [alpha-beta pruning](https://en.wikipedia.org/wiki/Alpha–beta_pruning) algorithm for best-move selection. The engine achieves ~117M positions/second in pure search and features UCI protocol support for integration with chess GUIs.
+A high-performance chess engine written in Rust, using the classical [alpha-beta pruning](https://en.wikipedia.org/wiki/Alpha–beta_pruning) algorithm for best-move selection. The engine achieves ~264M positions/second in pure search and features UCI protocol support for integration with chess GUIs.
 
 ![Example of player playing against the engine](./chess.gif)
 
@@ -114,41 +114,38 @@ Colors are specified as RGB values (0-255). If the file is missing or invalid, d
 
 ### Throughput
 
-On an M1 MacBook Pro, the engine achieves approximately 117 million positions per second in pure depth-first search.
+On an M1 MacBook Pro, the engine achieves approximately 264 million positions per second in pure depth-first search.
 
 ```console
 $ chess count-positions --depth 6
-depth: 1, positions: 420, positions per second: 568335.5886332883
-depth: 2, positions: 9322, positions per second: 17655303.030303027
-depth: 3, positions: 206603, positions per second: 39693179.63496637
-depth: 4, positions: 5072212, positions per second: 58039110.68392205
-depth: 5, positions: 124132536, positions per second: 110713308.06889361
-depth: 6, positions: 3320034396, positions per second: 117432945.10356736
-total positions: 3449455489, total duration: 29.486818s, positions per second: 116982968.08424701
+depth: 1, positions: 420, positions per second: 665610.1426307448
+depth: 2, positions: 9322, positions per second: 42958525.34562212
+depth: 3, positions: 206579, positions per second: 81234368.85568225
+depth: 4, positions: 5070585, positions per second: 192060338.62353697
+depth: 5, positions: 124064942, positions per second: 349045107.3455229
+depth: 6, positions: 3317378318, positions per second: 262101541.1108804
+total positions: 3446730166, total duration: 13.042077s, positions per second: 264277704.08041602
 
-Board clones: 5286510
+Board clones: 5285741
 MoveGen creates: 1
 ```
 
 This is a pure depth-first search of all possible positions - no pruning is applied.
 
-[Alpha-beta pruning](https://en.wikipedia.org/wiki/Alpha–beta_pruning), which incorporates the engine's scoring heuristic to prune branches of the search tree, is used to search for the "best" move in actual gameplay. Using this approach, the engine achieves approximately 488,000 positions per second:
+[Alpha-beta pruning](https://en.wikipedia.org/wiki/Alpha–beta_pruning), which incorporates the engine's scoring heuristic to prune branches of the search tree, is used to search for the "best" move in actual gameplay. Using this approach, the engine achieves approximately 909,000 positions per second:
 
 ```console
-$ chess count-positions --depth 6 --strategy alpha-beta
-depth: 1, positions: 20, positions per second: 6942.034015966678
-depth: 2, positions: 420, positions per second: 153677.27771679472
-depth: 3, positions: 1684, positions per second: 240331.0974739546
-depth: 4, positions: 12692, positions per second: 636381.8692338548
-depth: 5, positions: 52373, positions per second: 306079.75033458206
-depth: 6, positions: 358498, positions per second: 536615.813864374
-total positions: 425687, total duration: 871.746ms, positions per second: 488315.40379881294
-
-Board clones: 120
-MoveGen creates: 13
+$ chess count-positions --strategy alpha-beta --depth 6
+depth: 1, positions: 40, positions per second: 12187.69043266301
+depth: 2, positions: 882, positions per second: 157500
+depth: 3, positions: 8266, positions per second: 417580.1970194494
+depth: 4, positions: 32373, positions per second: 828780.6251760068
+depth: 5, positions: 136461, positions per second: 633673.7110457907
+depth: 6, positions: 845113, positions per second: 1003543.4001204091
+total positions: 1023135, total duration: 1.125216s, positions per second: 909278.7518129853
 ```
 
-Note that with alpha-beta, the number of positions searched is dramatically reduced (425K vs 3.4B) due to effective pruning, and the total search completes in under a second. This demonstrates that the goal of alpha-beta isn't raw throughput, but rather finding the best move quickly by eliminating irrelevant branches. The low latency enables the engine to reach much higher search depths during actual gameplay.
+Note that with alpha-beta, the number of positions searched is dramatically reduced (1.0M vs 3.4B) due to effective pruning, and the total search completes in just over a second. This demonstrates that the goal of alpha-beta isn't raw throughput, but rather finding the best move quickly by eliminating irrelevant branches. The low latency enables the engine to reach much higher search depths during actual gameplay.
 
 For more realistic gameplay performance on curated positions, you can use the `benchmark-alpha-beta` subcommand:
 
