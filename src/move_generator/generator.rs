@@ -28,7 +28,7 @@ use crate::chess_move::{
 use crate::evaluate::{player_is_in_check, player_is_in_checkmate};
 
 use super::targets::{
-    generate_pawn_attack_targets, generate_pawn_move_targets, PieceTargetList, Targets,
+    generate_pawn_attack_targets, generate_pawn_move_targets, PieceTargetList, PinInfo, Targets,
 };
 
 pub const PAWN_PROMOTIONS: [Piece; 4] = [Piece::Queen, Piece::Rook, Piece::Bishop, Piece::Knight];
@@ -235,21 +235,42 @@ fn count_positions_inner(
 /// Generates all valid moves for the given board state and color.
 #[cfg_attr(feature = "instrumentation", instrument(skip_all))]
 fn generate_valid_moves(board: &mut Board, color: Color, targets: &Targets) -> ChessMoveList {
+    // Calculate pin and check information once at the start
+    let pin_info = targets.calculate_pins(board, color);
+    let check_info = targets.calculate_checks(board, color);
+
     let mut moves = ChessMoveList::new();
 
-    generate_knight_moves(&mut moves, board, color, targets);
-    generate_sliding_moves(&mut moves, board, color, targets);
+    // Handle double check: only king moves are legal (major optimization!)
+    if check_info.in_double_check() {
+        generate_king_moves(&mut moves, board, color, targets);
+        // Still need to filter king moves to ensure they don't move into check
+        remove_invalid_moves(&mut moves, board, color, targets, check_info.in_check());
+        return moves;
+    }
+
+    // Generate all moves respecting pins
+    generate_knight_moves(&mut moves, board, color, targets, &pin_info);
+    generate_sliding_moves(&mut moves, board, color, targets, &pin_info);
     generate_king_moves(&mut moves, board, color, targets);
-    generate_pawn_moves(&mut moves, board, color);
-    generate_castle_moves(&mut moves, board, color, targets);
-    remove_invalid_moves(&mut moves, board, color, targets);
+    generate_pawn_moves(&mut moves, board, color, &pin_info);
+
+    // Castling is never legal when in check
+    if !check_info.in_check() {
+        generate_castle_moves(&mut moves, board, color, targets);
+    }
+
+    // Filter moves based on check status
+    // When in check: must validate all moves (ensure they address the check)
+    // When not in check: only validate king moves, castle moves, and en passant
+    remove_invalid_moves(&mut moves, board, color, targets, check_info.in_check());
 
     moves
 }
 
 /// Generates all pawn moves, regardless of which rank the pawn is on.
 #[cfg_attr(feature = "instrumentation", instrument(skip_all))]
-fn generate_pawn_moves(moves: &mut ChessMoveList, board: &Board, color: Color) {
+fn generate_pawn_moves(moves: &mut ChessMoveList, board: &Board, color: Color, pin_info: &PinInfo) {
     let mut piece_targets = generate_pawn_move_targets(board, color);
     let mut attack_targets: PieceTargetList = smallvec![];
     generate_pawn_attack_targets(&mut attack_targets, board, color);
@@ -261,10 +282,26 @@ fn generate_pawn_moves(moves: &mut ChessMoveList, board: &Board, color: Color) {
         Color::Black => Bitboard::RANK_1,
     };
 
-    // Add capture targets from attack targets
-    attack_targets.iter().for_each(|&(piece, target)| {
+    // Restrict pinned pawns to their pin rays
+    for (square, target_bitboard) in piece_targets.iter_mut() {
+        if pin_info.is_pinned(*square) {
+            let pin_ray = pin_info.pin_ray(*square);
+            *target_bitboard &= pin_ray;
+        }
+    }
+
+    // Add capture targets from attack targets (also respecting pins)
+    attack_targets.iter().for_each(|&(piece_square, target)| {
         if target.overlaps(opponent_pieces) {
-            piece_targets.push((piece, target & opponent_pieces));
+            let mut capture_targets = target & opponent_pieces;
+            // If pawn is pinned, restrict captures to pin ray
+            if pin_info.is_pinned(piece_square) {
+                let pin_ray = pin_info.pin_ray(piece_square);
+                capture_targets &= pin_ray;
+            }
+            if !capture_targets.is_empty() {
+                piece_targets.push((piece_square, capture_targets));
+            }
         }
     });
 
@@ -289,10 +326,15 @@ fn generate_pawn_moves(moves: &mut ChessMoveList, board: &Board, color: Color) {
         }
     }
     moves.append(&mut standard_pawn_moves);
-    generate_en_passant_moves(moves, board, color);
+    generate_en_passant_moves(moves, board, color, pin_info);
 }
 
-fn generate_en_passant_moves(moves: &mut ChessMoveList, board: &Board, color: Color) {
+fn generate_en_passant_moves(
+    moves: &mut ChessMoveList,
+    board: &Board,
+    color: Color,
+    pin_info: &PinInfo,
+) {
     let Some(target_sq) = board.peek_en_passant_target() else {
         return;
     };
@@ -315,10 +357,14 @@ fn generate_en_passant_moves(moves: &mut ChessMoveList, board: &Board, color: Co
             Color::White => target >> 9,
             Color::Black => target << 7,
         };
-        moves.push(ChessMove::EnPassant(EnPassantChessMove::new(
-            from.to_square(),
-            target_sq,
-        )));
+        let from_sq = from.to_square();
+
+        // Only generate en passant if pawn is not pinned, or if target is on pin ray
+        if !pin_info.is_pinned(from_sq) || pin_info.pin_ray(from_sq).overlaps(target) {
+            moves.push(ChessMove::EnPassant(EnPassantChessMove::new(
+                from_sq, target_sq,
+            )));
+        }
     }
 
     if attacks_east.overlaps(target) {
@@ -326,10 +372,14 @@ fn generate_en_passant_moves(moves: &mut ChessMoveList, board: &Board, color: Co
             Color::White => target >> 7,
             Color::Black => target << 9,
         };
-        moves.push(ChessMove::EnPassant(EnPassantChessMove::new(
-            from.to_square(),
-            target_sq,
-        )));
+        let from_sq = from.to_square();
+
+        // Only generate en passant if pawn is not pinned, or if target is on pin ray
+        if !pin_info.is_pinned(from_sq) || pin_info.pin_ray(from_sq).overlaps(target) {
+            moves.push(ChessMove::EnPassant(EnPassantChessMove::new(
+                from_sq, target_sq,
+            )));
+        }
     }
 }
 
@@ -339,6 +389,7 @@ fn generate_knight_moves(
     board: &Board,
     color: Color,
     targets: &Targets,
+    pin_info: &PinInfo,
 ) {
     let mut piece_targets: PieceTargetList = smallvec![];
     targets.generate_targets_from_precomputed_tables(
@@ -347,6 +398,10 @@ fn generate_knight_moves(
         color,
         Piece::Knight,
     );
+
+    // Filter out pinned knights - they cannot move (knight moves can't stay on pin ray)
+    piece_targets.retain(|(square, _)| !pin_info.is_pinned(*square));
+
     expand_piece_targets(moves, board, color, piece_targets)
 }
 
@@ -356,9 +411,19 @@ fn generate_sliding_moves(
     board: &Board,
     color: Color,
     targets: &Targets,
+    pin_info: &PinInfo,
 ) {
     let mut piece_targets: PieceTargetList = smallvec![];
     targets.generate_sliding_targets(&mut piece_targets, board, color);
+
+    // Restrict pinned sliding pieces to only move along their pin ray
+    for (square, target_bitboard) in piece_targets.iter_mut() {
+        if pin_info.is_pinned(*square) {
+            let pin_ray = pin_info.pin_ray(*square);
+            *target_bitboard &= pin_ray; // Restrict targets to pin ray only
+        }
+    }
+
     expand_piece_targets(moves, board, color, piece_targets)
 }
 
@@ -463,20 +528,36 @@ fn remove_invalid_moves(
     board: &mut Board,
     color: Color,
     targets: &Targets,
+    in_check: bool,
 ) {
     let mut valid_moves = ChessMoveList::with_capacity(candidates.len());
 
-    for chess_move in candidates.drain(..) {
-        chess_move
-            .apply(board)
-            .expect("move application should succeed when validating moves");
-        let king = board.pieces(color).locate(Piece::King);
-        let attacked_squares = targets.generate_attack_targets(board, color.opposite());
-        chess_move
-            .undo(board)
-            .expect("move undo should succeed when validating moves");
+    let king_square = board.pieces(color).locate(Piece::King);
 
-        if !king.overlaps(attacked_squares) {
+    for chess_move in candidates.drain(..) {
+        // Determine if this move needs validation:
+        // When IN CHECK: All moves need validation (must address the check)
+        // When NOT in check: Only king moves, castle moves, and en passant need validation
+        let is_king_move = chess_move.from_square().overlaps(king_square);
+        let needs_validation = in_check
+            || is_king_move
+            || matches!(chess_move, ChessMove::Castle(_) | ChessMove::EnPassant(_));
+
+        if needs_validation {
+            chess_move
+                .apply(board)
+                .expect("move application should succeed when validating moves");
+            let king = board.pieces(color).locate(Piece::King);
+            let attacked_squares = targets.generate_attack_targets(board, color.opposite());
+            chess_move
+                .undo(board)
+                .expect("move undo should succeed when validating moves");
+
+            if !king.overlaps(attacked_squares) {
+                valid_moves.push(chess_move);
+            }
+        } else {
+            // Pin-aware generation guarantees this move is legal
             valid_moves.push(chess_move);
         }
     }
@@ -536,13 +617,13 @@ mod tests {
         expected_black_moves.sort();
 
         let mut white_moves = smallvec![];
-        generate_pawn_moves(&mut white_moves, &board, Color::White);
+        generate_pawn_moves(&mut white_moves, &board, Color::White, &PinInfo::empty());
         chess_move_list_with_effect_set_to_none(&mut white_moves);
         white_moves.sort();
         assert_eq!(expected_white_moves, white_moves);
 
         let mut black_moves = smallvec![];
-        generate_pawn_moves(&mut black_moves, &board, Color::Black);
+        generate_pawn_moves(&mut black_moves, &board, Color::Black, &PinInfo::empty());
         chess_move_list_with_effect_set_to_none(&mut black_moves);
         black_moves.sort();
         assert_eq!(expected_black_moves, black_moves);
@@ -566,7 +647,7 @@ mod tests {
         expected_moves.sort();
 
         let mut moves = smallvec![];
-        generate_pawn_moves(&mut moves, &board, Color::White);
+        generate_pawn_moves(&mut moves, &board, Color::White, &PinInfo::empty());
         chess_move_list_with_effect_set_to_none(&mut moves);
         moves.sort();
 
@@ -607,13 +688,25 @@ mod tests {
         expected_black_moves.sort();
 
         let mut white_moves = smallvec![];
-        generate_knight_moves(&mut white_moves, &board, Color::White, &targets);
+        generate_knight_moves(
+            &mut white_moves,
+            &board,
+            Color::White,
+            &targets,
+            &PinInfo::empty(),
+        );
         chess_move_list_with_effect_set_to_none(&mut white_moves);
         white_moves.sort();
         assert_eq!(expected_white_moves, white_moves);
 
         let mut black_moves = smallvec![];
-        generate_knight_moves(&mut black_moves, &board, Color::Black, &targets);
+        generate_knight_moves(
+            &mut black_moves,
+            &board,
+            Color::Black,
+            &targets,
+            &PinInfo::empty(),
+        );
         chess_move_list_with_effect_set_to_none(&mut black_moves);
         black_moves.sort();
         assert_eq!(expected_black_moves, black_moves);
@@ -647,7 +740,13 @@ mod tests {
         expected_moves.sort();
 
         let mut moves = smallvec![];
-        generate_sliding_moves(&mut moves, &board, Color::White, &Targets::default());
+        generate_sliding_moves(
+            &mut moves,
+            &board,
+            Color::White,
+            &Targets::default(),
+            &PinInfo::empty(),
+        );
         chess_move_list_with_effect_set_to_none(&mut moves);
         moves.sort();
 
@@ -671,7 +770,13 @@ mod tests {
         expected_moves.sort();
 
         let mut moves = smallvec![];
-        generate_sliding_moves(&mut moves, &board, Color::White, &Targets::default());
+        generate_sliding_moves(
+            &mut moves,
+            &board,
+            Color::White,
+            &Targets::default(),
+            &PinInfo::empty(),
+        );
         chess_move_list_with_effect_set_to_none(&mut moves);
         moves.sort();
 
@@ -703,7 +808,13 @@ mod tests {
         expected_moves.sort();
 
         let mut moves = smallvec![];
-        generate_sliding_moves(&mut moves, &board, Color::White, &Targets::default());
+        generate_sliding_moves(
+            &mut moves,
+            &board,
+            Color::White,
+            &Targets::default(),
+            &PinInfo::empty(),
+        );
         chess_move_list_with_effect_set_to_none(&mut moves);
         moves.sort();
 
@@ -755,7 +866,13 @@ mod tests {
         expected_moves.sort();
 
         let mut moves = smallvec![];
-        generate_sliding_moves(&mut moves, &board, Color::White, &Targets::default());
+        generate_sliding_moves(
+            &mut moves,
+            &board,
+            Color::White,
+            &Targets::default(),
+            &PinInfo::empty(),
+        );
         chess_move_list_with_effect_set_to_none(&mut moves);
         moves.sort();
 
@@ -873,7 +990,7 @@ mod tests {
         expected_black_moves.sort();
 
         let mut moves = smallvec![];
-        generate_pawn_moves(&mut moves, &board, Color::Black);
+        generate_pawn_moves(&mut moves, &board, Color::Black, &PinInfo::empty());
         chess_move_list_with_effect_set_to_none(&mut moves);
         moves.sort();
 
@@ -985,6 +1102,91 @@ mod tests {
     fn chess_move_list_with_effect_set_to_none(chess_move_list: &mut ChessMoveList) {
         for chess_move in chess_move_list.iter_mut() {
             chess_move.set_effect(ChessMoveEffect::None);
+        }
+    }
+
+    #[test]
+    fn test_double_check_only_king_moves() {
+        let mut board = chess_position! {
+            ........
+            ........
+            ........
+            ........
+            r...K...
+            ......n.
+            ........
+            ........
+        };
+
+        let move_gen = MoveGenerator::default();
+        let moves = move_gen.generate_moves(&mut board, Color::White);
+
+        // In double check, only king moves are legal
+        // King can move to D3, D4, D5, E3, E5, F3, F4, F5 (if not attacked)
+        // All moves should be king moves
+        for chess_move in moves.iter() {
+            let from = chess_move.from_square();
+            assert!(
+                from == E4,
+                "In double check, only king moves should be generated, found move from {:?}",
+                from
+            );
+        }
+
+        // Should have some king moves (at least one escape square)
+        assert!(
+            !moves.is_empty(),
+            "King should have at least one legal move in double check"
+        );
+    }
+
+    #[test]
+    fn test_no_castling_when_in_check() {
+        let mut board = chess_position! {
+            ........
+            ........
+            ........
+            ........
+            r...K...
+            ........
+            ........
+            R......R
+        };
+
+        let move_gen = MoveGenerator::default();
+        let moves = move_gen.generate_moves(&mut board, Color::White);
+
+        // King is in check from rook at A4, so castling should not be possible
+        for chess_move in moves.iter() {
+            if let ChessMove::Castle(_) = chess_move {
+                panic!("Castling should not be generated when in check");
+            }
+        }
+    }
+
+    #[test]
+    fn test_pin_detection_integration() {
+        let mut board = chess_position! {
+            ........
+            ........
+            ........
+            ........
+            r.N.K...
+            ........
+            ........
+            R......R
+        };
+
+        // Clear castle rights to avoid castle move generation issues
+        board.lose_castle_rights(CastleRights::all());
+
+        let move_gen = MoveGenerator::default();
+        let moves = move_gen.generate_moves(&mut board, Color::White);
+
+        // Knight at C4 is pinned by rook at A4 and should not be able to move
+        for chess_move in moves.iter() {
+            let from = chess_move.from_square();
+            assert_ne!(from, C4, "Pinned knight at C4 should not be able to move");
         }
     }
 }
