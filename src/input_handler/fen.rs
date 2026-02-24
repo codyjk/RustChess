@@ -63,7 +63,7 @@ struct FenFields<'a> {
 }
 
 /// Splits a FEN string into its six component fields
-fn split_fen_fields(fen: &str) -> FenResult<FenFields> {
+fn split_fen_fields(fen: &str) -> FenResult<FenFields<'_>> {
     let parts: Vec<&str> = fen.split_whitespace().collect();
     if parts.len() != 6 {
         return Err(FenParseError::WrongNumberOfFields);

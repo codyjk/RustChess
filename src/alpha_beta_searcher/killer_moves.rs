@@ -35,7 +35,7 @@ impl KillerMovesManager {
         let needs_init = storage_ref.is_none()
             || storage_ref
                 .as_ref()
-                .map_or(false, |killers| killers.len() <= self.max_depth);
+                .is_some_and(|killers| killers.len() <= self.max_depth);
 
         if needs_init {
             *storage_ref = Some(create_killer_vec(self.max_depth));

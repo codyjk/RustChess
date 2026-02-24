@@ -19,7 +19,7 @@ pub enum BoardError {
     #[error("Cannot undo en passant, the piece is not a pawn")]
     EnPassantNonPawnMoveUndoError,
     #[error("En passant didn't result in a capture")]
-    EnPassantDidNotResultInCaptureError { chess_move: EnPassantChessMove },
+    EnPassantDidNotResultInCaptureError { _chess_move: EnPassantChessMove },
     #[error(
         "Invalid castle move, king can only move 2 squares to left or right on its original rank"
     )]
