@@ -12,7 +12,7 @@ use super::chess_move_effect::ChessMoveEffect;
 use super::traits::ChessMoveType;
 
 /// Represents a castle move in chess.
-#[derive(PartialEq, Clone, Eq, PartialOrd, Ord)]
+#[derive(Clone, Eq, PartialOrd, Ord)]
 pub struct CastleChessMove {
     /// The square the king is moving from
     from_square: Square,
@@ -21,6 +21,12 @@ pub struct CastleChessMove {
     to_square: Square,
 
     effect: Option<ChessMoveEffect>,
+}
+
+impl PartialEq for CastleChessMove {
+    fn eq(&self, other: &Self) -> bool {
+        self.from_square == other.from_square && self.to_square == other.to_square
+    }
 }
 
 impl CastleChessMove {
@@ -257,7 +263,7 @@ impl fmt::Debug for CastleChessMove {
 macro_rules! castle_kingside {
     ($color:expr) => {{
         let mut chess_move = ChessMove::Castle(CastleChessMove::castle_kingside($color));
-        chess_move.set_effect(ChessMoveEffect::None);
+        chess_move.set_effect($crate::chess_move::chess_move_effect::ChessMoveEffect::None);
         chess_move
     }};
 }
@@ -266,7 +272,7 @@ macro_rules! castle_kingside {
 macro_rules! castle_queenside {
     ($color:expr) => {{
         let mut chess_move = ChessMove::Castle(CastleChessMove::castle_queenside($color));
-        chess_move.set_effect(ChessMoveEffect::None);
+        chess_move.set_effect($crate::chess_move::chess_move_effect::ChessMoveEffect::None);
         chess_move
     }};
 }

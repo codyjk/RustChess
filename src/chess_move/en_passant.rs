@@ -11,7 +11,7 @@ use super::chess_move_effect::ChessMoveEffect;
 use super::traits::ChessMoveType;
 
 /// Represents an en passant chess move.
-#[derive(PartialEq, Clone, Eq, PartialOrd, Ord)]
+#[derive(Clone, Eq, PartialOrd, Ord)]
 pub struct EnPassantChessMove {
     /// The square the pawn is moving from.
     from_square: Square,
@@ -20,6 +20,12 @@ pub struct EnPassantChessMove {
     to_square: Square,
 
     effect: Option<ChessMoveEffect>,
+}
+
+impl PartialEq for EnPassantChessMove {
+    fn eq(&self, other: &Self) -> bool {
+        self.from_square == other.from_square && self.to_square == other.to_square
+    }
 }
 
 impl EnPassantChessMove {
@@ -188,7 +194,7 @@ impl fmt::Debug for EnPassantChessMove {
 macro_rules! en_passant_move {
     ($from:expr, $to:expr) => {{
         let mut chess_move = ChessMove::EnPassant(EnPassantChessMove::new($from, $to));
-        chess_move.set_effect(ChessMoveEffect::None);
+        chess_move.set_effect($crate::chess_move::chess_move_effect::ChessMoveEffect::None);
         chess_move
     }};
 }

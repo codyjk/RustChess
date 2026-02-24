@@ -14,13 +14,22 @@ use super::traits::ChessMoveType;
 /// Represents a pawn promotion chess move. The board logic is implemented as
 /// a superset of a standard pawn move, but at the end, the pawn is replaced
 /// with the promotion piece.
-#[derive(PartialEq, Clone, Eq, PartialOrd, Ord)]
+#[derive(Clone, Eq, PartialOrd, Ord)]
 pub struct PawnPromotionChessMove {
     from_square: Square,
     to_square: Square,
     captures: Option<Capture>,
     promote_to_piece: Piece,
     effect: Option<ChessMoveEffect>,
+}
+
+impl PartialEq for PawnPromotionChessMove {
+    fn eq(&self, other: &Self) -> bool {
+        self.from_square == other.from_square
+            && self.to_square == other.to_square
+            && self.captures == other.captures
+            && self.promote_to_piece == other.promote_to_piece
+    }
 }
 
 impl PawnPromotionChessMove {
@@ -177,7 +186,7 @@ macro_rules! promotion {
     ($from:expr, $to:expr, $captures:expr, $piece:expr) => {{
         let mut chess_move =
             ChessMove::PawnPromotion(PawnPromotionChessMove::new($from, $to, $captures, $piece));
-        chess_move.set_effect(ChessMoveEffect::None);
+        chess_move.set_effect($crate::chess_move::chess_move_effect::ChessMoveEffect::None);
         chess_move
     }};
 }

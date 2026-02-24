@@ -7,7 +7,6 @@ use crate::alpha_beta_searcher::{GameMove, MoveOrderer};
 use crate::board::piece::Piece;
 use crate::board::Board;
 use crate::chess_move::chess_move::ChessMove;
-use crate::chess_move::chess_move_effect::ChessMoveEffect;
 use crate::evaluate::evaluation_tables::MATERIAL_VALUES;
 use crate::prelude::*;
 
@@ -37,7 +36,7 @@ pub fn clear_history() {
     }
 }
 
-/// Chess move orderer that prioritizes checkmates, checks, captures, promotions,
+/// Chess move orderer that prioritizes captures (MVV-LVA), promotions,
 /// then uses history heuristic for quiet moves, then piece moves by type.
 #[derive(Clone, Default, Debug)]
 pub struct ChessMoveOrderer;
@@ -60,13 +59,7 @@ impl MoveOrderer<Board, ChessMove> for ChessMoveOrderer {
 fn compare_moves(a: &ChessMove, b: &ChessMove, board: &Board) -> std::cmp::Ordering {
     use std::cmp::Ordering;
 
-    // 1. Prioritize by effect (checkmate > check > other)
-    match (effect_priority(a), effect_priority(b)) {
-        (x, y) if x != y => return x.cmp(&y),
-        _ => {}
-    }
-
-    // 2. Use MVV-LVA (Most Valuable Victim - Least Valuable Attacker) for captures
+    // 1. Use MVV-LVA (Most Valuable Victim - Least Valuable Attacker) for captures
     match (is_capture(a), is_capture(b)) {
         (true, true) => {
             // Both are captures - use MVV-LVA ordering
@@ -78,14 +71,6 @@ fn compare_moves(a: &ChessMove, b: &ChessMove, board: &Board) -> std::cmp::Order
         (true, false) => Ordering::Less,
         (false, true) => Ordering::Greater,
         (false, false) => compare_move_types(a, b, board),
-    }
-}
-
-fn effect_priority(chess_move: &ChessMove) -> u8 {
-    match chess_move.effect() {
-        Some(ChessMoveEffect::Checkmate) => 0,
-        Some(ChessMoveEffect::Check) => 1,
-        _ => 2,
     }
 }
 
@@ -159,15 +144,11 @@ mod tests {
     use crate::board::color::Color;
     use crate::chess_move::capture::Capture;
     use crate::chess_move::castle::CastleChessMove;
-    use crate::chess_move::chess_move_effect::ChessMoveEffect;
     use crate::chess_move::en_passant::EnPassantChessMove;
     use crate::chess_move::pawn_promotion::PawnPromotionChessMove;
     use crate::chess_move::standard::StandardChessMove;
     use crate::move_generator::ChessMoveList;
-    use crate::{
-        castle_kingside, check_move, checkmate_move, chess_position, en_passant_move, promotion,
-        std_move,
-    };
+    use crate::{castle_kingside, chess_position, en_passant_move, promotion, std_move};
     use common::bitboard::*;
 
     fn create_test_board() -> Board {
@@ -194,8 +175,8 @@ mod tests {
 
         moves.push(std_move!(E4, E5));
         moves.push(std_move!(E4, D5, Capture(Piece::Pawn)));
-        moves.push(check_move!(std_move!(D1, D5, Capture(Piece::Pawn))));
-        moves.push(checkmate_move!(std_move!(D1, E8, Capture(Piece::Queen))));
+        moves.push(std_move!(D1, D5, Capture(Piece::Pawn)));
+        moves.push(std_move!(D1, E8, Capture(Piece::Queen)));
         moves.push(promotion!(E7, E8, None, Piece::Queen));
         moves.push(en_passant_move!(E5, D6));
         moves.push(castle_kingside!(Color::White));
@@ -206,11 +187,15 @@ mod tests {
 
         sort_moves(&mut moves, &board);
 
-        assert_eq!(moves[0].effect(), Some(ChessMoveEffect::Checkmate));
-        assert_eq!(moves[1].effect(), Some(ChessMoveEffect::Check));
+        // Captures first, ordered by MVV-LVA
+        // QxQ (highest victim) > PxP/QxP (pawn victim, PxP preferred over QxP by attacker)
+        assert!(moves[0].captures().is_some()); // QxQueen (best capture)
+        assert!(moves[1].captures().is_some());
         assert!(moves[2].captures().is_some());
-        assert!(matches!(moves[3], ChessMove::EnPassant(_)));
+        assert!(matches!(moves[3], ChessMove::EnPassant(_))); // en passant is a capture
+                                                              // Promotions next
         assert!(matches!(moves[4], ChessMove::PawnPromotion(_)));
+        // Quiet moves by piece type
         assert!(
             matches!(&moves[5], ChessMove::Standard(m) if board.get(m.from_square()).unwrap().0 == Piece::Rook)
         );
@@ -254,28 +239,45 @@ mod tests {
     }
 
     #[test]
-    fn test_sort_with_multiple_checks_and_captures() {
+    fn test_sort_captures_mvv_lva() {
         let board = create_test_board();
         let mut moves = ChessMoveList::new();
 
+        // F3=Knight, E1=Queen, E4=Pawn; all capturing D5=Pawn
         moves.push(std_move!(F3, D5, Capture(Piece::Pawn)));
-        moves.push(check_move!(std_move!(D1, D5, Capture(Piece::Pawn))));
+        moves.push(std_move!(E1, D5, Capture(Piece::Pawn)));
         moves.push(std_move!(E4, D5, Capture(Piece::Pawn)));
-        moves.push(check_move!(std_move!(G3, E5)));
+        moves.push(std_move!(A1, A3));
 
         sort_moves(&mut moves, &board);
 
-        // Checks come first
-        assert_eq!(moves[0].effect(), Some(ChessMoveEffect::Check));
-        assert_eq!(moves[1].effect(), Some(ChessMoveEffect::Check));
-        assert_eq!(moves[0].from_square(), D1);
-        assert_eq!(moves[1].from_square(), G3);
-
-        // Then captures, ordered by MVV-LVA
-        // Both capture a pawn, so prefer lower value attacker: PxP (900) > NxP (680)
+        // All captures come first, ordered by MVV-LVA
+        // Same victim (pawn), so prefer lower value attacker
+        assert!(moves[0].captures().is_some());
+        assert!(moves[1].captures().is_some());
         assert!(moves[2].captures().is_some());
-        assert!(moves[3].captures().is_some());
-        assert_eq!(moves[2].from_square(), E4); // Pawn takes pawn (better)
-        assert_eq!(moves[3].from_square(), F3); // Knight takes pawn (worse)
+        assert_eq!(moves[0].from_square(), E4); // Pawn takes pawn (best)
+        assert_eq!(moves[1].from_square(), F3); // Knight takes pawn
+        assert_eq!(moves[2].from_square(), E1); // Queen takes pawn (worst)
+                                                // Quiet move last
+        assert!(moves[3].captures().is_none());
+    }
+
+    #[test]
+    fn test_is_tactical_captures_and_promotions_only() {
+        use crate::alpha_beta_searcher::GameMove;
+        let board = Board::default();
+
+        let capture = std_move!(E4, D5, Capture(Piece::Pawn));
+        assert!(capture.is_tactical(&board));
+
+        let promotion = promotion!(E7, E8, None, Piece::Queen);
+        assert!(promotion.is_tactical(&board));
+
+        let quiet = std_move!(E2, E4);
+        assert!(!quiet.is_tactical(&board));
+
+        let castle = castle_kingside!(Color::White);
+        assert!(!castle.is_tactical(&board));
     }
 }

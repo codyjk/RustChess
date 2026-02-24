@@ -186,13 +186,17 @@ impl PartialEq for ChessMove {
 #[macro_export]
 macro_rules! check_move {
     ($chess_move:expr) => {
-        $chess_move.set_effect(ChessMoveEffect::Check).clone()
+        $chess_move
+            .set_effect($crate::chess_move::chess_move_effect::ChessMoveEffect::Check)
+            .clone()
     };
 }
 
 #[macro_export]
 macro_rules! checkmate_move {
     ($chess_move:expr) => {
-        $chess_move.set_effect(ChessMoveEffect::Checkmate).clone()
+        $chess_move
+            .set_effect($crate::chess_move::chess_move_effect::ChessMoveEffect::Checkmate)
+            .clone()
     };
 }

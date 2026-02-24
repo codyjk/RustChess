@@ -18,12 +18,20 @@ use super::{
 
 /// Represents a standard chess move. A standard move is a move that does not involve
 /// pawn promotion, en passant, or castling.
-#[derive(PartialEq, Clone, Eq, PartialOrd, Ord)]
+#[derive(Clone, Eq, PartialOrd, Ord)]
 pub struct StandardChessMove {
     from_square: square::Square,
     to_square: square::Square,
     captures: Option<Capture>,
     effect: Option<ChessMoveEffect>,
+}
+
+impl PartialEq for StandardChessMove {
+    fn eq(&self, other: &Self) -> bool {
+        self.from_square == other.from_square
+            && self.to_square == other.to_square
+            && self.captures == other.captures
+    }
 }
 
 impl StandardChessMove {
@@ -320,12 +328,12 @@ macro_rules! std_move {
     ($from:expr, $to:expr, $captures:expr) => {{
         let mut chess_move =
             ChessMove::Standard(StandardChessMove::new($from, $to, Some($captures)));
-        chess_move.set_effect(ChessMoveEffect::None);
+        chess_move.set_effect($crate::chess_move::chess_move_effect::ChessMoveEffect::None);
         chess_move
     }};
     ($from:expr, $to:expr) => {{
         let mut chess_move = ChessMove::Standard(StandardChessMove::new($from, $to, None));
-        chess_move.set_effect(ChessMoveEffect::None);
+        chess_move.set_effect($crate::chess_move::chess_move_effect::ChessMoveEffect::None);
         chess_move
     }};
 }

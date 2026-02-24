@@ -5,7 +5,7 @@ use crate::alpha_beta_searcher::{
     SearchContext, SearchError,
 };
 use crate::board::{error::BoardError, Board};
-use crate::chess_move::{chess_move::ChessMove, chess_move_effect::ChessMoveEffect};
+use crate::chess_move::chess_move::ChessMove;
 use crate::move_generator::{ChessMoveList, MoveGenerator as ChessMoveGen};
 use crate::{evaluate, move_generator};
 #[cfg(feature = "instrumentation")]
@@ -58,12 +58,7 @@ impl GameMove for ChessMove {
 
     #[inline]
     fn is_tactical(&self, _state: &Board) -> bool {
-        self.captures().is_some()
-            || matches!(
-                self.effect(),
-                Some(ChessMoveEffect::Check | ChessMoveEffect::Checkmate)
-            )
-            || matches!(self, ChessMove::PawnPromotion(_))
+        self.captures().is_some() || matches!(self, ChessMove::PawnPromotion(_))
     }
 }
 
@@ -98,8 +93,7 @@ impl MoveGenerator<Board> for ChessMoveGenerator {
 
     #[inline]
     fn generate_moves(&self, state: &mut Board) -> ChessMoveList {
-        self.inner
-            .generate_moves_and_lazily_update_chess_move_effects(state, state.turn())
+        self.inner.generate_moves(state, state.turn())
     }
 }
 
