@@ -18,7 +18,7 @@ use super::{
 
 /// Represents a standard chess move. A standard move is a move that does not involve
 /// pawn promotion, en passant, or castling.
-#[derive(Clone, Eq, PartialOrd, Ord)]
+#[derive(Clone, Eq)]
 pub struct StandardChessMove {
     from_square: square::Square,
     to_square: square::Square,
@@ -26,11 +26,29 @@ pub struct StandardChessMove {
     effect: Option<ChessMoveEffect>,
 }
 
+/// PartialEq, Ord, and PartialOrd ignore the `effect` field because effects are
+/// metadata (check/checkmate annotations) not part of move identity. During search,
+/// effects are not computed; they are only set for display purposes.
 impl PartialEq for StandardChessMove {
     fn eq(&self, other: &Self) -> bool {
         self.from_square == other.from_square
             && self.to_square == other.to_square
             && self.captures == other.captures
+    }
+}
+
+impl Ord for StandardChessMove {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.from_square
+            .cmp(&other.from_square)
+            .then(self.to_square.cmp(&other.to_square))
+            .then(self.captures.cmp(&other.captures))
+    }
+}
+
+impl PartialOrd for StandardChessMove {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
     }
 }
 

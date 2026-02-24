@@ -12,7 +12,7 @@ use super::chess_move_effect::ChessMoveEffect;
 use super::traits::ChessMoveType;
 
 /// Represents a castle move in chess.
-#[derive(Clone, Eq, PartialOrd, Ord)]
+#[derive(Clone, Eq)]
 pub struct CastleChessMove {
     /// The square the king is moving from
     from_square: Square,
@@ -23,9 +23,24 @@ pub struct CastleChessMove {
     effect: Option<ChessMoveEffect>,
 }
 
+/// PartialEq, Ord, and PartialOrd ignore the `effect` field (see StandardChessMove).
 impl PartialEq for CastleChessMove {
     fn eq(&self, other: &Self) -> bool {
         self.from_square == other.from_square && self.to_square == other.to_square
+    }
+}
+
+impl Ord for CastleChessMove {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.from_square
+            .cmp(&other.from_square)
+            .then(self.to_square.cmp(&other.to_square))
+    }
+}
+
+impl PartialOrd for CastleChessMove {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
     }
 }
 

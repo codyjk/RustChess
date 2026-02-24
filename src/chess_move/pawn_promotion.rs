@@ -14,7 +14,7 @@ use super::traits::ChessMoveType;
 /// Represents a pawn promotion chess move. The board logic is implemented as
 /// a superset of a standard pawn move, but at the end, the pawn is replaced
 /// with the promotion piece.
-#[derive(Clone, Eq, PartialOrd, Ord)]
+#[derive(Clone, Eq)]
 pub struct PawnPromotionChessMove {
     from_square: Square,
     to_square: Square,
@@ -23,12 +23,29 @@ pub struct PawnPromotionChessMove {
     effect: Option<ChessMoveEffect>,
 }
 
+/// PartialEq, Ord, and PartialOrd ignore the `effect` field (see StandardChessMove).
 impl PartialEq for PawnPromotionChessMove {
     fn eq(&self, other: &Self) -> bool {
         self.from_square == other.from_square
             && self.to_square == other.to_square
             && self.captures == other.captures
             && self.promote_to_piece == other.promote_to_piece
+    }
+}
+
+impl Ord for PawnPromotionChessMove {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.from_square
+            .cmp(&other.from_square)
+            .then(self.to_square.cmp(&other.to_square))
+            .then(self.captures.cmp(&other.captures))
+            .then(self.promote_to_piece.cmp(&other.promote_to_piece))
+    }
+}
+
+impl PartialOrd for PawnPromotionChessMove {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
     }
 }
 

@@ -213,11 +213,14 @@ fn test_quiescence_with_captures() {
 }
 
 #[test]
-fn test_quiescence_with_checks() {
+fn test_search_with_check_opportunities() {
     let mut context = SearchContext::new(1);
 
-    // Position with multiple check options - tests quiescence searching checks
-    // White queen and rook can both deliver check
+    // Position with multiple check options.
+    // White queen and rook can both deliver check.
+    // Note: checks are not classified as tactical moves, so quiescence does NOT
+    // extend them. This test verifies the search completes correctly in positions
+    // with abundant checking opportunities.
     let mut board = chess_position! {
         .k......
         ........
@@ -232,19 +235,14 @@ fn test_quiescence_with_checks() {
     board.lose_castle_rights(CastleRights::all());
 
     let result = search_best_move(&mut context, &mut board);
-    assert!(result.is_ok(), "Quiescence with checks should succeed");
-    let _chess_move = result.unwrap();
+    assert!(
+        result.is_ok(),
+        "Search with check opportunities should succeed"
+    );
     let position_count = context.searched_position_count();
-
-    // Verification: This test verifies quiescence is working by checking that positions
-    // are searched beyond depth 0. The position_count > 0 assertion confirms that
-    // quiescence_search() is being called and exploring tactical moves (checks), not just
-    // returning a static evaluation. Without quiescence, depth 1 would only evaluate
-    // the root position once. With quiescence, we continue searching checks, which
-    // increases the position count and demonstrates the optimization is active.
     assert!(
         position_count > 0,
-        "Quiescence should search positions (searched {} positions)",
+        "Should search positions (searched {} positions)",
         position_count
     );
 }

@@ -11,7 +11,7 @@ use super::chess_move_effect::ChessMoveEffect;
 use super::traits::ChessMoveType;
 
 /// Represents an en passant chess move.
-#[derive(Clone, Eq, PartialOrd, Ord)]
+#[derive(Clone, Eq)]
 pub struct EnPassantChessMove {
     /// The square the pawn is moving from.
     from_square: Square,
@@ -22,9 +22,24 @@ pub struct EnPassantChessMove {
     effect: Option<ChessMoveEffect>,
 }
 
+/// PartialEq, Ord, and PartialOrd ignore the `effect` field (see StandardChessMove).
 impl PartialEq for EnPassantChessMove {
     fn eq(&self, other: &Self) -> bool {
         self.from_square == other.from_square && self.to_square == other.to_square
+    }
+}
+
+impl Ord for EnPassantChessMove {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.from_square
+            .cmp(&other.from_square)
+            .then(self.to_square.cmp(&other.to_square))
+    }
+}
+
+impl PartialOrd for EnPassantChessMove {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
     }
 }
 
