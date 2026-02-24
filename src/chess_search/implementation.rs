@@ -127,6 +127,16 @@ impl Evaluator<Board> for ChessEvaluator {
         evaluate::current_player_is_in_check(state, &self.move_generator)
             || evaluate::is_endgame(state)
     }
+
+    #[inline]
+    fn rfp_margin(&self, depth: u8) -> Option<i16> {
+        match depth {
+            1 => Some(200),
+            2 => Some(500),
+            3 => Some(900),
+            _ => None,
+        }
+    }
 }
 
 /// Searches for the best chess move from the given position.

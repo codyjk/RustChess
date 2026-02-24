@@ -72,6 +72,15 @@ pub trait Evaluator<S: GameState>: Clone + Send + Sync {
     fn should_skip_null_move(&self, _state: &mut S) -> bool {
         true
     }
+
+    /// Returns the reverse futility pruning margin for the given depth, or None to
+    /// disable RFP. At shallow depths, if the static eval exceeds the opponent's
+    /// bound by this margin, the entire subtree is pruned. Larger margins at deeper
+    /// depths compensate for the greater risk of missing a tactic.
+    /// Default returns None (RFP disabled).
+    fn rfp_margin(&self, _depth: u8) -> Option<i16> {
+        None
+    }
 }
 
 /// Orders moves to improve alpha-beta pruning efficiency.

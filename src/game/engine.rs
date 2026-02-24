@@ -342,7 +342,6 @@ mod tests {
     use super::*;
     use crate::board::castle_rights::CastleRights;
     use crate::board::piece::Piece;
-    use crate::chess_move::chess_move_effect::ChessMoveEffect;
     use crate::chess_move::standard::StandardChessMove;
     use crate::chess_position;
     use crate::{checkmate_move, std_move};

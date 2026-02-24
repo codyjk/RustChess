@@ -7,6 +7,7 @@
 //! - Killer moves in chess positions
 //! - Transposition tables with chess positions
 //! - Null move pruning (check/endgame/middlegame, apply/undo, node reduction, correctness)
+//! - Reverse futility pruning (lopsided positions, check skip, margins, correctness)
 
 use std::str::FromStr;
 
@@ -14,11 +15,10 @@ use common::bitboard::*;
 
 use crate::alpha_beta_searcher::{Evaluator, SearchContext};
 use crate::board::{castle_rights::CastleRights, color::Color, piece::Piece, Board};
-use crate::chess_move::{
-    capture::Capture, chess_move_effect::ChessMoveEffect, standard::StandardChessMove, ChessMove,
-};
+use crate::chess_move::{capture::Capture, standard::StandardChessMove, ChessMove};
 use crate::{check_move, checkmate_move, chess_position, std_move};
 
+use super::implementation::ChessEvaluator;
 use super::*;
 
 #[test]
@@ -537,6 +537,141 @@ fn test_null_move_pruning_finds_correct_best_move() {
     assert_eq!(
         chess_move, expected,
         "NMP should not prevent finding queen capture: got {}",
+        chess_move
+    );
+}
+
+#[test]
+fn test_rfp_fires_in_lopsided_position() {
+    // White has massive material advantage (queen + rook vs lone king).
+    // At shallow depths, RFP should prune many nodes because the static eval
+    // is far above beta.
+    let mut board = chess_position! {
+        ....k...
+        ........
+        ........
+        ........
+        ........
+        ........
+        ........
+        R...K..Q
+    };
+    board.set_turn(Color::White);
+    board.lose_castle_rights(CastleRights::all());
+
+    let mut context = SearchContext::with_parallel(4, false);
+    search_best_move(&mut context, &mut board).unwrap();
+
+    assert!(
+        context.rfp_cutoffs() > 0,
+        "RFP should fire in a lopsided position, got 0 cutoffs"
+    );
+}
+
+#[test]
+fn test_rfp_fires_for_minimizing_player() {
+    // Black has massive material advantage (queen + rook vs lone king).
+    // Exercises the minimizing-player RFP path (static_eval + margin <= alpha).
+    let mut board = chess_position! {
+        r...k..q
+        ........
+        ........
+        ........
+        ........
+        ........
+        ........
+        ....K...
+    };
+    board.set_turn(Color::Black);
+    board.lose_castle_rights(CastleRights::all());
+
+    let mut context = SearchContext::with_parallel(4, false);
+    search_best_move(&mut context, &mut board).unwrap();
+
+    assert!(
+        context.rfp_cutoffs() > 0,
+        "RFP should fire for minimizing player in a lopsided position, got 0 cutoffs"
+    );
+}
+
+#[test]
+fn test_rfp_skipped_when_in_check() {
+    // Black king is in check — RFP should NOT fire because should_skip_null_move
+    // returns true when in check.
+    let mut board = chess_position! {
+        ....k...
+        ........
+        ........
+        ........
+        ........
+        ........
+        ........
+        R...K...
+    };
+    board.set_turn(Color::Black);
+    board.lose_castle_rights(CastleRights::all());
+
+    // Verify that the evaluator considers this a "skip NMP" position (in check)
+    let evaluator = ChessEvaluator::new();
+    assert!(
+        evaluator.should_skip_null_move(&mut board),
+        "should_skip_null_move should be true when in check"
+    );
+}
+
+#[test]
+fn test_rfp_margin_returns_none_for_deep_depths() {
+    let evaluator = ChessEvaluator::new();
+    assert!(
+        evaluator.rfp_margin(4).is_none(),
+        "RFP should not fire at depth 4+"
+    );
+    assert!(
+        evaluator.rfp_margin(5).is_none(),
+        "RFP should not fire at depth 5+"
+    );
+    assert!(
+        evaluator.rfp_margin(0).is_none(),
+        "RFP should not fire at depth 0"
+    );
+    assert!(
+        evaluator.rfp_margin(1).is_some(),
+        "RFP should fire at depth 1"
+    );
+    assert!(
+        evaluator.rfp_margin(2).is_some(),
+        "RFP should fire at depth 2"
+    );
+    assert!(
+        evaluator.rfp_margin(3).is_some(),
+        "RFP should fire at depth 3"
+    );
+}
+
+#[test]
+fn test_rfp_does_not_prevent_finding_queen_capture() {
+    // Same position as NMP correctness test: white should capture hanging queen.
+    // RFP should not interfere with finding the best tactical move.
+    let mut board = chess_position! {
+        rnb.kb.r
+        pppppppp
+        ........
+        ....q...
+        ..N.....
+        ........
+        PPPPPPPP
+        RNBQKB.R
+    };
+    board.set_turn(Color::White);
+    board.lose_castle_rights(CastleRights::all());
+
+    let mut context = SearchContext::with_parallel(4, false);
+    let chess_move = search_best_move(&mut context, &mut board).unwrap();
+
+    let expected = std_move!(C4, E5, Capture(Piece::Queen));
+    assert_eq!(
+        chess_move, expected,
+        "RFP should not prevent finding queen capture: got {}",
         chess_move
     );
 }

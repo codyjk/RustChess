@@ -32,6 +32,14 @@
 //! where evaluation stops just before a critical sequence. Games opt in by implementing
 //! `is_tactical` on their move type to identify which moves should be searched in quiescence.
 //!
+//! ## Reverse Futility Pruning (RFP)
+//! At shallow depths (controlled by `Evaluator::rfp_margin`), if the static evaluation
+//! already exceeds the opponent's bound by a depth-dependent margin, the entire subtree is
+//! pruned. This avoids generating and searching moves in positions where the side to move
+//! is so far ahead that no legal response could change the outcome within the remaining
+//! search depth. Disabled when in check or in endgame positions (same safety conditions
+//! as null move pruning).
+//!
 //! ## Parallel Search
 //! Root moves can be searched in parallel using thread-local storage for killer moves to
 //! eliminate lock contention.
@@ -80,6 +88,8 @@ struct SearchStats {
     move_gen_calls: AtomicUsize,
     null_move_attempts: AtomicUsize,
     null_move_cutoffs: AtomicUsize,
+    rfp_attempts: AtomicUsize,
+    rfp_cutoffs: AtomicUsize,
     last_score: Option<i16>,
     last_duration: Option<Duration>,
 }
@@ -95,6 +105,8 @@ impl SearchStats {
             move_gen_calls: AtomicUsize::new(0),
             null_move_attempts: AtomicUsize::new(0),
             null_move_cutoffs: AtomicUsize::new(0),
+            rfp_attempts: AtomicUsize::new(0),
+            rfp_cutoffs: AtomicUsize::new(0),
             last_score: None,
             last_duration: None,
         }
@@ -132,6 +144,14 @@ impl SearchStats {
         self.null_move_cutoffs.fetch_add(1, Ordering::SeqCst);
     }
 
+    fn increment_rfp_attempts(&self) {
+        self.rfp_attempts.fetch_add(1, Ordering::SeqCst);
+    }
+
+    fn increment_rfp_cutoffs(&self) {
+        self.rfp_cutoffs.fetch_add(1, Ordering::SeqCst);
+    }
+
     fn reset(&mut self) {
         self.last_score = None;
         self.last_duration = None;
@@ -143,6 +163,8 @@ impl SearchStats {
         self.move_gen_calls.store(0, Ordering::SeqCst);
         self.null_move_attempts.store(0, Ordering::SeqCst);
         self.null_move_cutoffs.store(0, Ordering::SeqCst);
+        self.rfp_attempts.store(0, Ordering::SeqCst);
+        self.rfp_cutoffs.store(0, Ordering::SeqCst);
     }
 
     fn record_result(&mut self, score: i16, duration: Duration) {
@@ -180,6 +202,14 @@ impl SearchStats {
 
     fn null_move_cutoffs(&self) -> usize {
         self.null_move_cutoffs.load(Ordering::SeqCst)
+    }
+
+    fn rfp_attempts(&self) -> usize {
+        self.rfp_attempts.load(Ordering::SeqCst)
+    }
+
+    fn rfp_cutoffs(&self) -> usize {
+        self.rfp_cutoffs.load(Ordering::SeqCst)
     }
 }
 
@@ -306,6 +336,14 @@ impl<M: Clone + Send + Sync + 'static> SearchContext<M> {
         self.stats.null_move_cutoffs()
     }
 
+    pub fn rfp_attempts(&self) -> usize {
+        self.stats.rfp_attempts()
+    }
+
+    pub fn rfp_cutoffs(&self) -> usize {
+        self.stats.rfp_cutoffs()
+    }
+
     fn increment_position_count(&self) {
         self.stats.increment();
     }
@@ -336,6 +374,14 @@ impl<M: Clone + Send + Sync + 'static> SearchContext<M> {
 
     fn increment_null_move_cutoffs(&self) {
         self.stats.increment_null_move_cutoffs();
+    }
+
+    fn increment_rfp_attempts(&self) {
+        self.stats.increment_rfp_attempts();
+    }
+
+    fn increment_rfp_cutoffs(&self) {
+        self.stats.increment_rfp_cutoffs();
     }
 }
 
@@ -987,9 +1033,12 @@ where
         return Ok(score);
     }
 
+    // Cache the safety check for both NMP and RFP to avoid redundant check detection.
+    let skip_speculative_pruning = evaluator.should_skip_null_move(state);
+
     // Null Move Pruning: if passing still causes a beta cutoff, prune the subtree
     const NULL_MOVE_REDUCTION: u8 = 2;
-    if allow_null_move && depth >= 3 && !evaluator.should_skip_null_move(state) {
+    if allow_null_move && depth >= 3 && !skip_speculative_pruning {
         context.increment_null_move_attempts();
         state.apply_null_move();
         let null_score = alpha_beta_minimax(
@@ -1014,6 +1063,24 @@ where
         if !maximizing_player && null_score <= alpha {
             context.increment_null_move_cutoffs();
             return Ok(alpha);
+        }
+    }
+
+    // Reverse Futility Pruning: if static eval is far above beta (or below alpha),
+    // the position is so good that no move will fail to maintain the advantage.
+    // Returns the bound (beta/alpha) consistent with NMP convention.
+    if depth > 0 && !skip_speculative_pruning {
+        if let Some(rfp_margin) = evaluator.rfp_margin(depth) {
+            context.increment_rfp_attempts();
+            let static_eval = evaluator.evaluate(state, depth);
+            if maximizing_player && static_eval.saturating_sub(rfp_margin) >= beta {
+                context.increment_rfp_cutoffs();
+                return Ok(beta);
+            }
+            if !maximizing_player && static_eval.saturating_add(rfp_margin) <= alpha {
+                context.increment_rfp_cutoffs();
+                return Ok(alpha);
+            }
         }
     }
 
