@@ -481,6 +481,8 @@ where
         i16::MAX
     };
 
+    const ASPIRATION_WINDOW: i16 = 50;
+
     for depth in 1..=target_depth {
         // Check if we already have an exact result at this depth from TT
         if let Some((score, Some(ref mv))) =
@@ -506,6 +508,17 @@ where
             }
         }
 
+        // Aspiration window: use narrow window around previous score at depth 4+
+        let (mut window_alpha, mut window_beta) =
+            if depth >= 4 && best_score > i16::MIN / 2 + 100 && best_score < i16::MAX / 2 - 100 {
+                (
+                    best_score.saturating_sub(ASPIRATION_WINDOW),
+                    best_score.saturating_add(ASPIRATION_WINDOW),
+                )
+            } else {
+                (i16::MIN, i16::MAX)
+            };
+
         let (score, move_found) = if context.is_parallel() {
             search_root_parallel(
                 context,
@@ -516,6 +529,8 @@ where
                 &candidates,
                 depth,
                 current_player_is_maximizing,
+                window_alpha,
+                window_beta,
             )?
         } else {
             search_root_sequential(
@@ -527,7 +542,44 @@ where
                 &candidates,
                 depth,
                 current_player_is_maximizing,
+                window_alpha,
+                window_beta,
             )?
+        };
+
+        // If score falls outside aspiration window, re-search with full window
+        let (score, move_found) = if score <= window_alpha || score >= window_beta {
+            window_alpha = i16::MIN;
+            window_beta = i16::MAX;
+            if context.is_parallel() {
+                search_root_parallel(
+                    context,
+                    state,
+                    move_generator,
+                    evaluator,
+                    move_orderer,
+                    &candidates,
+                    depth,
+                    current_player_is_maximizing,
+                    window_alpha,
+                    window_beta,
+                )?
+            } else {
+                search_root_sequential(
+                    context,
+                    state,
+                    move_generator,
+                    evaluator,
+                    move_orderer,
+                    &candidates,
+                    depth,
+                    current_player_is_maximizing,
+                    window_alpha,
+                    window_beta,
+                )?
+            }
+        } else {
+            (score, move_found)
         };
 
         if let Some(mv) = move_found {
@@ -562,6 +614,8 @@ fn search_root_sequential<S, G, E, O, C>(
     candidates: &C,
     depth: u8,
     maximizing_player: bool,
+    alpha: i16,
+    beta: i16,
 ) -> Result<(i16, Option<G::Move>), SearchError>
 where
     S: GameState,
@@ -577,6 +631,8 @@ where
         i16::MAX
     };
     let mut best_move = None;
+    let mut current_alpha = alpha;
+    let mut current_beta = beta;
 
     for game_move in candidates.as_ref().iter() {
         let score = with_move_applied(game_move, state, |state| {
@@ -588,8 +644,8 @@ where
                 move_orderer,
                 depth - 1,
                 0, // ply starts at 0 for root
-                i16::MIN,
-                i16::MAX,
+                current_alpha,
+                current_beta,
                 !maximizing_player,
                 true,
             )
@@ -602,6 +658,15 @@ where
             &mut best_score,
             &mut best_move,
         );
+
+        if maximizing_player {
+            current_alpha = max(current_alpha, score);
+        } else {
+            current_beta = min(current_beta, score);
+        }
+        if current_beta <= current_alpha {
+            break;
+        }
     }
 
     Ok((best_score, best_move))
@@ -617,6 +682,8 @@ fn search_root_parallel<S, G, E, O, C>(
     candidates: &C,
     depth: u8,
     maximizing_player: bool,
+    alpha: i16,
+    beta: i16,
 ) -> Result<(i16, Option<G::Move>), SearchError>
 where
     S: GameState + Clone,
@@ -641,8 +708,8 @@ where
                     move_orderer,
                     depth - 1,
                     0, // ply starts at 0 for root
-                    i16::MIN,
-                    i16::MAX,
+                    alpha,
+                    beta,
                     !maximizing_player,
                     true,
                 )
