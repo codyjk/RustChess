@@ -6,10 +6,13 @@
 //! - Chess-specific quiescence (captures, checks)
 //! - Killer moves in chess positions
 //! - Transposition tables with chess positions
+//! - Null move pruning (check/endgame/middlegame, apply/undo, node reduction, correctness)
+
+use std::str::FromStr;
 
 use common::bitboard::*;
 
-use crate::alpha_beta_searcher::SearchContext;
+use crate::alpha_beta_searcher::{Evaluator, SearchContext};
 use crate::board::{castle_rights::CastleRights, color::Color, piece::Piece, Board};
 use crate::chess_move::{
     capture::Capture, chess_move_effect::ChessMoveEffect, standard::StandardChessMove, ChessMove,
@@ -353,37 +356,37 @@ fn test_killer_moves_chess_positions() {
 
 #[test]
 fn test_null_move_pruning_disabled_when_in_check() {
-    let mut context = SearchContext::new(5);
-
+    // White king is in check from black rook on the A-file
     let mut board = chess_position! {
-        .k......
+        r......k
         ........
         ........
         ........
         ........
         ........
-        K.Q.....
-        ........
+        .PPP....
+        K...Q...
     };
     board.set_turn(Color::White);
     board.lose_castle_rights(CastleRights::all());
 
+    let evaluator = ChessEvaluator::new();
+    assert!(
+        evaluator.should_skip_null_move(&mut board),
+        "should_skip_null_move must return true when in check"
+    );
+
+    // Also verify search still works
+    let mut context = SearchContext::new(4);
     let result = search_best_move(&mut context, &mut board);
     assert!(result.is_ok(), "Search should succeed even when in check");
-    let position_count = context.searched_position_count();
-    assert!(
-        position_count > 0,
-        "Should search positions even when null move is disabled (in check)"
-    );
 }
 
 #[test]
 fn test_null_move_pruning_disabled_in_endgame() {
-    let mut context = SearchContext::new(5);
-
     // Endgame position (king and pawn vs king)
     let mut board = chess_position! {
-        ........
+        .......k
         ........
         ........
         ........
@@ -395,11 +398,147 @@ fn test_null_move_pruning_disabled_in_endgame() {
     board.set_turn(Color::White);
     board.lose_castle_rights(CastleRights::all());
 
+    let evaluator = ChessEvaluator::new();
+    assert!(
+        evaluator.should_skip_null_move(&mut board),
+        "should_skip_null_move must return true in endgame"
+    );
+
+    // Also verify search still works
+    let mut context = SearchContext::new(4);
     let result = search_best_move(&mut context, &mut board);
     assert!(result.is_ok(), "Search should succeed even in endgame");
-    let position_count = context.searched_position_count();
+}
+
+#[test]
+fn test_null_move_pruning_enabled_in_middlegame() {
+    // Rich middlegame position (Italian Game)
+    let mut board =
+        Board::from_str("r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4")
+            .unwrap();
+
+    let evaluator = ChessEvaluator::new();
     assert!(
-        position_count > 0,
-        "Should search positions even when null move is disabled (endgame)"
+        !evaluator.should_skip_null_move(&mut board),
+        "should_skip_null_move must return false in middlegame"
+    );
+}
+
+#[test]
+fn test_null_move_apply_undo_restores_board() {
+    use crate::alpha_beta_searcher::GameState;
+
+    // Set up a board with an en passant target
+    let mut board =
+        Board::from_str("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1").unwrap();
+
+    let hash_before = board.current_position_hash();
+    let ep_before = board.peek_en_passant_target();
+    assert!(ep_before.is_some(), "EP target should be set initially");
+
+    // Apply null move
+    board.apply_null_move();
+    assert!(
+        board.peek_en_passant_target().is_none(),
+        "EP target should be cleared after null move"
+    );
+    assert_ne!(
+        board.current_position_hash(),
+        hash_before,
+        "Hash should differ after null move"
+    );
+
+    // Undo null move
+    board.undo_null_move();
+    assert_eq!(
+        board.peek_en_passant_target(),
+        ep_before,
+        "EP target should be restored after undo"
+    );
+    assert_eq!(
+        board.current_position_hash(),
+        hash_before,
+        "Hash should be restored after undo"
+    );
+}
+
+#[test]
+fn test_null_move_pruning_fires_in_middlegame() {
+    // Italian Game — rich middlegame, NMP should fire
+    let fen = "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4";
+
+    let mut board = Board::from_str(fen).unwrap();
+    let mut context = SearchContext::with_parallel(5, false);
+    let _best_move = search_best_move(&mut context, &mut board).unwrap();
+
+    let attempts = context.null_move_attempts();
+    let cutoffs = context.null_move_cutoffs();
+
+    assert!(
+        attempts > 0,
+        "NMP should attempt null moves in middlegame (got 0 attempts)"
+    );
+    assert!(
+        cutoffs > 0,
+        "NMP should achieve cutoffs in middlegame (got 0 cutoffs from {} attempts)",
+        attempts
+    );
+}
+
+#[test]
+fn test_null_move_preserves_mate_finding() {
+    // Mate in 1 — White queen can deliver checkmate
+    let mut context = SearchContext::new(4);
+    let mut board = chess_position! {
+        .Q......
+        ........
+        ........
+        ........
+        ........
+        ........
+        k.K.....
+        ........
+    };
+    board.set_turn(Color::White);
+    board.lose_castle_rights(CastleRights::all());
+
+    let chess_move = search_best_move(&mut context, &mut board).unwrap();
+    let valid_checkmates = [
+        checkmate_move!(std_move!(B8, B2)),
+        checkmate_move!(std_move!(B8, A8)),
+        checkmate_move!(std_move!(B8, A7)),
+    ];
+    assert!(
+        valid_checkmates.contains(&chess_move),
+        "NMP should not prevent finding checkmate: got {}",
+        chess_move
+    );
+}
+
+#[test]
+fn test_null_move_pruning_finds_correct_best_move() {
+    // Position where black has a hanging queen
+    let mut board = chess_position! {
+        rnb.kb.r
+        pppppppp
+        ........
+        ....q...
+        ..N.....
+        ........
+        PPPPPPPP
+        RNBQKB.R
+    };
+    board.set_turn(Color::White);
+    board.lose_castle_rights(CastleRights::all());
+
+    let mut context = SearchContext::with_parallel(4, false);
+    let chess_move = search_best_move(&mut context, &mut board).unwrap();
+
+    // White should capture the hanging queen with the knight
+    let expected = std_move!(C4, E5, Capture(Piece::Queen));
+    assert_eq!(
+        chess_move, expected,
+        "NMP should not prevent finding queen capture: got {}",
+        chess_move
     );
 }

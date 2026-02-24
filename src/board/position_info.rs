@@ -76,6 +76,10 @@ impl PositionInfo {
         self.current_position_hash ^= ZOBRIST_CASTLING_RIGHTS_TABLE[castling_rights as usize];
     }
 
+    pub fn update_zobrist_hash_toggle_turn(&mut self) {
+        self.current_position_hash ^= ZOBRIST_TURN;
+    }
+
     pub fn current_position_hash(&self) -> u64 {
         self.current_position_hash
     }
@@ -124,6 +128,26 @@ mod tests {
             hash ^= zobrist_num;
         }
         assert_eq!(position_info.current_position_hash(), hash);
+    }
+
+    #[test]
+    fn test_zobrist_turn_toggle_changes_hash() {
+        let mut position_info = PositionInfo::new();
+        let original_hash = position_info.current_position_hash();
+
+        position_info.update_zobrist_hash_toggle_turn();
+        let toggled_hash = position_info.current_position_hash();
+        assert_ne!(
+            original_hash, toggled_hash,
+            "Toggling turn should change the hash"
+        );
+
+        position_info.update_zobrist_hash_toggle_turn();
+        let restored_hash = position_info.current_position_hash();
+        assert_eq!(
+            original_hash, restored_hash,
+            "Toggling turn twice should restore the hash"
+        );
     }
 
     #[test]

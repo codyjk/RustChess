@@ -65,5 +65,10 @@ pub fn write_zobrist_tables(out: &mut BufWriter<File>) -> std::io::Result<()> {
     }
     writeln!(out, "];")?;
 
+    // Generate ZOBRIST_TURN
+    let zobrist_turn = generate_random_u64();
+    writeln!(out)?;
+    writeln!(out, "pub const ZOBRIST_TURN: u64 = {};", zobrist_turn)?;
+
     Ok(())
 }

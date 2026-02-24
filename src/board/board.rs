@@ -126,6 +126,7 @@ impl Board {
 
     pub fn toggle_turn(&mut self) -> Color {
         self.turn = self.turn.opposite();
+        self.position_info.update_zobrist_hash_toggle_turn();
         self.turn
     }
 

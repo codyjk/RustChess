@@ -28,6 +28,18 @@ impl GameState for Board {
     fn toggle_turn(&mut self) {
         Board::toggle_turn(self);
     }
+
+    #[inline]
+    fn apply_null_move(&mut self) {
+        self.push_en_passant_target(None);
+        Board::toggle_turn(self);
+    }
+
+    #[inline]
+    fn undo_null_move(&mut self) {
+        Board::toggle_turn(self);
+        self.pop_en_passant_target();
+    }
 }
 
 impl GameMove for ChessMove {
@@ -114,6 +126,12 @@ impl Evaluator<Board> for ChessEvaluator {
         // Maximum gain is capturing a queen (900) plus a margin for positional gains
         // This is a conservative upper bound for delta pruning in quiescence
         900 + 200
+    }
+
+    #[inline]
+    fn should_skip_null_move(&self, state: &mut Board) -> bool {
+        evaluate::current_player_is_in_check(state, &self.move_generator)
+            || evaluate::is_endgame(state)
     }
 }
 

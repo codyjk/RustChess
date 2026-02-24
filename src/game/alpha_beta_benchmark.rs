@@ -94,6 +94,8 @@ struct BenchmarkSummary {
     total_tt_overwrites: usize,
     tt_final_size: usize,
     total_move_gen_calls: usize,
+    total_null_move_attempts: usize,
+    total_null_move_cutoffs: usize,
     results: Vec<PositionResult>,
 }
 
@@ -191,6 +193,22 @@ impl BenchmarkSummary {
             format_number(self.total_move_gen_calls),
             self.move_gen_per_node()
         );
+        println!();
+        println!("  Null Move Pruning:");
+        println!(
+            "    Attempts:     {:>12}",
+            format_number(self.total_null_move_attempts)
+        );
+        let cutoff_pct = if self.total_null_move_attempts == 0 {
+            0.0
+        } else {
+            (self.total_null_move_cutoffs as f64 / self.total_null_move_attempts as f64) * 100.0
+        };
+        println!(
+            "    Cutoffs:      {:>12} ({:.1}% of attempts)",
+            format_number(self.total_null_move_cutoffs),
+            cutoff_pct
+        );
         println!("{}", "=".repeat(70));
     }
 }
@@ -267,6 +285,8 @@ pub fn run_alpha_beta_benchmark(depth: u8, parallel: bool, position_filter: Opti
     let mut total_tt_stores = 0;
     let mut total_tt_misses = 0;
     let mut total_move_gen_calls = 0;
+    let mut total_null_move_attempts = 0;
+    let mut total_null_move_cutoffs = 0;
 
     // Create SearchContext once and share TT across all positions
     let mut context = SearchContext::with_parallel(depth, parallel);
@@ -289,6 +309,8 @@ pub fn run_alpha_beta_benchmark(depth: u8, parallel: bool, position_filter: Opti
         let tt_stores = context.tt_stores();
         let tt_misses = context.tt_probe_misses();
         let move_gen_calls = context.move_gen_calls();
+        let null_move_attempts = context.null_move_attempts();
+        let null_move_cutoffs = context.null_move_cutoffs();
 
         total_nodes += nodes_searched;
         total_quiescence_nodes += quiescence_nodes;
@@ -297,6 +319,8 @@ pub fn run_alpha_beta_benchmark(depth: u8, parallel: bool, position_filter: Opti
         total_tt_stores += tt_stores;
         total_tt_misses += tt_misses;
         total_move_gen_calls += move_gen_calls;
+        total_null_move_attempts += null_move_attempts;
+        total_null_move_cutoffs += null_move_cutoffs;
 
         results.push(PositionResult {
             position_name: benchmark_pos.name.to_string(),
@@ -327,6 +351,8 @@ pub fn run_alpha_beta_benchmark(depth: u8, parallel: bool, position_filter: Opti
         total_tt_overwrites,
         tt_final_size,
         total_move_gen_calls,
+        total_null_move_attempts,
+        total_null_move_cutoffs,
         results,
     };
 

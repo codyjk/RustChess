@@ -12,6 +12,17 @@ pub trait GameState: Clone + Send + Sync {
 
     /// Switches to the next player's turn.
     fn toggle_turn(&mut self);
+
+    /// Applies a null move (pass turn without making a move).
+    /// Used for null move pruning. Default flips the turn.
+    fn apply_null_move(&mut self) {
+        self.toggle_turn();
+    }
+
+    /// Undoes a null move. Default flips the turn back.
+    fn undo_null_move(&mut self) {
+        self.toggle_turn();
+    }
 }
 
 /// Represents an action that can be applied to and undone from a game state.
@@ -54,6 +65,12 @@ pub trait Evaluator<S: GameState>: Clone + Send + Sync {
     /// Default implementation returns a very large value (no pruning).
     fn max_tactical_gain(&self, _state: &S) -> i16 {
         i16::MAX
+    }
+
+    /// Returns true if null move pruning should be skipped for this position.
+    /// Default returns true (NMP disabled) for safety — games must opt in explicitly.
+    fn should_skip_null_move(&self, _state: &mut S) -> bool {
+        true
     }
 }
 

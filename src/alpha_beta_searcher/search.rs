@@ -78,6 +78,8 @@ struct SearchStats {
     tt_stores: AtomicUsize,
     tt_probe_misses: AtomicUsize,
     move_gen_calls: AtomicUsize,
+    null_move_attempts: AtomicUsize,
+    null_move_cutoffs: AtomicUsize,
     last_score: Option<i16>,
     last_duration: Option<Duration>,
 }
@@ -91,6 +93,8 @@ impl SearchStats {
             tt_stores: AtomicUsize::new(0),
             tt_probe_misses: AtomicUsize::new(0),
             move_gen_calls: AtomicUsize::new(0),
+            null_move_attempts: AtomicUsize::new(0),
+            null_move_cutoffs: AtomicUsize::new(0),
             last_score: None,
             last_duration: None,
         }
@@ -120,6 +124,14 @@ impl SearchStats {
         self.move_gen_calls.fetch_add(1, Ordering::SeqCst);
     }
 
+    fn increment_null_move_attempts(&self) {
+        self.null_move_attempts.fetch_add(1, Ordering::SeqCst);
+    }
+
+    fn increment_null_move_cutoffs(&self) {
+        self.null_move_cutoffs.fetch_add(1, Ordering::SeqCst);
+    }
+
     fn reset(&mut self) {
         self.last_score = None;
         self.last_duration = None;
@@ -129,6 +141,8 @@ impl SearchStats {
         self.tt_stores.store(0, Ordering::SeqCst);
         self.tt_probe_misses.store(0, Ordering::SeqCst);
         self.move_gen_calls.store(0, Ordering::SeqCst);
+        self.null_move_attempts.store(0, Ordering::SeqCst);
+        self.null_move_cutoffs.store(0, Ordering::SeqCst);
     }
 
     fn record_result(&mut self, score: i16, duration: Duration) {
@@ -158,6 +172,14 @@ impl SearchStats {
 
     fn move_gen_calls(&self) -> usize {
         self.move_gen_calls.load(Ordering::SeqCst)
+    }
+
+    fn null_move_attempts(&self) -> usize {
+        self.null_move_attempts.load(Ordering::SeqCst)
+    }
+
+    fn null_move_cutoffs(&self) -> usize {
+        self.null_move_cutoffs.load(Ordering::SeqCst)
     }
 }
 
@@ -276,6 +298,14 @@ impl<M: Clone + Send + Sync + 'static> SearchContext<M> {
         self.stats.tt_probe_misses()
     }
 
+    pub fn null_move_attempts(&self) -> usize {
+        self.stats.null_move_attempts()
+    }
+
+    pub fn null_move_cutoffs(&self) -> usize {
+        self.stats.null_move_cutoffs()
+    }
+
     fn increment_position_count(&self) {
         self.stats.increment();
     }
@@ -298,6 +328,14 @@ impl<M: Clone + Send + Sync + 'static> SearchContext<M> {
 
     fn increment_move_gen(&self) {
         self.stats.increment_move_gen();
+    }
+
+    fn increment_null_move_attempts(&self) {
+        self.stats.increment_null_move_attempts();
+    }
+
+    fn increment_null_move_cutoffs(&self) {
+        self.stats.increment_null_move_cutoffs();
     }
 }
 
@@ -553,6 +591,7 @@ where
                 i16::MIN,
                 i16::MAX,
                 !maximizing_player,
+                true,
             )
         })?;
 
@@ -605,6 +644,7 @@ where
                     i16::MIN,
                     i16::MAX,
                     !maximizing_player,
+                    true,
                 )
             })
             .expect("minimax should succeed in parallel search");
@@ -851,6 +891,7 @@ fn alpha_beta_minimax<S, G, E, O>(
     mut alpha: i16,
     mut beta: i16,
     maximizing_player: bool,
+    allow_null_move: bool,
 ) -> Result<i16, SearchError>
 where
     S: GameState,
@@ -877,6 +918,36 @@ where
     // Early return if TT allows cutoff
     if let Some(score) = cutoff_score {
         return Ok(score);
+    }
+
+    // Null Move Pruning: if passing still causes a beta cutoff, prune the subtree
+    const NULL_MOVE_REDUCTION: u8 = 2;
+    if allow_null_move && depth >= 3 && !evaluator.should_skip_null_move(state) {
+        context.increment_null_move_attempts();
+        state.apply_null_move();
+        let null_score = alpha_beta_minimax(
+            context,
+            state,
+            move_generator,
+            evaluator,
+            move_orderer,
+            depth - 1 - NULL_MOVE_REDUCTION,
+            ply + 1,
+            alpha,
+            beta,
+            !maximizing_player,
+            false,
+        )?;
+        state.undo_null_move();
+
+        if maximizing_player && null_score >= beta {
+            context.increment_null_move_cutoffs();
+            return Ok(beta);
+        }
+        if !maximizing_player && null_score <= alpha {
+            context.increment_null_move_cutoffs();
+            return Ok(alpha);
+        }
     }
 
     if depth == 0 {
@@ -934,6 +1005,7 @@ where
                     alpha,
                     beta,
                     !maximizing_player,
+                    true,
                 )
             })?
         } else {
@@ -956,6 +1028,7 @@ where
                         if maximizing_player { alpha } else { beta - 1 },
                         if maximizing_player { alpha + 1 } else { beta },
                         !maximizing_player,
+                        true,
                     )
                 })?)
             } else {
@@ -981,6 +1054,7 @@ where
                             if maximizing_player { alpha } else { beta - 1 },
                             if maximizing_player { alpha + 1 } else { beta },
                             !maximizing_player,
+                            true,
                         )
                     })?
                 }
@@ -998,6 +1072,7 @@ where
                         if maximizing_player { alpha } else { beta - 1 },
                         if maximizing_player { alpha + 1 } else { beta },
                         !maximizing_player,
+                        true,
                     )
                 })?
             };
@@ -1016,6 +1091,7 @@ where
                         alpha,
                         beta,
                         !maximizing_player,
+                        true,
                     )
                 })?
             } else {

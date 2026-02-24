@@ -315,8 +315,8 @@ fn test_transposition_table_reduces_search_count() {
     let first_count = context.searched_position_count();
     assert!(first_count > 0, "First search should explore positions");
 
-    let tt_hits_before = context.tt_hits();
-    context.reset_stats();
+    // Keep TT entries populated so the second search can benefit from cached results
+    context.reset_stats_keep_tt();
 
     let _ = alpha_beta_search(
         &mut context,
@@ -326,12 +326,12 @@ fn test_transposition_table_reduces_search_count() {
         &NoOpMoveOrderer,
     );
     let second_count = context.searched_position_count();
-    let tt_hits_after = context.tt_hits();
 
     assert!(
-        tt_hits_after > tt_hits_before || second_count <= first_count,
-        "TT should be used (hits: {} -> {}) or second search ({}) should explore fewer positions than first ({})",
-        tt_hits_before, tt_hits_after, second_count, first_count
+        second_count <= first_count,
+        "Second search ({}) should explore fewer or equal positions than first ({}) due to TT",
+        second_count,
+        first_count
     );
 }
 
@@ -2122,4 +2122,113 @@ fn test_move_reordering_multiple_killers() {
 
     assert_eq!(moves[0], killer2, "Primary killer should be first");
     assert_eq!(moves[1], killer1, "Secondary killer should be second");
+}
+
+// --- Null Move Pruning tests ---
+
+#[test]
+fn test_null_move_default_disabled_for_nim() {
+    let evaluator = NimEvaluator;
+    let mut state = NimState::new(10);
+    assert!(
+        evaluator.should_skip_null_move(&mut state),
+        "Default NimEvaluator should skip null move (NMP disabled)"
+    );
+
+    // Verify Nim results are still correct with NMP defaults
+    let mut context = SearchContext::<NimMove>::new(10);
+    let best_move = alpha_beta_search(
+        &mut context,
+        &mut state,
+        &NimMoveGenerator,
+        &evaluator,
+        &NoOpMoveOrderer,
+    )
+    .unwrap();
+    assert_eq!(
+        best_move.take, 2,
+        "Nim pile=10: take 2 to leave 8 (winning)"
+    );
+}
+
+/// An evaluator that enables NMP for Nim (for testing purposes).
+#[derive(Clone)]
+struct NmpEnabledNimEvaluator;
+
+impl Evaluator<NimState> for NmpEnabledNimEvaluator {
+    fn evaluate(&self, state: &mut NimState, remaining_depth: u8) -> i16 {
+        NimEvaluator.evaluate(state, remaining_depth)
+    }
+
+    fn should_skip_null_move(&self, _state: &mut NimState) -> bool {
+        false
+    }
+}
+
+#[test]
+fn test_null_move_gated_by_should_skip() {
+    let evaluator = NmpEnabledNimEvaluator;
+    let mut state = NimState::new(5);
+    assert!(
+        !evaluator.should_skip_null_move(&mut state),
+        "NmpEnabledNimEvaluator should not skip null move"
+    );
+
+    // Even with NMP enabled, Nim search should still produce correct results
+    let mut context = SearchContext::<NimMove>::new(10);
+    let best_move = alpha_beta_search(
+        &mut context,
+        &mut state,
+        &NimMoveGenerator,
+        &evaluator,
+        &NoOpMoveOrderer,
+    )
+    .unwrap();
+    assert_eq!(best_move.take, 1, "Nim pile=5: take 1 to leave 4 (winning)");
+}
+
+#[test]
+fn test_null_move_not_applied_below_depth_3() {
+    let evaluator = NmpEnabledNimEvaluator;
+    let mut state = NimState::new(3);
+    let mut context = SearchContext::<NimMove>::with_parallel(2, false);
+
+    let _best_move = alpha_beta_search(
+        &mut context,
+        &mut state,
+        &NimMoveGenerator,
+        &evaluator,
+        &NoOpMoveOrderer,
+    )
+    .unwrap();
+
+    assert_eq!(
+        context.null_move_attempts(),
+        0,
+        "NMP should not be attempted at depth < 3"
+    );
+}
+
+#[test]
+fn test_null_move_apply_undo_symmetry_nim() {
+    let mut state = NimState::new(7);
+    let hash_before = state.position_hash();
+    let turn_before = state.is_player_one_turn;
+
+    state.apply_null_move();
+    assert_ne!(
+        state.is_player_one_turn, turn_before,
+        "Null move should flip turn"
+    );
+
+    state.undo_null_move();
+    assert_eq!(
+        state.position_hash(),
+        hash_before,
+        "Undo null move should restore hash"
+    );
+    assert_eq!(
+        state.is_player_one_turn, turn_before,
+        "Undo null move should restore turn"
+    );
 }
