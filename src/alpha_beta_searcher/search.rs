@@ -54,6 +54,12 @@
 //! and move index. If the reduced search returns a score that improves on the current bound,
 //! a full-depth re-search is performed to verify the result.
 //!
+//! ## Check Extensions
+//! When the current player is in check, search depth is extended by 1 ply. Positions
+//! where a player is in check are tactically forcing — cutting search short here risks
+//! missing critical forced sequences. The extension is capped at depth 64 to prevent
+//! unbounded growth. Uses `Evaluator::is_in_check` to detect check positions.
+//!
 //! ## Parallel Search
 //! Root moves can be searched in parallel using thread-local storage for killer moves to
 //! eliminate lock contention.
@@ -106,6 +112,7 @@ struct SearchStats {
     rfp_cutoffs: AtomicUsize,
     fp_attempts: AtomicUsize,
     fp_cutoffs: AtomicUsize,
+    check_extensions: AtomicUsize,
     last_score: Option<i16>,
     last_duration: Option<Duration>,
 }
@@ -125,6 +132,7 @@ impl SearchStats {
             rfp_cutoffs: AtomicUsize::new(0),
             fp_attempts: AtomicUsize::new(0),
             fp_cutoffs: AtomicUsize::new(0),
+            check_extensions: AtomicUsize::new(0),
             last_score: None,
             last_duration: None,
         }
@@ -178,6 +186,14 @@ impl SearchStats {
         self.fp_cutoffs.fetch_add(1, Ordering::SeqCst);
     }
 
+    fn increment_check_extensions(&self) {
+        self.check_extensions.fetch_add(1, Ordering::SeqCst);
+    }
+
+    fn check_extensions(&self) -> usize {
+        self.check_extensions.load(Ordering::SeqCst)
+    }
+
     fn reset(&mut self) {
         self.last_score = None;
         self.last_duration = None;
@@ -193,6 +209,7 @@ impl SearchStats {
         self.rfp_cutoffs.store(0, Ordering::SeqCst);
         self.fp_attempts.store(0, Ordering::SeqCst);
         self.fp_cutoffs.store(0, Ordering::SeqCst);
+        self.check_extensions.store(0, Ordering::SeqCst);
     }
 
     fn record_result(&mut self, score: i16, duration: Duration) {
@@ -388,6 +405,10 @@ impl<M: Clone + Send + Sync + 'static> SearchContext<M> {
         self.stats.fp_cutoffs()
     }
 
+    pub fn check_extension_count(&self) -> usize {
+        self.stats.check_extensions()
+    }
+
     fn increment_position_count(&self) {
         self.stats.increment();
     }
@@ -434,6 +455,10 @@ impl<M: Clone + Send + Sync + 'static> SearchContext<M> {
 
     fn increment_fp_cutoffs(&self) {
         self.stats.increment_fp_cutoffs();
+    }
+
+    fn increment_check_extensions(&self) {
+        self.stats.increment_check_extensions();
     }
 }
 
@@ -1028,6 +1053,7 @@ where
 ///
 /// # Search Optimizations
 ///
+/// - **Check Extensions**: Extends depth by 1 when current player is in check
 /// - **Transposition Table Lookup**: Checks for cached results at this position
 /// - **Move Ordering**: Prioritizes PV move, killer moves, then other moves
 /// - **Quiescence Extension**: Calls quiescence_search at depth 0 to avoid horizon effect
@@ -1067,6 +1093,17 @@ where
 {
     context.increment_position_count();
 
+    // Check extension: when in check, extend search by 1 ply to avoid missing
+    // critical tactical sequences at the horizon. Capped by ply distance from
+    // root to prevent unbounded growth in perpetual check positions.
+    let in_check = evaluator.is_in_check(state);
+    let depth = if in_check && ply < 64 {
+        context.increment_check_extensions();
+        depth + 1
+    } else {
+        depth
+    };
+
     let hash = state.position_hash();
 
     // Probe TT once for both cutoff score and PV move
@@ -1085,8 +1122,9 @@ where
         return Ok(score);
     }
 
-    // Cache the safety check for both NMP and RFP to avoid redundant check detection.
-    let skip_speculative_pruning = evaluator.should_skip_null_move(state);
+    // Being in check implies we should skip speculative pruning (NMP, RFP, FP).
+    // Also skip in endgame or other positions where the evaluator says so.
+    let skip_speculative_pruning = in_check || evaluator.should_skip_null_move(state);
 
     // Null Move Pruning: if passing still causes a beta cutoff, prune the subtree
     const NULL_MOVE_REDUCTION: u8 = 2;
@@ -1228,7 +1266,7 @@ where
                     }
                 }
             }
-            let do_lmr = depth >= 3 && move_count > 3 && !is_tactical;
+            let do_lmr = depth >= 3 && move_count > 3 && !is_tactical && !in_check;
             let reduction = if do_lmr {
                 // Logarithmic reduction: deeper depths and later moves get larger reductions.
                 let r = 1.0 + (depth as f64).ln() * (move_count as f64).ln() / 2.0;

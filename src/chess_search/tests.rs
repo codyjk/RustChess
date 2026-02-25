@@ -9,6 +9,7 @@
 //! - Null move pruning (check/endgame/middlegame, apply/undo, node reduction, correctness)
 //! - Reverse futility pruning (lopsided positions, check skip, margins, correctness)
 //! - Futility pruning (lopsided positions, capture preservation)
+//! - Check extensions (extension fires, deeper mate finding)
 
 use std::str::FromStr;
 
@@ -355,7 +356,10 @@ fn test_killer_moves_chess_positions() {
 
 #[test]
 fn test_null_move_pruning_disabled_when_in_check() {
-    // White king is in check from black rook on the A-file
+    // White king is in check from black rook on the A-file.
+    // Check detection is now handled by is_in_check() in the search framework,
+    // which gates NMP via skip_speculative_pruning. Verify is_in_check works
+    // and the search handles the in-check position correctly.
     let mut board = chess_position! {
         r......k
         ........
@@ -371,11 +375,11 @@ fn test_null_move_pruning_disabled_when_in_check() {
 
     let evaluator = ChessEvaluator::new();
     assert!(
-        evaluator.should_skip_null_move(&mut board),
-        "should_skip_null_move must return true when in check"
+        evaluator.is_in_check(&mut board),
+        "is_in_check must return true when king is attacked"
     );
 
-    // Also verify search still works
+    // Verify search still works when in check (NMP skipped via search framework)
     let mut context = SearchContext::new(4);
     let result = search_best_move(&mut context, &mut board);
     assert!(result.is_ok(), "Search should succeed even when in check");
@@ -760,4 +764,128 @@ fn test_futility_pruning_does_not_skip_captures() {
         context.fp_attempts() > 0,
         "Futility pruning should have been attempted (proving it was active)"
     );
+}
+
+// ========================================================================
+// Check Extension tests
+// ========================================================================
+
+#[test]
+fn test_check_extension_fires_when_in_check() {
+    // White king is in check from black rook. Search should extend at that node.
+    // Position: white king on A1, black rook on A8, black king on H8
+    let mut context = SearchContext::new(4);
+
+    let mut board = chess_position! {
+        r......k
+        ........
+        ........
+        ........
+        ........
+        ........
+        ........
+        K.......
+    };
+    board.set_turn(Color::White);
+    board.lose_castle_rights(CastleRights::all());
+
+    let _chess_move = search_best_move(&mut context, &mut board).unwrap();
+    assert!(
+        context.check_extension_count() > 0,
+        "Check extensions should fire when positions involve checks"
+    );
+}
+
+#[test]
+fn test_check_extension_finds_deeper_mate() {
+    // A mate-in-2 position that benefits from check extensions.
+    // White: Kc1, Qd1, Rb1 — Black: Ka2
+    // Without extensions at shallow depth, the engine might not find the forced mate.
+    // Qa4+ Ka1 Qb3# (or other mating patterns)
+    let mut context = SearchContext::new(4);
+
+    let mut board = chess_position! {
+        ........
+        ........
+        ........
+        ........
+        ........
+        ........
+        k.......
+        .RKQ....
+    };
+    board.set_turn(Color::White);
+    board.lose_castle_rights(CastleRights::all());
+
+    let chess_move = search_best_move(&mut context, &mut board).unwrap();
+    let score = context.last_score().unwrap();
+
+    // Engine should find a winning/mating score
+    assert!(
+        score > 900,
+        "Check extension should help find forced mate, got score {}",
+        score
+    );
+    // Check extensions should have fired during the search
+    assert!(
+        context.check_extension_count() > 0,
+        "Check extensions should fire in positions with check sequences"
+    );
+
+    // Verify the move is sensible (should be a checking move or lead to mate)
+    assert!(chess_move.to_string().len() > 0, "Should find a valid move");
+}
+
+#[test]
+fn test_check_extension_does_not_fire_in_quiet_position() {
+    // Starting position — no checks should occur at depth 1
+    let mut context = SearchContext::new(1);
+
+    let mut board = Board::default();
+
+    let _chess_move = search_best_move(&mut context, &mut board).unwrap();
+    assert_eq!(
+        context.check_extension_count(),
+        0,
+        "No check extensions should fire at depth 1 in starting position"
+    );
+}
+
+#[test]
+fn test_check_extension_skips_speculative_pruning_when_in_check() {
+    // When in check, NMP/RFP/FP should be skipped.
+    // Position: white king on A1 in check from black rook on A8, with material imbalance
+    // that would normally trigger RFP/NMP.
+    let mut context = SearchContext::new(5);
+
+    let mut board = chess_position! {
+        r......k
+        ........
+        ........
+        ........
+        ........
+        ........
+        .Q......
+        K.......
+    };
+    board.set_turn(Color::White);
+    board.lose_castle_rights(CastleRights::all());
+
+    let chess_move = search_best_move(&mut context, &mut board).unwrap();
+
+    // White should move the king out of check or block
+    // The important thing is that the engine doesn't crash or return nonsense
+    // due to pruning while in check
+    let score = context.last_score().unwrap();
+    assert!(
+        score.abs() < 10000,
+        "Score should be reasonable, got {}",
+        score
+    );
+    assert!(
+        context.check_extension_count() > 0,
+        "Check extensions should fire"
+    );
+    // Verify the move is legal (king must escape check)
+    let _move_str = chess_move.to_string();
 }

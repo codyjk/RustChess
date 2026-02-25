@@ -81,6 +81,14 @@ pub trait Evaluator<S: GameState>: Clone + Send + Sync {
     fn rfp_margin(&self, _depth: u8) -> Option<i16> {
         None
     }
+
+    /// Returns true if the current player is in check.
+    /// Used for check extensions (extending search depth by 1 when in check)
+    /// and to gate speculative pruning techniques.
+    /// Default returns false (no check detection).
+    fn is_in_check(&self, _state: &mut S) -> bool {
+        false
+    }
 }
 
 /// Orders moves to improve alpha-beta pruning efficiency.

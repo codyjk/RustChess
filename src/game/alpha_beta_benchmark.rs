@@ -100,6 +100,7 @@ struct BenchmarkSummary {
     total_rfp_cutoffs: usize,
     total_fp_attempts: usize,
     total_fp_cutoffs: usize,
+    total_check_extensions: usize,
     results: Vec<PositionResult>,
 }
 
@@ -245,6 +246,11 @@ impl BenchmarkSummary {
             format_number(self.total_fp_cutoffs),
             fp_cutoff_pct
         );
+        println!();
+        println!(
+            "  Check extensions: {:>10}",
+            format_number(self.total_check_extensions)
+        );
         println!("{}", "=".repeat(70));
     }
 }
@@ -327,6 +333,7 @@ pub fn run_alpha_beta_benchmark(depth: u8, parallel: bool, position_filter: Opti
     let mut total_rfp_cutoffs = 0;
     let mut total_fp_attempts = 0;
     let mut total_fp_cutoffs = 0;
+    let mut total_check_extensions = 0;
 
     // Create SearchContext once and share TT across all positions
     let mut context = SearchContext::with_parallel(depth, parallel);
@@ -355,6 +362,7 @@ pub fn run_alpha_beta_benchmark(depth: u8, parallel: bool, position_filter: Opti
         let rfp_cutoffs = context.rfp_cutoffs();
         let fp_attempts = context.fp_attempts();
         let fp_cutoffs = context.fp_cutoffs();
+        let check_extensions = context.check_extension_count();
 
         total_nodes += nodes_searched;
         total_quiescence_nodes += quiescence_nodes;
@@ -369,6 +377,7 @@ pub fn run_alpha_beta_benchmark(depth: u8, parallel: bool, position_filter: Opti
         total_rfp_cutoffs += rfp_cutoffs;
         total_fp_attempts += fp_attempts;
         total_fp_cutoffs += fp_cutoffs;
+        total_check_extensions += check_extensions;
 
         results.push(PositionResult {
             position_name: benchmark_pos.name.to_string(),
@@ -405,6 +414,7 @@ pub fn run_alpha_beta_benchmark(depth: u8, parallel: bool, position_filter: Opti
         total_rfp_cutoffs,
         total_fp_attempts,
         total_fp_cutoffs,
+        total_check_extensions,
         results,
     };
 

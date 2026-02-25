@@ -124,8 +124,9 @@ impl Evaluator<Board> for ChessEvaluator {
 
     #[inline]
     fn should_skip_null_move(&self, state: &mut Board) -> bool {
-        evaluate::current_player_is_in_check(state, &self.move_generator)
-            || evaluate::is_endgame(state)
+        // Check detection is handled by the search framework via is_in_check(),
+        // so this only needs to check for endgame/zugzwang conditions.
+        evaluate::is_endgame(state)
     }
 
     #[inline]
@@ -136,6 +137,11 @@ impl Evaluator<Board> for ChessEvaluator {
             3 => Some(900),
             _ => None,
         }
+    }
+
+    #[inline]
+    fn is_in_check(&self, state: &mut Board) -> bool {
+        evaluate::current_player_is_in_check(state, &self.move_generator)
     }
 }
 
