@@ -96,6 +96,12 @@ pub trait MoveOrderer<S: GameState, M>: Clone + Send + Sync {
     /// Sorts moves in-place, placing "better" moves first.
     fn order_moves(&self, moves: &mut [M], state: &S);
 
+    /// Incrementally selects the best move from `moves[index..]` and swaps it
+    /// into position `index`. This avoids a full O(n log n) sort when alpha-beta
+    /// cutoffs mean most moves are never searched. Default delegates to no-op
+    /// (assumes moves are pre-sorted via `order_moves`).
+    fn pick_next(&self, _moves: &mut [M], _index: usize, _state: &S) {}
+
     /// Called when a move causes a beta cutoff. Can be used to update
     /// move ordering heuristics (e.g., history table). Default does nothing.
     fn record_cutoff(&self, _mv: &M, _state: &S, _depth: u8) {}

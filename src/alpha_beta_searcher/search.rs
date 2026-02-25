@@ -23,9 +23,12 @@
 //! Orders moves to maximize alpha-beta cutoffs:
 //! 1. PV (Principal Variation) move from transposition table
 //! 2. Killer moves (moves that caused cutoffs at the same ply)
-//! 3. Other heuristics (via MoveOrderer trait)
+//! 3. Remaining moves via incremental selection (`MoveOrderer::pick_next`)
 //!
-//! Better move ordering leads to more cutoffs and faster search.
+//! Interior nodes use incremental selection (pick-best) instead of a full sort: after
+//! placing the PV and killer moves at the front, each subsequent move is selected on
+//! demand via `pick_next()`. This avoids O(n log n) sorting of moves that are never
+//! searched due to beta cutoffs. Root and quiescence nodes still use full sort.
 //!
 //! ## Quiescence Search
 //! Extends search beyond the nominal depth for tactical moves to avoid the horizon effect
@@ -511,29 +514,40 @@ fn update_best<M: Clone>(
 ///
 /// Priority: 1) PV move from transposition table, 2) Killer moves, 3) Other moves.
 /// The PV move is placed first if present, followed by killer moves, then remaining moves.
-fn reorder_moves_with_heuristics<M>(moves: &mut [M], pv_move: Option<&M>, killers: [Option<M>; 2])
+/// Returns the number of moves actually placed at the front (PV + killers found in the list).
+fn reorder_moves_with_heuristics<M>(
+    moves: &mut [M],
+    pv_move: Option<&M>,
+    killers: &[Option<M>; 2],
+) -> usize
 where
     M: PartialEq + Clone,
 {
+    let mut placed = 0;
+
     // Move PV to front (highest priority)
     if let Some(pv) = pv_move {
         if let Some(pos) = moves.iter().position(|m| m == pv) {
             if pos > 0 {
                 moves[0..=pos].rotate_right(1);
             }
+            placed += 1;
         }
     }
 
     // Move killers to front after PV
-    let killer_start = if pv_move.is_some() { 1 } else { 0 };
+    let killer_start = placed;
     for killer in killers.iter().flatten().rev() {
         if let Some(pos) = moves.iter().position(|m| m == killer) {
             // Only move if beyond insertion point and not the PV move
             if pos > killer_start && Some(killer) != pv_move {
                 moves[killer_start..=pos].rotate_right(1);
+                placed += 1;
             }
         }
     }
+
+    placed
 }
 
 /// Searches for the best move using alpha-beta pruning with iterative deepening.
@@ -1203,10 +1217,12 @@ where
         return Ok(score);
     }
 
-    move_orderer.order_moves(candidates.as_mut(), state);
-
+    // Place PV move and killers at the front for best ordering.
+    // Remaining moves are ordered incrementally via pick_next() to avoid sorting
+    // moves that are never searched due to beta cutoffs.
     let killers = context.get_killers(ply);
-    reorder_moves_with_heuristics(candidates.as_mut(), tt_move.as_ref(), killers);
+    let heuristic_count =
+        reorder_moves_with_heuristics(candidates.as_mut(), tt_move.as_ref(), &killers);
 
     let mut best_move = None;
     let mut best_score = if maximizing_player {
@@ -1224,7 +1240,14 @@ where
     let futility_margin = evaluator.rfp_margin(depth);
     let do_futility = futility_margin.is_some() && !skip_speculative_pruning;
 
-    for game_move in candidates.as_ref().iter() {
+    let moves = candidates.as_mut();
+    for i in 0..moves.len() {
+        // Incrementally select the best remaining move for positions beyond those
+        // already placed by PV/killer heuristics.
+        if i >= heuristic_count {
+            move_orderer.pick_next(moves, i, state);
+        }
+        let game_move = &moves[i];
         move_count += 1;
         let is_first_move = move_count == 1;
 

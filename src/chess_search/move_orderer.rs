@@ -47,6 +47,19 @@ impl MoveOrderer<Board, ChessMove> for ChessMoveOrderer {
         moves.sort_by(|a, b| compare_moves(a, b, state));
     }
 
+    #[inline]
+    fn pick_next(&self, moves: &mut [ChessMove], index: usize, state: &Board) {
+        if index + 1 >= moves.len() {
+            return;
+        }
+        let best_idx = (index..moves.len())
+            .min_by(|&a, &b| compare_moves(&moves[a], &moves[b], state))
+            .unwrap_or(index);
+        if best_idx != index {
+            moves.swap(index, best_idx);
+        }
+    }
+
     fn record_cutoff(&self, mv: &ChessMove, _state: &Board, depth: u8) {
         // Only record history for quiet (non-tactical) moves
         // Tactical moves are already prioritized by move ordering
@@ -279,5 +292,69 @@ mod tests {
 
         let castle = castle_kingside!(Color::White);
         assert!(!castle.is_tactical(&board));
+    }
+
+    #[test]
+    fn test_pick_next_selects_best_first() {
+        let board = create_test_board();
+        let mut moves = ChessMoveList::new();
+
+        // Add moves in worst-first order: quiet pawn, quiet knight, capture
+        moves.push(std_move!(E4, E5));
+        moves.push(std_move!(F3, G5));
+        moves.push(std_move!(E4, D5, Capture(Piece::Pawn)));
+
+        // Full sort for reference
+        let mut sorted = moves.clone();
+        ChessMoveOrderer.order_moves(sorted.as_mut(), &board);
+
+        // pick_next at index 0 should place the same move as the first sorted move
+        ChessMoveOrderer.pick_next(moves.as_mut(), 0, &board);
+        assert_eq!(
+            moves[0], sorted[0],
+            "pick_next should select the same best move as full sort"
+        );
+    }
+
+    #[test]
+    fn test_pick_next_incremental_equals_full_sort() {
+        let board = create_test_board();
+        let mut moves = ChessMoveList::new();
+
+        moves.push(std_move!(E4, E5));
+        moves.push(std_move!(E4, D5, Capture(Piece::Pawn)));
+        moves.push(std_move!(D1, D5, Capture(Piece::Pawn)));
+        moves.push(std_move!(A1, A3));
+        moves.push(std_move!(F3, G5));
+        moves.push(std_move!(C3, E5));
+
+        // Full sort for reference
+        let mut sorted = moves.clone();
+        ChessMoveOrderer.order_moves(sorted.as_mut(), &board);
+
+        // Incremental selection should produce the same order
+        let m = moves.as_mut();
+        for i in 0..m.len() {
+            ChessMoveOrderer.pick_next(m, i, &board);
+        }
+
+        for i in 0..sorted.len() {
+            assert_eq!(
+                moves[i], sorted[i],
+                "Mismatch at index {i}: pick_next gave {:?}, sort gave {:?}",
+                moves[i], sorted[i]
+            );
+        }
+    }
+
+    #[test]
+    fn test_pick_next_noop_on_last_element() {
+        let board = create_test_board();
+        let mut moves = ChessMoveList::new();
+        moves.push(std_move!(E4, E5));
+
+        let original = moves[0].clone();
+        ChessMoveOrderer.pick_next(moves.as_mut(), 0, &board);
+        assert_eq!(moves[0], original, "Single element should be unchanged");
     }
 }
