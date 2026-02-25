@@ -86,11 +86,13 @@ Each variant implements the `ChessMoveEffect` trait for applying/unapplying move
 **Zobrist Hashing**: Hash tables generated at compile time by `precompile/` build script enable incremental hashing for caching move generation and transposition table lookups.
 
 **Move Ordering**: The `ChessMoveOrderer` prioritizes moves to improve alpha-beta pruning efficiency:
-1. Captures (MVV-LVA ordering)
-2. Killer moves
-3. Other moves
+1. PV move from transposition table
+2. Killer moves (from sibling beta cutoffs at the same ply)
+3. Captures (MVV-LVA ordering)
+4. Promotions
+5. Quiet moves (history heuristic, then piece type)
 
-Better ordering = more pruning = faster search.
+Interior nodes use incremental selection (pick-best) instead of a full sort — the PV and killers are placed at front, then remaining moves are selected on demand via `MoveOrderer::pick_next()`. Root and quiescence nodes use full sort. Better ordering = more pruning = faster search.
 
 ### Module Organization
 
@@ -106,9 +108,9 @@ Better ordering = more pruning = faster search.
 **`src/`** - Main engine implementation
 - `prelude.rs` - Common type re-exports (`Board`, `Color`, `Piece`, `ChessMove`, `Bitboard`, `Square`)
 - `alpha_beta_searcher/` - Generic search algorithm with traits
-  - `search.rs` - Core alpha-beta implementation with iterative deepening and quiescence search
+  - `search.rs` - Core alpha-beta with iterative deepening, aspiration windows, quiescence, NMP, RFP, futility pruning, LMR, check extensions
   - `traits.rs` - Game-agnostic trait definitions (`MoveGenerator`, `Evaluator`, `MoveOrderer`)
-  - `transposition_table.rs` - LRU cache for position caching
+  - `transposition_table.rs` - DashMap-backed cache with depth-preferred replacement
   - `killer_moves.rs` - Thread-local killer move storage for parallel search
   - `tests.rs` - Comprehensive search algorithm tests
 - `chess_search/` - Chess-specific search implementations

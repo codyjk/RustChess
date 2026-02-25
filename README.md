@@ -132,22 +132,9 @@ MoveGen creates: 1
 
 This is a pure depth-first search of all possible positions - no pruning is applied.
 
-[Alpha-beta pruning](https://en.wikipedia.org/wiki/Alpha–beta_pruning), which incorporates the engine's scoring heuristic to prune branches of the search tree, is used to search for the "best" move in actual gameplay. Using this approach, the engine achieves approximately 909,000 positions per second:
+[Alpha-beta pruning](https://en.wikipedia.org/wiki/Alpha–beta_pruning), which incorporates the engine's scoring heuristic to prune branches of the search tree, is used to search for the "best" move in actual gameplay. The engine reaches **depth 10 in under 1 second** from the starting position thanks to aggressive pruning and search optimizations.
 
-```console
-$ chess count-positions --strategy alpha-beta --depth 6
-depth: 1, positions: 40, positions per second: 12187.69043266301
-depth: 2, positions: 882, positions per second: 157500
-depth: 3, positions: 8266, positions per second: 417580.1970194494
-depth: 4, positions: 32373, positions per second: 828780.6251760068
-depth: 5, positions: 136461, positions per second: 633673.7110457907
-depth: 6, positions: 845113, positions per second: 1003543.4001204091
-total positions: 1023135, total duration: 1.125216s, positions per second: 909278.7518129853
-```
-
-Note that with alpha-beta, the number of positions searched is dramatically reduced (1.0M vs 3.4B) due to effective pruning, and the total search completes in just over a second. This demonstrates that the goal of alpha-beta isn't raw throughput, but rather finding the best move quickly by eliminating irrelevant branches. The low latency enables the engine to reach much higher search depths during actual gameplay.
-
-For more realistic gameplay performance on curated positions, you can use the `benchmark-alpha-beta` subcommand:
+For gameplay performance on curated positions, use the `benchmark-alpha-beta` subcommand:
 
 ```console
 $ chess benchmark-alpha-beta --depth 6
@@ -158,14 +145,13 @@ Alpha-Beta Performance Benchmark (depth: 6, parallel: false)
 ======================================================================
 SUMMARY
 ----------------------------------------------------------------------
-  Total nodes:       6,030,428
-  Total time:            46.56s
-  Avg speed:               130k nodes/s
-  TT hit rate:             4.3%
+  Total nodes:         514,065
+  Total time:             0.50s
+  Avg speed:              1025k nodes/s
 ======================================================================
 ```
 
-These figures vary by hardware. To achieve the best performance, make sure to use the release build, which leverages [compiler optimizations](./Cargo.toml#L28-L33):
+At depth 10 from the starting position, the engine searches ~690K nodes in 0.57s. These figures vary by hardware. To achieve the best performance, make sure to use the release build, which leverages [compiler optimizations](./Cargo.toml#L28-L33):
 
 ### Gameplay
 
@@ -181,9 +167,11 @@ At alpha-beta search depth 6, you can observe the engine winning against Stockfi
 
 The engine employs a sophisticated combination of algorithms and optimizations to achieve high performance:
 * **[Bitboard representation](common/src/bitboard/bitboard.rs)** with [magic bitboards](src/move_generator/magic_table.rs) for sliding pieces (rooks, bishops, queens) enables O(1) attack generation via precomputed lookup tables. The board state uses 64-bit integers for efficient bitwise operations and newtype-wrapped u8 indices for type-safe square indexing.
-* **[Alpha-beta search](src/alpha_beta_searcher/search.rs)** with iterative deepening and quiescence search. Iterative deepening searches at increasing depths (1..target), using transposition table results to improve move ordering at each level. Quiescence search extends beyond the nominal depth for tactical moves to avoid the horizon effect.
-* **[Transposition tables](src/alpha_beta_searcher/transposition_table.rs)** use an LRU cache (64MB default) to store position evaluations by [Zobrist hash](./precompile/src/zobrist/mod.rs), avoiding redundant computation of transposed positions. Each entry stores score, depth, bound type (exact/upper/lower), and the best move for move ordering.
-* **Advanced move ordering** prioritizes moves likely to cause cutoffs: principal variation moves from the transposition table, [killer moves](src/alpha_beta_searcher/killer_moves.rs) stored in thread-local storage (eliminating lock contention), and MVV-LVA (Most Valuable Victim - Least Valuable Attacker) for capture ordering.
+* **[Alpha-beta search](src/alpha_beta_searcher/search.rs)** with iterative deepening, aspiration windows, and quiescence search. Iterative deepening searches at increasing depths (1..target), using transposition table results to improve move ordering at each level. Aspiration windows narrow the search window around the previous depth's score to reduce nodes. Quiescence search extends beyond the nominal depth for tactical moves to avoid the horizon effect.
+* **Aggressive pruning** reduces the search tree dramatically: null move pruning (skip a turn to detect positions too good to need searching), reverse futility pruning (prune entire nodes at shallow depths when the static eval is far above the bound), futility pruning (skip individual quiet moves that cannot reach the bound), and late move reductions with logarithmic scaling (search later moves at reduced depth).
+* **Check extensions** extend search depth by 1 ply when in check, preventing the horizon effect from hiding tactical sequences.
+* **[Transposition tables](src/alpha_beta_searcher/transposition_table.rs)** use a concurrent hash map (DashMap, 64MB default) with depth-preferred replacement to cache position evaluations by [Zobrist hash](./precompile/src/zobrist/mod.rs), avoiding redundant computation of transposed positions. Each entry stores score, depth, bound type (exact/upper/lower), and the best move for move ordering. Deeper entries are preserved over shallow ones for better hit quality.
+* **Advanced move ordering** prioritizes moves likely to cause cutoffs: principal variation moves from the transposition table, [killer moves](src/alpha_beta_searcher/killer_moves.rs) stored in thread-local storage (eliminating lock contention), MVV-LVA (Most Valuable Victim - Least Valuable Attacker) for capture ordering, and history heuristic for quiet moves. Interior nodes use incremental selection (pick-best) instead of a full sort, avoiding O(n log n) sorting of moves never searched due to beta cutoffs.
 * **Parallel search** with thread-local killer move storage enables lock-free parallelization at the root level. [Move generation](src/move_generator/generator.rs) uses conditional cloning (only when parallelizing) and MoveGenerator sharing to minimize allocations.
 * **[Zobrist hashing](./precompile/src/zobrist/mod.rs)** tables are generated at compile time via the [precompile](./precompile/src/main.rs) build script, enabling incremental position hashing for efficient caching of move generation and transposition table lookups.
 * **Generic trait-based architecture** implements the alpha-beta algorithm as a game-agnostic search using Rust traits, enabling clean separation between search logic and chess-specific implementations for comprehensive testing and maintainability.

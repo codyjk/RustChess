@@ -24,9 +24,9 @@ Build with instrumentation: `cargo build --release --features instrumentation`
 
 Three-layer design separating generic search from chess-specific logic:
 
-1. **`alpha_beta_searcher/`** — Game-agnostic alpha-beta search with iterative deepening, quiescence search, transposition table (DashMap-backed), and killer moves (thread-local). Defines traits in `traits.rs`: `GameState`, `GameMove`, `MoveGenerator`, `Evaluator`, `MoveOrderer`. Tests use a Nim game implementation to validate the algorithm independently of chess.
+1. **`alpha_beta_searcher/`** — Game-agnostic alpha-beta search with iterative deepening, aspiration windows, quiescence search, transposition table (DashMap-backed with depth-preferred replacement), and killer moves (thread-local). Pruning: null move pruning, reverse futility pruning, futility pruning, late move reductions (logarithmic). Extensions: check extensions. Defines traits in `traits.rs`: `GameState`, `GameMove`, `MoveGenerator`, `Evaluator`, `MoveOrderer`. Tests use a Nim game implementation to validate the algorithm independently of chess.
 
-2. **`chess_search/`** — Implements the generic search traits for chess. `implementation.rs` bridges the search algorithm to chess types. `move_orderer.rs` handles PV moves, MVV-LVA capture ordering, killer moves, and history heuristic.
+2. **`chess_search/`** — Implements the generic search traits for chess. `implementation.rs` bridges the search algorithm to chess types. `move_orderer.rs` handles PV moves, MVV-LVA capture ordering, killer moves, history heuristic, and incremental move selection (pick-best).
 
 3. **`board/` + `move_generator/`** — Board state with bitboard representation, `StateStack` for undo (apply/undo pattern avoids cloning during search), and magic bitboard move generation. `chess_move/` has an enum with variants: Standard, Castle, EnPassant, PawnPromotion, each implementing `ChessMoveEffect`.
 
