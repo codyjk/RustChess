@@ -40,6 +40,13 @@
 //! search depth. Disabled when in check or in endgame positions (same safety conditions
 //! as null move pruning).
 //!
+//! ## Futility Pruning
+//! The counterpart of RFP that operates per-move rather than per-node. At shallow depths,
+//! individual quiet (non-tactical) moves are skipped if the static eval plus the depth
+//! margin still cannot reach alpha (for the maximizer) or beta (for the minimizer). The
+//! first move is never pruned, and tactical moves (captures, promotions) are always
+//! searched. Uses the same margin values as RFP via `Evaluator::rfp_margin`.
+//!
 //! ## Parallel Search
 //! Root moves can be searched in parallel using thread-local storage for killer moves to
 //! eliminate lock contention.
@@ -90,6 +97,8 @@ struct SearchStats {
     null_move_cutoffs: AtomicUsize,
     rfp_attempts: AtomicUsize,
     rfp_cutoffs: AtomicUsize,
+    fp_attempts: AtomicUsize,
+    fp_cutoffs: AtomicUsize,
     last_score: Option<i16>,
     last_duration: Option<Duration>,
 }
@@ -107,6 +116,8 @@ impl SearchStats {
             null_move_cutoffs: AtomicUsize::new(0),
             rfp_attempts: AtomicUsize::new(0),
             rfp_cutoffs: AtomicUsize::new(0),
+            fp_attempts: AtomicUsize::new(0),
+            fp_cutoffs: AtomicUsize::new(0),
             last_score: None,
             last_duration: None,
         }
@@ -152,6 +163,14 @@ impl SearchStats {
         self.rfp_cutoffs.fetch_add(1, Ordering::SeqCst);
     }
 
+    fn increment_fp_attempts(&self) {
+        self.fp_attempts.fetch_add(1, Ordering::SeqCst);
+    }
+
+    fn increment_fp_cutoffs(&self) {
+        self.fp_cutoffs.fetch_add(1, Ordering::SeqCst);
+    }
+
     fn reset(&mut self) {
         self.last_score = None;
         self.last_duration = None;
@@ -165,6 +184,8 @@ impl SearchStats {
         self.null_move_cutoffs.store(0, Ordering::SeqCst);
         self.rfp_attempts.store(0, Ordering::SeqCst);
         self.rfp_cutoffs.store(0, Ordering::SeqCst);
+        self.fp_attempts.store(0, Ordering::SeqCst);
+        self.fp_cutoffs.store(0, Ordering::SeqCst);
     }
 
     fn record_result(&mut self, score: i16, duration: Duration) {
@@ -210,6 +231,14 @@ impl SearchStats {
 
     fn rfp_cutoffs(&self) -> usize {
         self.rfp_cutoffs.load(Ordering::SeqCst)
+    }
+
+    fn fp_attempts(&self) -> usize {
+        self.fp_attempts.load(Ordering::SeqCst)
+    }
+
+    fn fp_cutoffs(&self) -> usize {
+        self.fp_cutoffs.load(Ordering::SeqCst)
     }
 }
 
@@ -344,6 +373,14 @@ impl<M: Clone + Send + Sync + 'static> SearchContext<M> {
         self.stats.rfp_cutoffs()
     }
 
+    pub fn fp_attempts(&self) -> usize {
+        self.stats.fp_attempts()
+    }
+
+    pub fn fp_cutoffs(&self) -> usize {
+        self.stats.fp_cutoffs()
+    }
+
     fn increment_position_count(&self) {
         self.stats.increment();
     }
@@ -382,6 +419,14 @@ impl<M: Clone + Send + Sync + 'static> SearchContext<M> {
 
     fn increment_rfp_cutoffs(&self) {
         self.stats.increment_rfp_cutoffs();
+    }
+
+    fn increment_fp_attempts(&self) {
+        self.stats.increment_fp_attempts();
+    }
+
+    fn increment_fp_cutoffs(&self) {
+        self.stats.increment_fp_cutoffs();
     }
 }
 
@@ -1066,21 +1111,27 @@ where
         }
     }
 
+    // Compute static eval lazily for RFP and futility pruning at shallow depths.
+    // Cached here to avoid redundant evaluation calls.
+    let rfp_margin = evaluator.rfp_margin(depth);
+    let static_eval = if depth > 0 && !skip_speculative_pruning && rfp_margin.is_some() {
+        Some(evaluator.evaluate(state, depth))
+    } else {
+        None
+    };
+
     // Reverse Futility Pruning: if static eval is far above beta (or below alpha),
     // the position is so good that no move will fail to maintain the advantage.
     // Returns the bound (beta/alpha) consistent with NMP convention.
-    if depth > 0 && !skip_speculative_pruning {
-        if let Some(rfp_margin) = evaluator.rfp_margin(depth) {
-            context.increment_rfp_attempts();
-            let static_eval = evaluator.evaluate(state, depth);
-            if maximizing_player && static_eval.saturating_sub(rfp_margin) >= beta {
-                context.increment_rfp_cutoffs();
-                return Ok(beta);
-            }
-            if !maximizing_player && static_eval.saturating_add(rfp_margin) <= alpha {
-                context.increment_rfp_cutoffs();
-                return Ok(alpha);
-            }
+    if let (Some(margin), Some(eval)) = (rfp_margin, static_eval) {
+        context.increment_rfp_attempts();
+        if maximizing_player && eval.saturating_sub(margin) >= beta {
+            context.increment_rfp_cutoffs();
+            return Ok(beta);
+        }
+        if !maximizing_player && eval.saturating_add(margin) <= alpha {
+            context.increment_rfp_cutoffs();
+            return Ok(alpha);
         }
     }
 
@@ -1121,6 +1172,13 @@ where
     let original_alpha = alpha;
     let mut move_count = 0;
 
+    // Futility pruning: at shallow depths, skip quiet moves that can't reach the bound.
+    // Reuses the same margin and static_eval already computed for RFP above — both use
+    // rfp_margin(depth) at the same depth, so whenever do_futility is true, static_eval
+    // is guaranteed to already be Some from the RFP computation.
+    let futility_margin = evaluator.rfp_margin(depth);
+    let do_futility = futility_margin.is_some() && !skip_speculative_pruning;
+
     for game_move in candidates.as_ref().iter() {
         move_count += 1;
         let is_first_move = move_count == 1;
@@ -1145,6 +1203,24 @@ where
         } else {
             // Late Move Reductions (LMR): Reduce depth for late non-tactical moves
             let is_tactical = game_move.is_tactical(state);
+
+            // Futility pruning: skip quiet moves at shallow depths that can't
+            // possibly raise the score to alpha (maximizing) or lower it to
+            // beta (minimizing).
+            if do_futility && !is_tactical {
+                if let (Some(eval), Some(margin)) = (static_eval, futility_margin) {
+                    context.increment_fp_attempts();
+                    let dominated = if maximizing_player {
+                        eval.saturating_add(margin) <= alpha
+                    } else {
+                        eval.saturating_sub(margin) >= beta
+                    };
+                    if dominated {
+                        context.increment_fp_cutoffs();
+                        continue;
+                    }
+                }
+            }
             let do_lmr = depth >= 3 && move_count > 4 && !is_tactical;
             let reduction = if do_lmr { 1 } else { 0 };
 

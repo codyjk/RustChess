@@ -98,6 +98,8 @@ struct BenchmarkSummary {
     total_null_move_cutoffs: usize,
     total_rfp_attempts: usize,
     total_rfp_cutoffs: usize,
+    total_fp_attempts: usize,
+    total_fp_cutoffs: usize,
     results: Vec<PositionResult>,
 }
 
@@ -227,6 +229,22 @@ impl BenchmarkSummary {
             format_number(self.total_rfp_cutoffs),
             rfp_cutoff_pct
         );
+        println!();
+        println!("  Futility Pruning:");
+        println!(
+            "    Attempts:     {:>12}",
+            format_number(self.total_fp_attempts)
+        );
+        let fp_cutoff_pct = if self.total_fp_attempts == 0 {
+            0.0
+        } else {
+            (self.total_fp_cutoffs as f64 / self.total_fp_attempts as f64) * 100.0
+        };
+        println!(
+            "    Cutoffs:      {:>12} ({:.1}% of attempts)",
+            format_number(self.total_fp_cutoffs),
+            fp_cutoff_pct
+        );
         println!("{}", "=".repeat(70));
     }
 }
@@ -307,6 +325,8 @@ pub fn run_alpha_beta_benchmark(depth: u8, parallel: bool, position_filter: Opti
     let mut total_null_move_cutoffs = 0;
     let mut total_rfp_attempts = 0;
     let mut total_rfp_cutoffs = 0;
+    let mut total_fp_attempts = 0;
+    let mut total_fp_cutoffs = 0;
 
     // Create SearchContext once and share TT across all positions
     let mut context = SearchContext::with_parallel(depth, parallel);
@@ -333,6 +353,8 @@ pub fn run_alpha_beta_benchmark(depth: u8, parallel: bool, position_filter: Opti
         let null_move_cutoffs = context.null_move_cutoffs();
         let rfp_attempts = context.rfp_attempts();
         let rfp_cutoffs = context.rfp_cutoffs();
+        let fp_attempts = context.fp_attempts();
+        let fp_cutoffs = context.fp_cutoffs();
 
         total_nodes += nodes_searched;
         total_quiescence_nodes += quiescence_nodes;
@@ -345,6 +367,8 @@ pub fn run_alpha_beta_benchmark(depth: u8, parallel: bool, position_filter: Opti
         total_null_move_cutoffs += null_move_cutoffs;
         total_rfp_attempts += rfp_attempts;
         total_rfp_cutoffs += rfp_cutoffs;
+        total_fp_attempts += fp_attempts;
+        total_fp_cutoffs += fp_cutoffs;
 
         results.push(PositionResult {
             position_name: benchmark_pos.name.to_string(),
@@ -379,6 +403,8 @@ pub fn run_alpha_beta_benchmark(depth: u8, parallel: bool, position_filter: Opti
         total_null_move_cutoffs,
         total_rfp_attempts,
         total_rfp_cutoffs,
+        total_fp_attempts,
+        total_fp_cutoffs,
         results,
     };
 

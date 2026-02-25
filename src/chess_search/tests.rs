@@ -8,6 +8,7 @@
 //! - Transposition tables with chess positions
 //! - Null move pruning (check/endgame/middlegame, apply/undo, node reduction, correctness)
 //! - Reverse futility pruning (lopsided positions, check skip, margins, correctness)
+//! - Futility pruning (lopsided positions, capture preservation)
 
 use std::str::FromStr;
 
@@ -545,7 +546,8 @@ fn test_null_move_pruning_finds_correct_best_move() {
 fn test_rfp_fires_in_lopsided_position() {
     // White has massive material advantage (queen + rook vs lone king).
     // At shallow depths, RFP should prune many nodes because the static eval
-    // is far above beta.
+    // is far above beta. Use depth 5 so there are enough interior nodes for
+    // RFP to fire (at lower depths, FP at the parent may subsume RFP's work).
     let mut board = chess_position! {
         ....k...
         ........
@@ -559,7 +561,7 @@ fn test_rfp_fires_in_lopsided_position() {
     board.set_turn(Color::White);
     board.lose_castle_rights(CastleRights::all());
 
-    let mut context = SearchContext::with_parallel(4, false);
+    let mut context = SearchContext::with_parallel(5, false);
     search_best_move(&mut context, &mut board).unwrap();
 
     assert!(
@@ -590,7 +592,7 @@ fn test_rfp_fires_for_minimizing_player() {
 
     assert!(
         context.rfp_cutoffs() > 0,
-        "RFP should fire for minimizing player in a lopsided position, got 0 cutoffs"
+        "RFP should fire for minimizing player, got 0 cutoffs"
     );
 }
 
@@ -673,5 +675,89 @@ fn test_rfp_does_not_prevent_finding_queen_capture() {
         chess_move, expected,
         "RFP should not prevent finding queen capture: got {}",
         chess_move
+    );
+}
+
+#[test]
+fn test_futility_pruning_fires_in_lopsided_position() {
+    // White has massive material advantage. Futility pruning should skip quiet
+    // moves at shallow depths because even with a margin the eval can't reach alpha.
+    let mut board = chess_position! {
+        ....k...
+        ........
+        ........
+        ........
+        ........
+        ........
+        ........
+        R...K..Q
+    };
+    board.set_turn(Color::White);
+    board.lose_castle_rights(CastleRights::all());
+
+    let mut context = SearchContext::with_parallel(5, false);
+    search_best_move(&mut context, &mut board).unwrap();
+
+    assert!(
+        context.fp_cutoffs() > 0,
+        "Futility pruning should fire in a lopsided position, got 0 cutoffs"
+    );
+}
+
+#[test]
+fn test_futility_pruning_fires_for_minimizing_player() {
+    // Black has massive material advantage. Futility pruning should skip quiet
+    // moves for the minimizing player at shallow depths.
+    let mut board = chess_position! {
+        r...k..q
+        ........
+        ........
+        ........
+        ........
+        ........
+        ........
+        ....K...
+    };
+    board.set_turn(Color::Black);
+    board.lose_castle_rights(CastleRights::all());
+
+    let mut context = SearchContext::with_parallel(5, false);
+    search_best_move(&mut context, &mut board).unwrap();
+
+    assert!(
+        context.fp_cutoffs() > 0,
+        "Futility pruning should fire for minimizing player, got 0 cutoffs"
+    );
+}
+
+#[test]
+fn test_futility_pruning_does_not_skip_captures() {
+    // White should still find the queen capture even with futility pruning active.
+    let mut board = chess_position! {
+        rnb.kb.r
+        pppppppp
+        ........
+        ....q...
+        ..N.....
+        ........
+        PPPPPPPP
+        RNBQKB.R
+    };
+    board.set_turn(Color::White);
+    board.lose_castle_rights(CastleRights::all());
+
+    let mut context = SearchContext::with_parallel(4, false);
+    let chess_move = search_best_move(&mut context, &mut board).unwrap();
+
+    let expected = std_move!(C4, E5, Capture(Piece::Queen));
+    assert_eq!(
+        chess_move, expected,
+        "Futility pruning should not prevent finding queen capture: got {}",
+        chess_move
+    );
+    // Verify FP was actually active and had opportunity to prune quiet moves
+    assert!(
+        context.fp_attempts() > 0,
+        "Futility pruning should have been attempted (proving it was active)"
     );
 }
