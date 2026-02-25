@@ -34,11 +34,12 @@
 //! - **Playing**: Uses the `InputSource` trait (e.g., `ConditionalInput`, `EngineInput`, `HumanInput`)
 //! - **GameEnded**: Always reads from stdin to allow mode switching in all scenarios (including watch mode)
 
+use crate::alpha_beta_searcher::SearchError;
 use crate::board::color::Color;
 use crate::chess_move::chess_move::ChessMove;
 use crate::game::action::GameAction;
 use crate::game::display::GameDisplay;
-use crate::game::engine::{Engine, EngineConfig};
+use crate::game::engine::{Engine, EngineConfig, EngineError};
 use crate::game::input_source::InputSource;
 use crate::game::renderer::GameRenderer;
 use crate::input_handler::{InputError, MenuInput, MoveInput};
@@ -180,6 +181,9 @@ impl<I: InputSource, R: GameRenderer> GameLoop<I, R> {
                 self.apply_frame_delay();
                 None
             }
+            Err(EngineError::SearchError {
+                error: SearchError::Stopped,
+            }) => Some(GameAction::Exit),
             Err(error) => {
                 eprintln!("error: {}", error);
                 None

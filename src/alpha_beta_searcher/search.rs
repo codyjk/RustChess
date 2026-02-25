@@ -68,7 +68,8 @@
 //! eliminate lock contention.
 
 use std::cmp::{max, min};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use log::debug;
@@ -87,6 +88,8 @@ pub enum SearchError {
     NoAvailableMoves,
     #[error("depth must be at least 1")]
     DepthTooLow,
+    #[error("search stopped")]
+    Stopped,
 }
 
 /// Search configuration parameters.
@@ -274,6 +277,7 @@ pub struct SearchContext<M: Clone + Send + Sync + 'static> {
     stats: SearchStats,
     transposition_table: TranspositionTable<M>,
     killer_manager: KillerMovesManager,
+    stop: Arc<AtomicBool>,
 }
 
 impl<M: Clone + Send + Sync + 'static> SearchContext<M> {
@@ -283,6 +287,7 @@ impl<M: Clone + Send + Sync + 'static> SearchContext<M> {
             stats: SearchStats::new(),
             transposition_table: TranspositionTable::default(),
             killer_manager: KillerMovesManager::new(depth),
+            stop: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -292,7 +297,23 @@ impl<M: Clone + Send + Sync + 'static> SearchContext<M> {
             stats: SearchStats::new(),
             transposition_table: TranspositionTable::default(),
             killer_manager: KillerMovesManager::new(depth),
+            stop: Arc::new(AtomicBool::new(false)),
         }
+    }
+
+    /// Returns a clone of the stop flag Arc for use by a polling thread.
+    pub fn stop_flag(&self) -> Arc<AtomicBool> {
+        Arc::clone(&self.stop)
+    }
+
+    /// Check if the search has been asked to stop.
+    pub fn should_stop(&self) -> bool {
+        self.stop.load(Ordering::Relaxed)
+    }
+
+    /// Reset the stop flag before starting a new search.
+    pub fn clear_stop(&self) {
+        self.stop.store(false, Ordering::Relaxed);
     }
 
     pub fn set_parallel(&mut self, parallel: bool) {
@@ -621,6 +642,11 @@ where
     const ASPIRATION_WINDOW: i16 = 50;
 
     for depth in 1..=target_depth {
+        // Check stop flag at the top of each depth iteration
+        if context.should_stop() {
+            break;
+        }
+
         // Check if we already have an exact result at this depth from TT
         if let Some((score, Some(ref mv))) =
             context
@@ -656,7 +682,7 @@ where
                 (i16::MIN, i16::MAX)
             };
 
-        let (score, move_found) = if context.is_parallel() {
+        let search_result = if context.is_parallel() {
             search_root_parallel(
                 context,
                 state,
@@ -668,7 +694,7 @@ where
                 current_player_is_maximizing,
                 window_alpha,
                 window_beta,
-            )?
+            )
         } else {
             search_root_sequential(
                 context,
@@ -681,14 +707,21 @@ where
                 current_player_is_maximizing,
                 window_alpha,
                 window_beta,
-            )?
+            )
+        };
+
+        // On Stopped, break out and return best move from last completed depth
+        let (score, move_found) = match search_result {
+            Ok(result) => result,
+            Err(SearchError::Stopped) => break,
+            Err(e) => return Err(e),
         };
 
         // If score falls outside aspiration window, re-search with full window
         let (score, move_found) = if score <= window_alpha || score >= window_beta {
             window_alpha = i16::MIN;
             window_beta = i16::MAX;
-            if context.is_parallel() {
+            let re_search_result = if context.is_parallel() {
                 search_root_parallel(
                     context,
                     state,
@@ -700,7 +733,7 @@ where
                     current_player_is_maximizing,
                     window_alpha,
                     window_beta,
-                )?
+                )
             } else {
                 search_root_sequential(
                     context,
@@ -713,7 +746,12 @@ where
                     current_player_is_maximizing,
                     window_alpha,
                     window_beta,
-                )?
+                )
+            };
+            match re_search_result {
+                Ok(result) => result,
+                Err(SearchError::Stopped) => break,
+                Err(e) => return Err(e),
             }
         } else {
             (score, move_found)
@@ -836,7 +874,7 @@ where
         .map(|game_move| {
             let mut cloned_state = state.clone();
 
-            let score = with_move_applied(game_move, &mut cloned_state, |state| {
+            let result = with_move_applied(game_move, &mut cloned_state, |state| {
                 alpha_beta_minimax(
                     context,
                     state,
@@ -850,13 +888,14 @@ where
                     !maximizing_player,
                     true,
                 )
-            })
-            .expect("minimax should succeed in parallel search");
+            });
 
-            (score, game_move.clone())
+            result.map(|score| (score, game_move.clone()))
         })
         .collect();
 
+    // Check if any thread was stopped
+    let mut stopped = false;
     let mut best_score = if maximizing_player {
         i16::MIN
     } else {
@@ -864,14 +903,24 @@ where
     };
     let mut best_move = None;
 
-    for (score, game_move) in results {
-        update_best(
-            score,
-            &game_move,
-            maximizing_player,
-            &mut best_score,
-            &mut best_move,
-        );
+    for result in results {
+        match result {
+            Ok((score, game_move)) => {
+                update_best(
+                    score,
+                    &game_move,
+                    maximizing_player,
+                    &mut best_score,
+                    &mut best_move,
+                );
+            }
+            Err(SearchError::Stopped) => stopped = true,
+            Err(e) => return Err(e),
+        }
+    }
+
+    if stopped && best_move.is_none() {
+        return Err(SearchError::Stopped);
     }
 
     Ok((best_score, best_move))
@@ -1106,6 +1155,11 @@ where
     O: MoveOrderer<S, G::Move>,
 {
     context.increment_position_count();
+
+    // Periodically check the stop flag (every 4096 nodes)
+    if context.stats.count() & 0xFFF == 0 && context.should_stop() {
+        return Err(SearchError::Stopped);
+    }
 
     // Check extension: when in check, extend search by 1 ply to avoid missing
     // critical tactical sequences at the horizon. Capped by ply distance from

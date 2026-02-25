@@ -1,4 +1,7 @@
+use std::sync::atomic::Ordering;
 use std::time::Duration;
+
+use crossterm::event::{self, Event, KeyCode, KeyModifiers};
 
 use crate::alpha_beta_searcher::{SearchContext, SearchError};
 use crate::board::color::Color;
@@ -308,7 +311,42 @@ impl Engine {
     }
 
     fn get_best_move_from_search(&mut self) -> Result<ChessMove, EngineError> {
+        self.search_context.clear_stop();
+        let stop_flag = self.search_context.stop_flag();
+
+        // Spawn a background thread that polls for Ctrl-C during the search
+        let poll_flag = stop_flag.clone();
+        let poll_thread = std::thread::spawn(move || {
+            while !poll_flag.load(Ordering::Relaxed) {
+                if event::poll(Duration::from_millis(50)).unwrap_or(false) {
+                    if let Ok(Event::Key(key_event)) = event::read() {
+                        if key_event.code == KeyCode::Char('c')
+                            && key_event.modifiers.contains(KeyModifiers::CONTROL)
+                        {
+                            poll_flag.store(true, Ordering::Relaxed);
+                            return;
+                        }
+                    }
+                }
+            }
+        });
+
         let move_result = search_best_move(&mut self.search_context, &mut self.state.board);
+
+        // Check if user requested stop before we overwrite the flag for the polling thread
+        let was_stopped = self.search_context.should_stop();
+
+        // Signal polling thread to exit and wait for it
+        stop_flag.store(true, Ordering::Relaxed);
+        let _ = poll_thread.join();
+        self.search_context.clear_stop();
+
+        // If user pressed Ctrl-C, propagate Stopped even if the search returned a move
+        if was_stopped {
+            return Err(EngineError::SearchError {
+                error: SearchError::Stopped,
+            });
+        }
 
         let best_move = move_result.map_err(|err| EngineError::SearchError { error: err })?;
         self.state.last_score = self.search_context.last_score();
