@@ -47,6 +47,13 @@
 //! first move is never pruned, and tactical moves (captures, promotions) are always
 //! searched. Uses the same margin values as RFP via `Evaluator::rfp_margin`.
 //!
+//! ## Late Move Reductions (LMR)
+//! After the first few moves at each node, later quiet moves are searched at reduced depth
+//! under the assumption that well-ordered moves tend to be best. Uses a logarithmic formula
+//! `reduction = 1 + ln(depth) * ln(move_count) / 2` that scales reductions with both depth
+//! and move index. If the reduced search returns a score that improves on the current bound,
+//! a full-depth re-search is performed to verify the result.
+//!
 //! ## Parallel Search
 //! Root moves can be searched in parallel using thread-local storage for killer moves to
 //! eliminate lock contention.
@@ -1221,8 +1228,15 @@ where
                     }
                 }
             }
-            let do_lmr = depth >= 3 && move_count > 4 && !is_tactical;
-            let reduction = if do_lmr { 1 } else { 0 };
+            let do_lmr = depth >= 3 && move_count > 3 && !is_tactical;
+            let reduction = if do_lmr {
+                // Logarithmic reduction: deeper depths and later moves get larger reductions.
+                let r = 1.0 + (depth as f64).ln() * (move_count as f64).ln() / 2.0;
+                // Clamp: at least 1, at most depth-2 (always search at least 1 ply).
+                (r.floor() as u8).clamp(1, depth.saturating_sub(2).max(1))
+            } else {
+                0
+            };
 
             // Try reduced depth search first (if LMR applies)
             let reduced_score = if do_lmr {
@@ -1245,13 +1259,20 @@ where
                 None
             };
 
-            // PV-Search: Try null window search (skip if LMR failed low)
+            // PV-Search: Try null window search (skip if LMR confirmed move is uninteresting).
+            // For maximizing nodes, "uninteresting" means rs <= alpha (failed low).
+            // For minimizing nodes, "uninteresting" means rs >= beta (failed high).
             let null_window_score = if let Some(rs) = reduced_score {
-                if rs <= alpha {
-                    // Reduced search failed low, accept the score
+                let move_is_uninteresting = if maximizing_player {
+                    rs <= alpha
+                } else {
+                    rs >= beta
+                };
+                if move_is_uninteresting {
+                    // Reduced search confirmed this move won't improve the bound
                     rs
                 } else {
-                    // Reduced search raised alpha, re-search with null window at full depth
+                    // Reduced search suggests the move may be interesting, verify at full depth
                     with_move_applied(game_move, state, |state| {
                         alpha_beta_minimax(
                             context,
