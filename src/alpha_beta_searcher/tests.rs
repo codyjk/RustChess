@@ -2232,3 +2232,94 @@ fn test_null_move_apply_undo_symmetry_nim() {
         "Undo null move should restore turn"
     );
 }
+
+// ========================================================================
+// TT depth-preferred replacement tests
+// ========================================================================
+
+#[test]
+fn test_tt_depth_preferred_keeps_deeper_entry() {
+    let tt = TranspositionTable::<NimMove>::default();
+
+    // Store a deep entry
+    tt.store(42, 100, 5, BoundType::Exact, Some(NimMove { take: 2 }));
+    // Try to overwrite with a shallower entry
+    tt.store(42, 50, 3, BoundType::Exact, Some(NimMove { take: 1 }));
+
+    // The deeper entry should be preserved
+    let (score, _) = tt.probe_with_move(42, 5, i16::MIN, i16::MAX);
+    assert_eq!(
+        score,
+        Some(100),
+        "Deeper entry (depth 5, score 100) should be preserved over shallower (depth 3)"
+    );
+}
+
+#[test]
+fn test_tt_depth_preferred_replaces_with_deeper() {
+    let tt = TranspositionTable::<NimMove>::default();
+
+    // Store a shallow entry
+    tt.store(42, 50, 3, BoundType::Exact, Some(NimMove { take: 1 }));
+    // Overwrite with a deeper entry
+    tt.store(42, 100, 5, BoundType::Exact, Some(NimMove { take: 2 }));
+
+    // The deeper entry should be stored
+    let (score, _) = tt.probe_with_move(42, 5, i16::MIN, i16::MAX);
+    assert_eq!(
+        score,
+        Some(100),
+        "Deeper entry (depth 5, score 100) should replace shallower (depth 3)"
+    );
+}
+
+#[test]
+fn test_tt_depth_preferred_replaces_at_same_depth() {
+    let tt = TranspositionTable::<NimMove>::default();
+
+    // Store an entry
+    tt.store(42, 50, 4, BoundType::Exact, Some(NimMove { take: 1 }));
+    // Overwrite with same depth (should replace — newer info at same depth is better)
+    tt.store(42, 80, 4, BoundType::Exact, Some(NimMove { take: 2 }));
+
+    // The newer entry should be stored
+    let (score, _) = tt.probe_with_move(42, 4, i16::MIN, i16::MAX);
+    assert_eq!(
+        score,
+        Some(80),
+        "Same-depth entry should replace (newer info is better)"
+    );
+}
+
+#[test]
+fn test_tt_depth_preferred_overwrite_counter() {
+    let tt = TranspositionTable::<NimMove>::default();
+
+    // First store — no overwrite
+    tt.store(42, 100, 5, BoundType::Exact, Some(NimMove { take: 2 }));
+    assert_eq!(tt.overwrites(), 0, "First store should not be an overwrite");
+
+    // Same-depth store — overwrites
+    tt.store(42, 80, 5, BoundType::Exact, Some(NimMove { take: 1 }));
+    assert_eq!(
+        tt.overwrites(),
+        1,
+        "Same-depth store should increment overwrite"
+    );
+
+    // Shallow store — rejected, no overwrite
+    tt.store(42, 60, 3, BoundType::Exact, Some(NimMove { take: 1 }));
+    assert_eq!(
+        tt.overwrites(),
+        1,
+        "Shallow store should not increment overwrite"
+    );
+
+    // Deeper store — overwrites
+    tt.store(42, 120, 7, BoundType::Exact, Some(NimMove { take: 3 }));
+    assert_eq!(
+        tt.overwrites(),
+        2,
+        "Deeper store should increment overwrite"
+    );
+}

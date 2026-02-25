@@ -63,10 +63,19 @@ impl<M: Clone + Send + Sync> TranspositionTable<M> {
             best_move,
         };
 
-        // Simple replacement strategy: always replace
-        // DashMap handles concurrent access automatically
-        if self.table.insert(hash, entry).is_some() {
-            self.overwrites.fetch_add(1, Ordering::Relaxed);
+        // Depth-preferred replacement: only replace if new entry has >= depth.
+        // This preserves expensive deep searches from being overwritten by
+        // shallow entries, improving TT hit quality at deeper search depths.
+        match self.table.entry(hash) {
+            dashmap::mapref::entry::Entry::Occupied(mut occ) => {
+                if depth >= occ.get().depth {
+                    occ.insert(entry);
+                    self.overwrites.fetch_add(1, Ordering::Relaxed);
+                }
+            }
+            dashmap::mapref::entry::Entry::Vacant(vac) => {
+                vac.insert(entry);
+            }
         }
     }
 
