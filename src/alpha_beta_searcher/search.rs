@@ -718,42 +718,67 @@ where
             Err(e) => return Err(e),
         };
 
-        // If score falls outside aspiration window, re-search with full window
+        // Progressive aspiration window widening: if score falls outside window,
+        // widen progressively (200 -> 800 -> full) instead of jumping to full.
         let (score, move_found) = if score <= window_alpha || score >= window_beta {
-            window_alpha = i16::MIN;
-            window_beta = i16::MAX;
-            let re_search_result = if context.is_parallel() {
-                search_root_parallel(
-                    context,
-                    state,
-                    move_generator,
-                    evaluator,
-                    move_orderer,
-                    &candidates,
-                    depth,
-                    current_player_is_maximizing,
-                    window_alpha,
-                    window_beta,
-                )
-            } else {
-                search_root_sequential(
-                    context,
-                    state,
-                    move_generator,
-                    evaluator,
-                    move_orderer,
-                    &candidates,
-                    depth,
-                    current_player_is_maximizing,
-                    window_alpha,
-                    window_beta,
-                )
-            };
-            match re_search_result {
-                Ok(result) => result,
-                Err(SearchError::Stopped) => break,
-                Err(e) => return Err(e),
+            let widenings = [200_i16, 800, i16::MAX];
+            let mut result_score = score;
+            let mut result_move = move_found;
+            for &widen in &widenings {
+                if widen == i16::MAX {
+                    window_alpha = i16::MIN;
+                    window_beta = i16::MAX;
+                } else {
+                    window_alpha = result_score.saturating_sub(widen);
+                    window_beta = result_score.saturating_add(widen);
+                }
+                let re_search_result = if context.is_parallel() {
+                    search_root_parallel(
+                        context,
+                        state,
+                        move_generator,
+                        evaluator,
+                        move_orderer,
+                        &candidates,
+                        depth,
+                        current_player_is_maximizing,
+                        window_alpha,
+                        window_beta,
+                    )
+                } else {
+                    search_root_sequential(
+                        context,
+                        state,
+                        move_generator,
+                        evaluator,
+                        move_orderer,
+                        &candidates,
+                        depth,
+                        current_player_is_maximizing,
+                        window_alpha,
+                        window_beta,
+                    )
+                };
+                match re_search_result {
+                    Ok((s, m)) => {
+                        result_score = s;
+                        result_move = m;
+                        // If score is within the window, we're done
+                        if result_score > window_alpha && result_score < window_beta {
+                            break;
+                        }
+                    }
+                    Err(SearchError::Stopped) => {
+                        result_move = None;
+                        break;
+                    }
+                    Err(e) => return Err(e),
+                }
             }
+            if result_move.is_none() {
+                break; // Stopped
+            }
+            (result_score, result_move)
         } else {
             (score, move_found)
         };
@@ -1217,9 +1242,10 @@ where
     // Also skip in endgame or other positions where the evaluator says so.
     let skip_speculative_pruning = in_check || evaluator.should_skip_null_move(state);
 
-    // Null Move Pruning: if passing still causes a beta cutoff, prune the subtree
-    const NULL_MOVE_REDUCTION: u8 = 2;
+    // Null Move Pruning: if passing still causes a beta cutoff, prune the subtree.
+    // Adaptive reduction: R=3 at depth >= 6, R=2 otherwise.
     if allow_null_move && depth >= 3 && !skip_speculative_pruning {
+        let null_move_reduction: u8 = if depth >= 6 { 3 } else { 2 };
         context.increment_null_move_attempts();
         state.apply_null_move();
         let null_score = alpha_beta_minimax(
@@ -1228,7 +1254,7 @@ where
             move_generator,
             evaluator,
             move_orderer,
-            depth - 1 - NULL_MOVE_REDUCTION,
+            depth.saturating_sub(1 + null_move_reduction),
             ply + 1,
             alpha,
             beta,
@@ -1268,6 +1294,41 @@ where
         if !maximizing_player && eval.saturating_add(margin) <= alpha {
             context.increment_rfp_cutoffs();
             return Ok(alpha);
+        }
+    }
+
+    // Razoring: at depth 1, if static eval is far below alpha, drop to qsearch.
+    // Only when not in check. Conservative margin to avoid missing tactics.
+    if !skip_speculative_pruning && depth == 1 {
+        let razor_margin = 300_i16;
+        let eval = static_eval.unwrap_or_else(|| evaluator.evaluate(state, depth));
+        if maximizing_player && eval + razor_margin < alpha {
+            return quiescence_search(
+                context,
+                state,
+                hash,
+                move_generator,
+                evaluator,
+                move_orderer,
+                alpha,
+                beta,
+                maximizing_player,
+                0,
+            );
+        }
+        if !maximizing_player && eval - razor_margin > beta {
+            return quiescence_search(
+                context,
+                state,
+                hash,
+                move_generator,
+                evaluator,
+                move_orderer,
+                alpha,
+                beta,
+                maximizing_player,
+                0,
+            );
         }
     }
 
