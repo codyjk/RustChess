@@ -649,10 +649,10 @@ where
         }
 
         // Check if we already have an exact result at this depth from TT
-        if let Some((score, Some(ref mv))) =
+        if let (Some(score), Some(ref mv)) =
             context
                 .transposition_table
-                .probe(hash, depth, i16::MIN, i16::MAX)
+                .probe_with_move(hash, depth, i16::MIN, i16::MAX)
         {
             if candidates.as_ref().iter().any(|c| c == mv) {
                 debug!("Using transposition table hit at depth {}", depth);
