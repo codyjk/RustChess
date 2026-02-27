@@ -89,6 +89,13 @@ pub trait Evaluator<S: GameState>: Clone + Send + Sync {
     fn is_in_check(&self, _state: &mut S) -> bool {
         false
     }
+
+    /// Returns the late move pruning threshold for the given depth, or None to disable LMP.
+    /// At shallow depths, quiet moves beyond this threshold are pruned entirely.
+    /// Default returns None (LMP disabled).
+    fn lmp_threshold(&self, _depth: u8) -> Option<usize> {
+        None
+    }
 }
 
 /// Orders moves to improve alpha-beta pruning efficiency.

@@ -145,77 +145,77 @@ impl SearchStats {
     }
 
     fn increment(&self) {
-        self.position_count.fetch_add(1, Ordering::SeqCst);
+        self.position_count.fetch_add(1, Ordering::Relaxed);
     }
 
     fn increment_quiescence(&self) {
-        self.quiescence_nodes.fetch_add(1, Ordering::SeqCst);
+        self.quiescence_nodes.fetch_add(1, Ordering::Relaxed);
     }
 
     fn increment_tt_probes(&self) {
-        self.tt_probes.fetch_add(1, Ordering::SeqCst);
+        self.tt_probes.fetch_add(1, Ordering::Relaxed);
     }
 
     fn increment_tt_stores(&self) {
-        self.tt_stores.fetch_add(1, Ordering::SeqCst);
+        self.tt_stores.fetch_add(1, Ordering::Relaxed);
     }
 
     fn increment_tt_misses(&self) {
-        self.tt_probe_misses.fetch_add(1, Ordering::SeqCst);
+        self.tt_probe_misses.fetch_add(1, Ordering::Relaxed);
     }
 
     fn increment_move_gen(&self) {
-        self.move_gen_calls.fetch_add(1, Ordering::SeqCst);
+        self.move_gen_calls.fetch_add(1, Ordering::Relaxed);
     }
 
     fn increment_null_move_attempts(&self) {
-        self.null_move_attempts.fetch_add(1, Ordering::SeqCst);
+        self.null_move_attempts.fetch_add(1, Ordering::Relaxed);
     }
 
     fn increment_null_move_cutoffs(&self) {
-        self.null_move_cutoffs.fetch_add(1, Ordering::SeqCst);
+        self.null_move_cutoffs.fetch_add(1, Ordering::Relaxed);
     }
 
     fn increment_rfp_attempts(&self) {
-        self.rfp_attempts.fetch_add(1, Ordering::SeqCst);
+        self.rfp_attempts.fetch_add(1, Ordering::Relaxed);
     }
 
     fn increment_rfp_cutoffs(&self) {
-        self.rfp_cutoffs.fetch_add(1, Ordering::SeqCst);
+        self.rfp_cutoffs.fetch_add(1, Ordering::Relaxed);
     }
 
     fn increment_fp_attempts(&self) {
-        self.fp_attempts.fetch_add(1, Ordering::SeqCst);
+        self.fp_attempts.fetch_add(1, Ordering::Relaxed);
     }
 
     fn increment_fp_cutoffs(&self) {
-        self.fp_cutoffs.fetch_add(1, Ordering::SeqCst);
+        self.fp_cutoffs.fetch_add(1, Ordering::Relaxed);
     }
 
     fn increment_check_extensions(&self) {
-        self.check_extensions.fetch_add(1, Ordering::SeqCst);
+        self.check_extensions.fetch_add(1, Ordering::Relaxed);
     }
 
     fn check_extensions(&self) -> usize {
-        self.check_extensions.load(Ordering::SeqCst)
+        self.check_extensions.load(Ordering::Relaxed)
     }
 
     fn reset(&mut self) {
         self.last_score = None;
         self.last_duration = None;
-        self.position_count.store(0, Ordering::SeqCst);
-        self.quiescence_nodes.store(0, Ordering::SeqCst);
-        self.tt_probes.store(0, Ordering::SeqCst);
-        self.tt_stores.store(0, Ordering::SeqCst);
-        self.tt_probe_misses.store(0, Ordering::SeqCst);
-        self.move_gen_calls.store(0, Ordering::SeqCst);
-        self.null_move_attempts.store(0, Ordering::SeqCst);
-        self.null_move_cutoffs.store(0, Ordering::SeqCst);
-        self.rfp_attempts.store(0, Ordering::SeqCst);
-        self.rfp_cutoffs.store(0, Ordering::SeqCst);
-        self.fp_attempts.store(0, Ordering::SeqCst);
-        self.fp_cutoffs.store(0, Ordering::SeqCst);
-        self.check_extensions.store(0, Ordering::SeqCst);
+        self.position_count.store(0, Ordering::Relaxed);
+        self.quiescence_nodes.store(0, Ordering::Relaxed);
+        self.tt_probes.store(0, Ordering::Relaxed);
+        self.tt_stores.store(0, Ordering::Relaxed);
+        self.tt_probe_misses.store(0, Ordering::Relaxed);
+        self.move_gen_calls.store(0, Ordering::Relaxed);
+        self.null_move_attempts.store(0, Ordering::Relaxed);
+        self.null_move_cutoffs.store(0, Ordering::Relaxed);
+        self.rfp_attempts.store(0, Ordering::Relaxed);
+        self.rfp_cutoffs.store(0, Ordering::Relaxed);
+        self.fp_attempts.store(0, Ordering::Relaxed);
+        self.fp_cutoffs.store(0, Ordering::Relaxed);
+        self.check_extensions.store(0, Ordering::Relaxed);
     }
 
     fn record_result(&mut self, score: i16, duration: Duration) {
@@ -224,51 +224,51 @@ impl SearchStats {
     }
 
     fn count(&self) -> usize {
-        self.position_count.load(Ordering::SeqCst)
+        self.position_count.load(Ordering::Relaxed)
     }
 
     fn quiescence_nodes(&self) -> usize {
-        self.quiescence_nodes.load(Ordering::SeqCst)
+        self.quiescence_nodes.load(Ordering::Relaxed)
     }
 
     fn tt_probes(&self) -> usize {
-        self.tt_probes.load(Ordering::SeqCst)
+        self.tt_probes.load(Ordering::Relaxed)
     }
 
     fn tt_stores(&self) -> usize {
-        self.tt_stores.load(Ordering::SeqCst)
+        self.tt_stores.load(Ordering::Relaxed)
     }
 
     fn tt_probe_misses(&self) -> usize {
-        self.tt_probe_misses.load(Ordering::SeqCst)
+        self.tt_probe_misses.load(Ordering::Relaxed)
     }
 
     fn move_gen_calls(&self) -> usize {
-        self.move_gen_calls.load(Ordering::SeqCst)
+        self.move_gen_calls.load(Ordering::Relaxed)
     }
 
     fn null_move_attempts(&self) -> usize {
-        self.null_move_attempts.load(Ordering::SeqCst)
+        self.null_move_attempts.load(Ordering::Relaxed)
     }
 
     fn null_move_cutoffs(&self) -> usize {
-        self.null_move_cutoffs.load(Ordering::SeqCst)
+        self.null_move_cutoffs.load(Ordering::Relaxed)
     }
 
     fn rfp_attempts(&self) -> usize {
-        self.rfp_attempts.load(Ordering::SeqCst)
+        self.rfp_attempts.load(Ordering::Relaxed)
     }
 
     fn rfp_cutoffs(&self) -> usize {
-        self.rfp_cutoffs.load(Ordering::SeqCst)
+        self.rfp_cutoffs.load(Ordering::Relaxed)
     }
 
     fn fp_attempts(&self) -> usize {
-        self.fp_attempts.load(Ordering::SeqCst)
+        self.fp_attempts.load(Ordering::Relaxed)
     }
 
     fn fp_cutoffs(&self) -> usize {
-        self.fp_cutoffs.load(Ordering::SeqCst)
+        self.fp_cutoffs.load(Ordering::Relaxed)
     }
 }
 
@@ -1172,6 +1172,26 @@ where
         depth
     };
 
+    // Mate distance pruning: if we already know a shorter mate exists, prune.
+    // Uses WHITE_WINS = i16::MAX / 2 as the base mate score.
+    const MATE_SCORE: i16 = i16::MAX / 2;
+    {
+        let mating_score = MATE_SCORE - ply as i16;
+        if mating_score < beta {
+            beta = mating_score;
+            if alpha >= beta {
+                return Ok(beta);
+            }
+        }
+        let mated_score = -MATE_SCORE + ply as i16;
+        if mated_score > alpha {
+            alpha = mated_score;
+            if alpha >= beta {
+                return Ok(alpha);
+            }
+        }
+    }
+
     let hash = state.position_hash();
 
     // Probe TT once for both cutoff score and PV move
@@ -1189,6 +1209,14 @@ where
     if let Some(score) = cutoff_score {
         return Ok(score);
     }
+
+    // Internal Iterative Reduction (IIR): when there's no TT move at sufficient
+    // depth, reduce depth by 1 to avoid search explosions at untried nodes.
+    let depth = if tt_move.is_none() && depth >= 4 {
+        depth - 1
+    } else {
+        depth
+    };
 
     // Being in check implies we should skip speculative pruning (NMP, RFP, FP).
     // Also skip in endgame or other positions where the evaluator says so.
@@ -1343,6 +1371,17 @@ where
                     }
                 }
             }
+
+            // Late Move Pruning (LMP): at shallow depths, skip late quiet moves
+            // entirely once we've searched enough moves.
+            if !in_check && !is_tactical {
+                if let Some(threshold) = evaluator.lmp_threshold(depth) {
+                    if move_count > threshold {
+                        continue;
+                    }
+                }
+            }
+
             let do_lmr = depth >= 3 && move_count > 3 && !is_tactical && !in_check;
             let reduction = if do_lmr {
                 // Logarithmic reduction: deeper depths and later moves get larger reductions.

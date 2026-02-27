@@ -143,6 +143,16 @@ impl Evaluator<Board> for ChessEvaluator {
     fn is_in_check(&self, state: &mut Board) -> bool {
         evaluate::current_player_is_in_check(state, &self.move_generator)
     }
+
+    #[inline]
+    fn lmp_threshold(&self, depth: u8) -> Option<usize> {
+        match depth {
+            1 => Some(4),
+            2 => Some(7),
+            3 => Some(12),
+            _ => None,
+        }
+    }
 }
 
 /// Searches for the best chess move from the given position.

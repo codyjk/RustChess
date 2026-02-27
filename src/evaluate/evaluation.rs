@@ -51,10 +51,6 @@ pub fn game_ending(
     move_generator: &MoveGenerator,
     current_turn: Color,
 ) -> Option<GameEnding> {
-    if board.max_seen_position_count() == 3 {
-        return Some(GameEnding::Draw);
-    }
-
     if board.halfmove_clock().value() >= 50 {
         return Some(GameEnding::Draw);
     }
@@ -81,14 +77,6 @@ pub fn score(
     current_turn: Color,
     remaining_depth: u8,
 ) -> i16 {
-    // Check for position repetition
-    if board.max_seen_position_count() == 3 {
-        match current_turn {
-            Color::White => return BLACK_WINS,
-            Color::Black => return WHITE_WINS,
-        }
-    }
-
     // Check for 50-move rule
     if board.halfmove_clock().value() >= 50 {
         return 0;

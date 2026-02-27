@@ -1,5 +1,4 @@
 use common::bitboard::Square;
-use rustc_hash::FxHashMap;
 
 use super::{color::Color, piece::Piece};
 
@@ -8,57 +7,14 @@ include!(concat!(env!("OUT_DIR"), "/zobrist_table.rs"));
 /// Stores information about state changes related to the current (and previous) positions.
 /// Holds the logic for incrementally updating the hash of the current position using
 /// Zobrist hashing: https://www.chessprogramming.org/Zobrist_Hashing
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct PositionInfo {
-    position_count: FxHashMap<u64, u8>,
-    max_seen_position_count_stack: Vec<u8>,
     current_position_hash: u64,
-}
-
-impl Default for PositionInfo {
-    fn default() -> Self {
-        Self {
-            position_count: FxHashMap::default(),
-            max_seen_position_count_stack: vec![1],
-            current_position_hash: 0,
-        }
-    }
 }
 
 impl PositionInfo {
     pub fn new() -> Self {
         Default::default()
-    }
-
-    pub fn count_current_position(&mut self) -> u8 {
-        self.position_count
-            .entry(self.current_position_hash)
-            .and_modify(|count| *count += 1)
-            .or_insert(1);
-        let count = *self
-            .position_count
-            .get(&self.current_position_hash)
-            .expect("position should exist in map after or_insert");
-        self.max_seen_position_count_stack.push(count);
-        count
-    }
-
-    pub fn uncount_current_position(&mut self) -> u8 {
-        self.position_count
-            .entry(self.current_position_hash)
-            .and_modify(|count| *count -= 1);
-        self.max_seen_position_count_stack.pop();
-        *self
-            .position_count
-            .get(&self.current_position_hash)
-            .expect("position should exist in map after decrement")
-    }
-
-    pub fn max_seen_position_count(&self) -> u8 {
-        *self
-            .max_seen_position_count_stack
-            .last()
-            .expect("max_seen_position_count_stack should never be empty")
     }
 
     pub fn update_zobrist_hash_toggle_piece(&mut self, square: Square, piece: Piece, color: Color) {

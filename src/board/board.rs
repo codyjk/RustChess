@@ -219,18 +219,6 @@ impl Board {
 
     // PositionInfo delegation
 
-    pub fn count_current_position(&mut self) -> u8 {
-        self.position_info.count_current_position()
-    }
-
-    pub fn uncount_current_position(&mut self) -> u8 {
-        self.position_info.uncount_current_position()
-    }
-
-    pub fn max_seen_position_count(&self) -> u8 {
-        self.position_info.max_seen_position_count()
-    }
-
     pub fn current_position_hash(&self) -> u64 {
         self.position_info.current_position_hash()
     }

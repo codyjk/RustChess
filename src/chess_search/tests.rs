@@ -548,24 +548,23 @@ fn test_null_move_pruning_finds_correct_best_move() {
 
 #[test]
 fn test_rfp_fires_in_lopsided_position() {
-    // White has massive material advantage (queen + rook vs lone king).
-    // At shallow depths, RFP should prune many nodes because the static eval
-    // is far above beta. Use depth 5 so there are enough interior nodes for
-    // RFP to fire (at lower depths, FP at the parent may subsume RFP's work).
+    // White has massive material advantage (queen + rook + bishop vs king + pawns).
+    // At sufficient depth, RFP should prune many nodes because the static eval
+    // is far above beta. More pieces produce enough interior nodes for RFP to fire.
     let mut board = chess_position! {
         ....k...
+        .p...p..
         ........
         ........
         ........
-        ........
-        ........
+        ..B.....
         ........
         R...K..Q
     };
     board.set_turn(Color::White);
     board.lose_castle_rights(CastleRights::all());
 
-    let mut context = SearchContext::with_parallel(5, false);
+    let mut context = SearchContext::with_parallel(6, false);
     search_best_move(&mut context, &mut board).unwrap();
 
     assert!(
@@ -576,22 +575,22 @@ fn test_rfp_fires_in_lopsided_position() {
 
 #[test]
 fn test_rfp_fires_for_minimizing_player() {
-    // Black has massive material advantage (queen + rook vs lone king).
+    // Black has massive material advantage (queen + rook + bishop vs king + pawns).
     // Exercises the minimizing-player RFP path (static_eval + margin <= alpha).
     let mut board = chess_position! {
         r...k..q
         ........
+        ..b.....
         ........
         ........
         ........
-        ........
-        ........
+        .P...P..
         ....K...
     };
     board.set_turn(Color::Black);
     board.lose_castle_rights(CastleRights::all());
 
-    let mut context = SearchContext::with_parallel(4, false);
+    let mut context = SearchContext::with_parallel(6, false);
     search_best_move(&mut context, &mut board).unwrap();
 
     assert!(
