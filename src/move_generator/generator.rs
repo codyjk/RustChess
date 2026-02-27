@@ -82,6 +82,14 @@ impl MoveGenerator {
         generate_valid_moves(board, player, &self.targets)
     }
 
+    /// Generates only tactical moves (captures, en passant, and promotions).
+    /// More efficient than generate_moves() followed by filtering, as it avoids
+    /// generating quiet moves entirely.
+    #[cfg_attr(feature = "instrumentation", instrument(skip_all))]
+    pub fn generate_tactical_moves(&self, board: &mut Board, player: Color) -> ChessMoveList {
+        generate_tactical_valid_moves(board, player, &self.targets)
+    }
+
     fn lazily_update_chess_move_effect_for_checks_and_checkmates(
         &self,
         moves: &mut ChessMoveList,
@@ -282,6 +290,231 @@ fn generate_valid_moves(board: &mut Board, color: Color, targets: &Targets) -> C
     remove_invalid_moves(&mut moves, board, color, targets, false);
 
     moves
+}
+
+/// Generates only tactical moves (captures, promotions, en passant) for the given position.
+/// Skips quiet moves and castle moves entirely for efficiency.
+#[cfg_attr(feature = "instrumentation", instrument(skip_all))]
+fn generate_tactical_valid_moves(
+    board: &mut Board,
+    color: Color,
+    targets: &Targets,
+) -> ChessMoveList {
+    let pin_info = targets.calculate_pins(board, color);
+    let check_info = targets.calculate_checks(board, color);
+
+    let mut moves = ChessMoveList::new();
+    let opponent_pieces = board.pieces(color.opposite()).occupied();
+
+    // In double check, only king captures are legal
+    if check_info.in_double_check() {
+        generate_king_captures(&mut moves, board, color, targets, opponent_pieces);
+        remove_invalid_king_moves(&mut moves, board, color, targets);
+        return moves;
+    }
+
+    // In single check, only captures/blocks that address the check
+    if check_info.in_check() {
+        let legal_targets = check_info.checkers | check_info.check_ray;
+
+        // King can capture (not just on legal_targets)
+        generate_king_captures(&mut moves, board, color, targets, opponent_pieces);
+
+        // Non-king pieces can only capture the checker (not block -- blocks are quiet)
+        // Actually, non-king captures on legal_targets are valid
+        generate_knight_captures(
+            &mut moves,
+            board,
+            color,
+            targets,
+            &pin_info,
+            opponent_pieces,
+        );
+        generate_sliding_captures(
+            &mut moves,
+            board,
+            color,
+            targets,
+            &pin_info,
+            opponent_pieces,
+        );
+        generate_pawn_tactical_moves(&mut moves, board, color, &pin_info);
+
+        // Filter to moves that address the check
+        filter_moves_by_target(&mut moves, board, color, legal_targets);
+        // But also keep pawn promotions that block the check ray
+        // (handled by filter_moves_by_target since promotions have a target square)
+
+        remove_invalid_king_moves(&mut moves, board, color, targets);
+        return moves;
+    }
+
+    // Not in check: generate all captures and promotions
+    generate_knight_captures(
+        &mut moves,
+        board,
+        color,
+        targets,
+        &pin_info,
+        opponent_pieces,
+    );
+    generate_sliding_captures(
+        &mut moves,
+        board,
+        color,
+        targets,
+        &pin_info,
+        opponent_pieces,
+    );
+    generate_king_captures(&mut moves, board, color, targets, opponent_pieces);
+    generate_pawn_tactical_moves(&mut moves, board, color, &pin_info);
+
+    // Validate king moves and en passant only
+    remove_invalid_moves(&mut moves, board, color, targets, false);
+
+    moves
+}
+
+/// Generates only capture moves for knights.
+#[inline]
+fn generate_knight_captures(
+    moves: &mut ChessMoveList,
+    board: &Board,
+    color: Color,
+    targets: &Targets,
+    pin_info: &PinInfo,
+    opponent_pieces: Bitboard,
+) {
+    let mut piece_targets: PieceTargetList = smallvec![];
+    targets.generate_targets_from_precomputed_tables(
+        &mut piece_targets,
+        board,
+        color,
+        Piece::Knight,
+    );
+
+    // Pinned knights can't move at all
+    piece_targets.retain(|(square, _)| !pin_info.is_pinned(*square));
+
+    // Restrict to captures only
+    for (_, target_bitboard) in piece_targets.iter_mut() {
+        *target_bitboard &= opponent_pieces;
+    }
+
+    expand_piece_targets(moves, board, color, piece_targets)
+}
+
+/// Generates only capture moves for sliding pieces (bishop, rook, queen).
+#[inline]
+fn generate_sliding_captures(
+    moves: &mut ChessMoveList,
+    board: &Board,
+    color: Color,
+    targets: &Targets,
+    pin_info: &PinInfo,
+    opponent_pieces: Bitboard,
+) {
+    let mut piece_targets: PieceTargetList = smallvec![];
+    targets.generate_sliding_targets(&mut piece_targets, board, color);
+
+    for (square, target_bitboard) in piece_targets.iter_mut() {
+        if pin_info.is_pinned(*square) {
+            *target_bitboard &= pin_info.pin_ray(*square);
+        }
+        // Restrict to captures only
+        *target_bitboard &= opponent_pieces;
+    }
+
+    expand_piece_targets(moves, board, color, piece_targets)
+}
+
+/// Generates only capture moves for the king.
+#[inline]
+fn generate_king_captures(
+    moves: &mut ChessMoveList,
+    board: &Board,
+    color: Color,
+    targets: &Targets,
+    opponent_pieces: Bitboard,
+) {
+    let mut piece_targets: PieceTargetList = smallvec![];
+    targets.generate_targets_from_precomputed_tables(&mut piece_targets, board, color, Piece::King);
+
+    for (_, target_bitboard) in piece_targets.iter_mut() {
+        *target_bitboard &= opponent_pieces;
+    }
+
+    expand_piece_targets(moves, board, color, piece_targets)
+}
+
+/// Generates only tactical pawn moves: captures, promotions, and en passant.
+#[cfg_attr(feature = "instrumentation", instrument(skip_all))]
+fn generate_pawn_tactical_moves(
+    moves: &mut ChessMoveList,
+    board: &Board,
+    color: Color,
+    pin_info: &PinInfo,
+) {
+    let piece_targets = generate_pawn_move_targets(board, color);
+    let mut attack_targets: PieceTargetList = smallvec![];
+    generate_pawn_attack_targets(&mut attack_targets, board, color);
+    let opponent_pieces = board.pieces(color.opposite()).occupied();
+
+    let promotion_rank = match color {
+        Color::White => Bitboard::RANK_8,
+        Color::Black => Bitboard::RANK_1,
+    };
+
+    // Generate pawn captures
+    for &(piece_square, target) in attack_targets.iter() {
+        if target.overlaps(opponent_pieces) {
+            let mut capture_targets = target & opponent_pieces;
+            if pin_info.is_pinned(piece_square) {
+                capture_targets &= pin_info.pin_ray(piece_square);
+            }
+            let mut targets = capture_targets;
+            while !targets.is_empty() {
+                let target_sq = targets.pop_lsb_as_square();
+                let capture = board.pieces(color.opposite()).get(target_sq).map(Capture);
+                if target_sq.overlaps(promotion_rank) {
+                    for &promotion in &PAWN_PROMOTIONS {
+                        let pawn_promotion = PawnPromotionChessMove::new(
+                            piece_square,
+                            target_sq,
+                            capture,
+                            promotion,
+                        );
+                        moves.push(ChessMove::PawnPromotion(pawn_promotion));
+                    }
+                } else {
+                    let standard_move = StandardChessMove::new(piece_square, target_sq, capture);
+                    moves.push(ChessMove::Standard(standard_move));
+                }
+            }
+        }
+    }
+
+    // Generate non-capture promotions (pawn push to promotion rank)
+    for (piece_sq, mut target_squares) in piece_targets {
+        // Restrict pinned pawns to their pin rays
+        if pin_info.is_pinned(piece_sq) {
+            target_squares &= pin_info.pin_ray(piece_sq);
+        }
+        // Only generate promotion pushes
+        let promotion_targets = target_squares & promotion_rank;
+        let mut targets = promotion_targets;
+        while !targets.is_empty() {
+            let target_sq = targets.pop_lsb_as_square();
+            for &promotion in &PAWN_PROMOTIONS {
+                let pawn_promotion =
+                    PawnPromotionChessMove::new(piece_sq, target_sq, None, promotion);
+                moves.push(ChessMove::PawnPromotion(pawn_promotion));
+            }
+        }
+    }
+
+    // Generate en passant captures
+    generate_en_passant_moves(moves, board, color, pin_info);
 }
 
 /// Generates all pawn moves, regardless of which rank the pawn is on.
@@ -1287,5 +1520,147 @@ mod tests {
             let from = chess_move.from_square();
             assert_ne!(from, C4, "Pinned knight at C4 should not be able to move");
         }
+    }
+
+    #[test]
+    fn test_tactical_moves_match_filtered_all_moves_starting_position() {
+        let mut board = Board::default();
+        let move_gen = MoveGenerator::default();
+
+        let all_moves = move_gen.generate_moves(&mut board, Color::White);
+        let mut filtered: Vec<_> = all_moves
+            .iter()
+            .filter(|mv| mv.captures().is_some() || matches!(mv, ChessMove::PawnPromotion(_)))
+            .cloned()
+            .collect();
+        filtered.sort_by_key(|m| (m.from_square().index(), m.to_square().index()));
+
+        let tactical = move_gen.generate_tactical_moves(&mut board, Color::White);
+        let mut tactical_sorted: Vec<_> = tactical.iter().cloned().collect();
+        tactical_sorted.sort_by_key(|m| (m.from_square().index(), m.to_square().index()));
+
+        assert_eq!(
+            filtered, tactical_sorted,
+            "Tactical moves should match filtered all-moves in starting position"
+        );
+    }
+
+    #[test]
+    fn test_tactical_moves_match_filtered_all_moves_complex() {
+        let mut board = chess_position! {
+            r...k..r
+            pp..ppbp
+            ..n..np.
+            ...p....
+            ..PP....
+            ....PN..
+            PP..BPPP
+            RN.QK..R
+        };
+        board.lose_castle_rights(CastleRights::all());
+
+        for color in [Color::White, Color::Black] {
+            board.set_turn(color);
+
+            let all_moves = move_gen_instance().generate_moves(&mut board, color);
+            let mut filtered: Vec<_> = all_moves
+                .iter()
+                .filter(|mv| mv.captures().is_some() || matches!(mv, ChessMove::PawnPromotion(_)))
+                .cloned()
+                .collect();
+            filtered.sort_by_key(|m| (m.from_square().index(), m.to_square().index()));
+
+            let tactical = move_gen_instance().generate_tactical_moves(&mut board, color);
+            let mut tactical_sorted: Vec<_> = tactical.iter().cloned().collect();
+            tactical_sorted.sort_by_key(|m| (m.from_square().index(), m.to_square().index()));
+
+            assert_eq!(
+                filtered, tactical_sorted,
+                "Tactical moves should match filtered all-moves for {:?}",
+                color
+            );
+        }
+    }
+
+    #[test]
+    fn test_tactical_moves_includes_en_passant() {
+        let mut board = chess_position! {
+            ........
+            ........
+            ........
+            .pP.....
+            ........
+            ........
+            ........
+            K......k
+        };
+        board.set_turn(Color::White);
+        board.lose_castle_rights(CastleRights::all());
+        board.push_en_passant_target(Some(B6));
+
+        let move_gen = MoveGenerator::default();
+        let tactical = move_gen.generate_tactical_moves(&mut board, Color::White);
+
+        let has_en_passant = tactical
+            .iter()
+            .any(|mv| matches!(mv, ChessMove::EnPassant(_)));
+        assert!(has_en_passant, "Tactical moves should include en passant");
+    }
+
+    #[test]
+    fn test_tactical_moves_includes_promotions() {
+        let mut board = chess_position! {
+            ........
+            P.......
+            ........
+            ........
+            ........
+            ........
+            ........
+            K......k
+        };
+        board.set_turn(Color::White);
+        board.lose_castle_rights(CastleRights::all());
+
+        let move_gen = MoveGenerator::default();
+        let tactical = move_gen.generate_tactical_moves(&mut board, Color::White);
+
+        let promotions: Vec<_> = tactical
+            .iter()
+            .filter(|mv| matches!(mv, ChessMove::PawnPromotion(_)))
+            .collect();
+        assert_eq!(
+            promotions.len(),
+            4,
+            "Should have 4 promotion variants (Q, R, B, N)"
+        );
+    }
+
+    #[test]
+    fn test_tactical_moves_empty_in_quiet_position() {
+        let mut board = chess_position! {
+            ........
+            ........
+            ........
+            ........
+            ........
+            ........
+            .P......
+            K......k
+        };
+        board.set_turn(Color::White);
+        board.lose_castle_rights(CastleRights::all());
+
+        let move_gen = MoveGenerator::default();
+        let tactical = move_gen.generate_tactical_moves(&mut board, Color::White);
+
+        assert!(
+            tactical.is_empty(),
+            "No tactical moves in a position with no captures or promotions"
+        );
+    }
+
+    fn move_gen_instance() -> MoveGenerator {
+        MoveGenerator::default()
     }
 }

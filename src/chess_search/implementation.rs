@@ -95,6 +95,11 @@ impl MoveGenerator<Board> for ChessMoveGenerator {
     fn generate_moves(&self, state: &mut Board) -> ChessMoveList {
         self.inner.generate_moves(state, state.turn())
     }
+
+    #[inline]
+    fn generate_tactical_moves(&self, state: &mut Board) -> ChessMoveList {
+        self.inner.generate_tactical_moves(state, state.turn())
+    }
 }
 
 #[derive(Clone, Default)]

@@ -52,6 +52,12 @@ pub trait MoveGenerator<S: GameState>: Clone + Send + Sync {
 
     /// Generates all legal moves for the current player.
     fn generate_moves(&self, state: &mut S) -> Self::MoveList;
+
+    /// Generates only tactical moves (captures, promotions, etc.) for quiescence search.
+    /// Default delegates to generate_moves() for games without tactical-specific generation.
+    fn generate_tactical_moves(&self, state: &mut S) -> Self::MoveList {
+        self.generate_moves(state)
+    }
 }
 
 /// Evaluates a game position and returns a score.

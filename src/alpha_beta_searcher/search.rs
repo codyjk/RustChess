@@ -74,6 +74,7 @@ use std::time::{Duration, Instant};
 
 use log::debug;
 use rayon::prelude::*;
+use smallvec::SmallVec;
 use thiserror::Error;
 #[cfg(feature = "instrumentation")]
 use tracing::instrument;
@@ -1012,16 +1013,10 @@ where
     }
 
     context.increment_move_gen();
-    let candidates = move_generator.generate_moves(state);
-    if candidates.is_empty() {
-        context.increment_tt_stores();
-        context
-            .transposition_table
-            .store(hash, stand_pat, qdepth, BoundType::Exact, None);
-        return Ok(stand_pat);
-    }
-
-    let mut tactical_moves: Vec<G::Move> = candidates
+    let candidates = move_generator.generate_tactical_moves(state);
+    // Collect tactical moves (generate_tactical_moves may still include non-tactical
+    // moves for generic games that don't override the default)
+    let mut tactical_moves: SmallVec<[G::Move; 32]> = candidates
         .as_ref()
         .iter()
         .filter(|mv| mv.is_tactical(state))
