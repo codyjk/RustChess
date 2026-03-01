@@ -8,5 +8,7 @@ mod move_orderer;
 mod tests;
 
 pub use history_table::HistoryTable;
-pub use implementation::{search_best_move, ChessEvaluator, ChessMoveGenerator};
+pub use implementation::{
+    search_best_move, search_best_move_with_history, ChessEvaluator, ChessMoveGenerator,
+};
 pub use move_orderer::ChessMoveOrderer;

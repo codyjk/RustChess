@@ -11,10 +11,12 @@ pub struct DetermineStockfishEloArgs {
     pub depth: u8,
     #[structopt(short, long, default_value = "1000")]
     pub starting_elo: u32,
+    #[structopt(long, help = "Disable TUI and print progress to stdout")]
+    pub no_tui: bool,
 }
 
 impl Command for DetermineStockfishEloArgs {
     fn execute(self) {
-        determine_stockfish_elo(self.depth, self.starting_elo);
+        determine_stockfish_elo(self.depth, self.starting_elo, self.no_tui);
     }
 }

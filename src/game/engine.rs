@@ -6,16 +6,23 @@ use crossterm::event::{self, Event, KeyCode, KeyModifiers};
 use crate::alpha_beta_searcher::{SearchContext, SearchError};
 use crate::board::color::Color;
 use crate::board::error::BoardError;
+use crate::board::piece::Piece;
 use crate::board::Board;
 use crate::book::{Book, BookMove};
 use crate::chess_move::algebraic_notation::enumerate_candidate_moves_with_algebraic_notation;
 use crate::chess_move::chess_move::ChessMove;
-use crate::chess_search::search_best_move;
+use crate::chess_search::search_best_move_with_history;
 use crate::evaluate::{self, GameEnding};
 use crate::input_handler::MoveInput;
 use crate::move_generator::MoveGenerator;
 use common::bitboard::Square;
 use thiserror::Error;
+
+/// Contempt factor magnitude in centipawns. The engine scores draws as slightly
+/// worse than neutral to prefer playing on. The sign is flipped based on the
+/// engine's color: White (maximizer) gets -CONTEMPT_VALUE, Black (minimizer)
+/// gets +CONTEMPT_VALUE, so draws are always unattractive to the searching side.
+const CONTEMPT_VALUE: i16 = 25;
 
 /// Core engine state and configuration
 #[derive(Clone)]
@@ -46,6 +53,7 @@ pub struct MoveHistoryEntry {
 pub struct GameState {
     board: Board,
     move_history: Vec<MoveHistoryEntry>,
+    position_hashes: Vec<u64>,
     last_score: Option<i16>,
     opening_deviation_move: Option<usize>,
     last_known_opening: Option<String>,
@@ -59,9 +67,11 @@ impl Default for GameState {
 
 impl GameState {
     fn new(starting_position: Board) -> Self {
+        let initial_hash = starting_position.current_position_hash();
         Self {
             board: starting_position,
             move_history: Vec::new(),
+            position_hashes: vec![initial_hash],
             last_score: None,
             opening_deviation_move: None,
             last_known_opening: None,
@@ -123,7 +133,16 @@ impl Engine {
 
     pub fn check_game_over(&mut self) -> Option<GameEnding> {
         let turn = self.state.board.turn();
-        evaluate::game_ending(&mut self.state.board, &self.move_generator, turn)
+        evaluate::game_ending(
+            &mut self.state.board,
+            &self.move_generator,
+            turn,
+            &self.state.position_hashes,
+        )
+    }
+
+    pub fn position_hashes(&self) -> &[u64] {
+        &self.state.position_hashes
     }
 
     pub fn make_move_by_squares(
@@ -131,11 +150,30 @@ impl Engine {
         from: Square,
         to: Square,
     ) -> Result<ChessMove, EngineError> {
+        self.make_move_by_squares_with_promotion(from, to, None)
+    }
+
+    pub fn make_move_by_squares_with_promotion(
+        &mut self,
+        from: Square,
+        to: Square,
+        promotion: Option<Piece>,
+    ) -> Result<ChessMove, EngineError> {
         let valid_moves_with_notation = self.get_valid_moves();
 
         let (chess_move, notation) = valid_moves_with_notation
             .iter()
-            .find(|(m, _)| m.from_square() == from && m.to_square() == to)
+            .find(|(m, _)| {
+                m.from_square() == from
+                    && m.to_square() == to
+                    && match (promotion, m) {
+                        (Some(piece), ChessMove::PawnPromotion(pm)) => {
+                            pm.promote_to_piece() == piece
+                        }
+                        (Some(_), _) => false,
+                        (None, _) => true,
+                    }
+            })
             .ok_or(EngineError::InvalidMove)?
             .clone();
 
@@ -185,6 +223,25 @@ impl Engine {
         Ok(best_move)
     }
 
+    pub fn make_best_move_with_time_limit(
+        &mut self,
+        time_limit: Duration,
+    ) -> Result<ChessMove, EngineError> {
+        let best_move = self.get_best_move_with_time_limit(time_limit)?;
+
+        let valid_moves = self.get_valid_moves();
+        let notation = valid_moves
+            .iter()
+            .find(|(m, _)| {
+                m.from_square() == best_move.from_square() && m.to_square() == best_move.to_square()
+            })
+            .map(|(_, n)| n.clone())
+            .expect("best_move should always be in valid_moves");
+
+        self.apply_chess_move_with_notation(best_move.clone(), notation, self.state.last_score)?;
+        Ok(best_move)
+    }
+
     pub fn get_score(&mut self, current_turn: Color) -> i16 {
         evaluate::score(&mut self.state.board, &self.move_generator, current_turn, 0)
     }
@@ -216,6 +273,14 @@ impl Engine {
 
     pub fn opening_deviation_move(&self) -> Option<usize> {
         self.state.opening_deviation_move
+    }
+
+    /// Record the current position hash. Call after turn toggle to capture
+    /// the complete position state (including side to move).
+    pub fn record_position_hash(&mut self) {
+        self.state
+            .position_hashes
+            .push(self.state.board.current_position_hash());
     }
 
     /// Apply a chess move without tracking notation or score (for internal use)
@@ -310,6 +375,64 @@ impl Engine {
             .find(|m| m.from_square() == from_square && m.to_square() == to_square)
     }
 
+    pub fn get_best_move_with_time_limit(
+        &mut self,
+        time_limit: Duration,
+    ) -> Result<ChessMove, EngineError> {
+        // Save and restore depth -- time-limited search should be bounded by time,
+        // not by an artificially low depth cap.
+        let saved_depth = self.search_context.search_depth();
+        let max_time_depth = 100;
+        if saved_depth < max_time_depth {
+            self.search_context.set_depth(max_time_depth);
+        }
+        self.search_context.set_time_limit(Some(time_limit));
+
+        // Check opening book first (consistent with get_best_move)
+        if let Some(chess_move) = self.get_book_move() {
+            self.search_context.set_time_limit(None);
+            self.search_context.set_depth(saved_depth);
+            return Ok(chess_move);
+        }
+
+        let result = self.run_search();
+
+        self.search_context.set_time_limit(None);
+        self.search_context.set_depth(saved_depth);
+        result
+    }
+
+    pub fn set_search_depth(&mut self, depth: u8) {
+        self.search_context.set_depth(depth);
+    }
+
+    pub fn search_depth(&self) -> u8 {
+        self.search_context.search_depth()
+    }
+
+    fn contempt(&self) -> i16 {
+        if self.state.board.turn().maximize_score() {
+            -CONTEMPT_VALUE // White searching: draws score slightly negative (bad for White)
+        } else {
+            CONTEMPT_VALUE // Black searching: draws score slightly positive (bad for Black)
+        }
+    }
+
+    /// Core search without Ctrl-C polling. Used by time-limited and UCI search paths.
+    fn run_search(&mut self) -> Result<ChessMove, EngineError> {
+        self.search_context.clear_stop();
+        let contempt = self.contempt();
+        let move_result = search_best_move_with_history(
+            &mut self.search_context,
+            &mut self.state.board,
+            self.state.position_hashes.clone(),
+            contempt,
+        );
+        let best_move = move_result.map_err(|err| EngineError::SearchError { error: err })?;
+        self.state.last_score = self.search_context.last_score();
+        Ok(best_move)
+    }
+
     fn get_best_move_from_search(&mut self) -> Result<ChessMove, EngineError> {
         self.search_context.clear_stop();
         let stop_flag = self.search_context.stop_flag();
@@ -331,7 +454,13 @@ impl Engine {
             }
         });
 
-        let move_result = search_best_move(&mut self.search_context, &mut self.state.board);
+        let contempt = self.contempt();
+        let move_result = search_best_move_with_history(
+            &mut self.search_context,
+            &mut self.state.board,
+            self.state.position_hashes.clone(),
+            contempt,
+        );
 
         // Check if user requested stop before we overwrite the flag for the polling thread
         let was_stopped = self.search_context.should_stop();
@@ -415,6 +544,275 @@ mod tests {
             valid_checkmates.contains(&chess_move),
             "{} does not lead to checkmate",
             chess_move
+        );
+    }
+
+    #[test]
+    fn test_get_best_move_with_time_limit_returns_valid_move() {
+        let mut engine = Engine::new();
+        let result = engine.get_best_move_with_time_limit(Duration::from_secs(5));
+        assert!(
+            result.is_ok(),
+            "Time-limited search should return a valid move"
+        );
+    }
+
+    #[test]
+    fn test_get_best_move_with_time_limit_respects_budget() {
+        let mut engine = Engine::with_config(EngineConfig {
+            search_depth: 20,
+            starting_position: Board::default(),
+        });
+        let start = std::time::Instant::now();
+        let _ = engine.get_best_move_with_time_limit(Duration::from_millis(100));
+        let elapsed = start.elapsed();
+        assert!(
+            elapsed < Duration::from_millis(500),
+            "100ms budget search took {:?}, expected < 500ms",
+            elapsed
+        );
+    }
+
+    #[test]
+    fn test_get_best_move_with_time_limit_finds_obvious_mate() {
+        let mut starting_position = chess_position! {
+            .Q......
+            ........
+            ........
+            ........
+            ........
+            ........
+            k.K.....
+            ........
+        };
+        starting_position.set_turn(Color::White);
+        starting_position.lose_castle_rights(CastleRights::all());
+
+        let mut engine = Engine::with_config(EngineConfig {
+            search_depth: 10,
+            starting_position,
+        });
+
+        let result = engine.get_best_move_with_time_limit(Duration::from_secs(2));
+        assert!(result.is_ok(), "Should find mate-in-1 with time limit");
+        let chess_move = result.unwrap();
+        let valid_checkmates = [
+            checkmate_move!(std_move!(B8, B2)),
+            checkmate_move!(std_move!(B8, A8)),
+            checkmate_move!(std_move!(B8, A7)),
+        ];
+        assert!(
+            valid_checkmates.contains(&chess_move),
+            "{} does not lead to checkmate",
+            chess_move
+        );
+    }
+
+    #[test]
+    fn test_set_search_depth_changes_depth() {
+        let mut engine = Engine::new();
+        assert_eq!(engine.get_search_stats().depth, 4);
+        engine.set_search_depth(8);
+        assert_eq!(engine.get_search_stats().depth, 8);
+    }
+
+    #[test]
+    fn test_get_best_move_unchanged() {
+        let mut engine = Engine::new();
+        let result = engine.get_best_move();
+        assert!(result.is_ok(), "Default get_best_move should still work");
+    }
+
+    #[test]
+    fn test_apply_chess_move_updates_history() {
+        let mut engine = Engine::new();
+        let valid_moves = engine.get_valid_moves();
+        let (chess_move, _) = valid_moves.first().unwrap().clone();
+        engine.apply_chess_move(chess_move).unwrap();
+        assert_eq!(engine.move_history().len(), 1);
+    }
+
+    #[test]
+    fn test_get_valid_moves_returns_all_legal_moves() {
+        let mut engine = Engine::new();
+        let moves = engine.get_valid_moves();
+        assert_eq!(
+            moves.len(),
+            20,
+            "Starting position should have 20 legal moves"
+        );
+    }
+
+    #[test]
+    fn test_check_game_over_none_at_start() {
+        let mut engine = Engine::new();
+        assert!(
+            engine.check_game_over().is_none(),
+            "Starting position should not be game over"
+        );
+    }
+
+    #[test]
+    fn test_check_game_over_detects_checkmate() {
+        // Black king on A1, white queen on B2, white king on C3 -- black is checkmated
+        let mut position = chess_position! {
+            ........
+            ........
+            ........
+            ........
+            ........
+            ..K.....
+            .Q......
+            k.......
+        };
+        position.set_turn(Color::Black);
+        position.lose_castle_rights(CastleRights::all());
+
+        let mut engine = Engine::with_config(EngineConfig {
+            search_depth: 4,
+            starting_position: position,
+        });
+
+        let game_over = engine.check_game_over();
+        assert!(
+            matches!(game_over, Some(crate::evaluate::GameEnding::Checkmate)),
+            "Should detect checkmate, got {:?}",
+            game_over
+        );
+    }
+
+    #[test]
+    fn test_make_move_by_squares_with_promotion() {
+        // White pawn on a7 can promote to queen on a8
+        let mut position = chess_position! {
+            ....k...
+            P.......
+            ........
+            ........
+            ........
+            ........
+            ........
+            ....K...
+        };
+        position.set_turn(Color::White);
+        position.lose_castle_rights(CastleRights::all());
+
+        let mut engine = Engine::with_config(EngineConfig {
+            search_depth: 1,
+            starting_position: position,
+        });
+
+        // Promote to queen
+        let result = engine.make_move_by_squares_with_promotion(A7, A8, Some(Piece::Queen));
+        assert!(result.is_ok(), "Should succeed with queen promotion");
+        match result.unwrap() {
+            ChessMove::PawnPromotion(_) => {}
+            other => panic!("Expected PawnPromotion, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_make_move_by_squares_with_promotion_knight() {
+        let mut position = chess_position! {
+            ....k...
+            P.......
+            ........
+            ........
+            ........
+            ........
+            ........
+            ....K...
+        };
+        position.set_turn(Color::White);
+        position.lose_castle_rights(CastleRights::all());
+
+        let mut engine = Engine::with_config(EngineConfig {
+            search_depth: 1,
+            starting_position: position,
+        });
+
+        // Promote to knight
+        let result = engine.make_move_by_squares_with_promotion(A7, A8, Some(Piece::Knight));
+        assert!(result.is_ok(), "Should succeed with knight promotion");
+    }
+
+    #[test]
+    fn test_threefold_repetition_detected() {
+        // Simple position where we can repeat moves
+        let mut position = chess_position! {
+            ....k...
+            ........
+            ........
+            ........
+            ........
+            ........
+            ........
+            ....K...
+        };
+        position.set_turn(Color::White);
+        position.lose_castle_rights(CastleRights::all());
+
+        let mut engine = Engine::with_config(EngineConfig {
+            search_depth: 1,
+            starting_position: position,
+        });
+
+        // Move king back and forth: Ke1-d1, Ke8-d8, Kd1-e1, Kd8-e8 (back to start = 2nd
+        // occurrence), Ke1-d1, Ke8-d8, Kd1-e1, Kd8-e8 (back to start = 3rd occurrence)
+        let moves = [
+            (E1, D1),
+            (E8, D8),
+            (D1, E1),
+            (D8, E8), // 2nd occurrence of start
+            (E1, D1),
+            (E8, D8),
+            (D1, E1),
+            (D8, E8), // 3rd occurrence of start
+        ];
+        for (from, to) in &moves {
+            engine.make_move_by_squares(*from, *to).unwrap();
+            engine.board_mut().toggle_turn();
+            engine.record_position_hash();
+        }
+
+        let game_over = engine.check_game_over();
+        assert!(
+            matches!(game_over, Some(crate::evaluate::GameEnding::Draw)),
+            "Should detect threefold repetition as draw, got {:?}",
+            game_over
+        );
+    }
+
+    #[test]
+    fn test_position_hashes_tracked() {
+        let mut engine = Engine::new();
+        // Starting position hash is already tracked
+        assert_eq!(
+            engine.position_hashes().len(),
+            1,
+            "Should have initial position hash"
+        );
+
+        // Make a move
+        engine.make_move_by_squares(E2, E4).unwrap();
+        engine.board_mut().toggle_turn();
+        engine.record_position_hash();
+        assert_eq!(
+            engine.position_hashes().len(),
+            2,
+            "Should have 2 hashes after one move"
+        );
+    }
+
+    #[test]
+    fn test_make_best_move_with_time_limit() {
+        let mut engine = Engine::new();
+        let result = engine.make_best_move_with_time_limit(Duration::from_secs(1));
+        assert!(result.is_ok(), "Should make a move with time limit");
+        assert_eq!(
+            engine.move_history().len(),
+            1,
+            "Should have one move in history"
         );
     }
 }

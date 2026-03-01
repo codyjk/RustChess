@@ -125,7 +125,7 @@ impl StandardChessMove {
                 *from_square,
             ) | get_lost_castle_rights_if_rook_taken(captured_piece_and_color, *to_square);
 
-        if captured_piece_and_color.is_some() {
+        if captured_piece_and_color.is_some() || piece_to_move == Piece::Pawn {
             board.reset_halfmove_clock();
         } else {
             board.increment_halfmove_clock();

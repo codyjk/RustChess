@@ -105,11 +105,19 @@ impl MoveGenerator<Board> for ChessMoveGenerator {
 #[derive(Clone, Default)]
 pub struct ChessEvaluator {
     move_generator: move_generator::MoveGenerator,
+    position_history: Vec<u64>,
+    contempt: i16,
 }
 
 impl ChessEvaluator {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn with_position_history(mut self, history: Vec<u64>, contempt: i16) -> Self {
+        self.position_history = history;
+        self.contempt = contempt;
+        self
     }
 }
 
@@ -158,6 +166,18 @@ impl Evaluator<Board> for ChessEvaluator {
             _ => None,
         }
     }
+
+    #[inline]
+    fn repetition_score(&self, position_hash: u64) -> Option<i16> {
+        if self.position_history.is_empty() {
+            return None;
+        }
+        if self.position_history.contains(&position_hash) {
+            Some(self.contempt)
+        } else {
+            None
+        }
+    }
 }
 
 /// Searches for the best chess move from the given position.
@@ -166,11 +186,22 @@ pub fn search_best_move(
     context: &mut SearchContext<ChessMove>,
     board: &mut Board,
 ) -> Result<ChessMove, SearchError> {
+    search_best_move_with_history(context, board, Vec::new(), 0)
+}
+
+/// Searches for the best chess move, with game position history for repetition detection.
+#[must_use = "search returns the best move found"]
+pub fn search_best_move_with_history(
+    context: &mut SearchContext<ChessMove>,
+    board: &mut Board,
+    position_history: Vec<u64>,
+    contempt: i16,
+) -> Result<ChessMove, SearchError> {
     // Clear history at start of each search to prevent unbounded growth
     clear_history();
 
     let move_generator = ChessMoveGenerator::default();
-    let evaluator = ChessEvaluator::default();
+    let evaluator = ChessEvaluator::default().with_position_history(position_history, contempt);
     let move_orderer = ChessMoveOrderer;
 
     alpha_beta_search(context, board, &move_generator, &evaluator, &move_orderer)

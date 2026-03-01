@@ -97,11 +97,47 @@ pub enum SearchError {
 struct SearchConfig {
     depth: u8,
     parallel: bool,
+    time_limit: Option<Duration>,
+    start_time: Option<Instant>,
 }
 
 impl SearchConfig {
     fn new(depth: u8, parallel: bool) -> Self {
-        Self { depth, parallel }
+        Self {
+            depth,
+            parallel,
+            time_limit: None,
+            start_time: None,
+        }
+    }
+
+    fn with_time_limit(depth: u8, parallel: bool, time_limit: Duration) -> Self {
+        Self {
+            depth,
+            parallel,
+            time_limit: Some(time_limit),
+            start_time: None,
+        }
+    }
+
+    /// Check if we've exceeded the soft time limit (~50% of budget).
+    /// Used between depth iterations -- if true, don't start the next depth.
+    fn soft_time_exceeded(&self) -> bool {
+        if let (Some(limit), Some(start)) = (self.time_limit, self.start_time) {
+            start.elapsed() > limit / 2
+        } else {
+            false
+        }
+    }
+
+    /// Check if we've exceeded the hard time limit (~80% of budget).
+    /// Used during search to abort mid-depth.
+    fn hard_time_exceeded(&self) -> bool {
+        if let (Some(limit), Some(start)) = (self.time_limit, self.start_time) {
+            start.elapsed() > limit * 4 / 5
+        } else {
+            false
+        }
     }
 }
 
@@ -300,6 +336,25 @@ impl<M: Clone + Send + Sync + 'static> SearchContext<M> {
             killer_manager: KillerMovesManager::new(depth),
             stop: Arc::new(AtomicBool::new(false)),
         }
+    }
+
+    pub fn with_time_limit(max_depth: u8, time_limit: Duration) -> Self {
+        Self {
+            config: SearchConfig::with_time_limit(max_depth, true, time_limit),
+            stats: SearchStats::new(),
+            transposition_table: TranspositionTable::default(),
+            killer_manager: KillerMovesManager::new(max_depth),
+            stop: Arc::new(AtomicBool::new(false)),
+        }
+    }
+
+    pub fn set_depth(&mut self, depth: u8) {
+        self.config.depth = depth;
+        self.killer_manager = KillerMovesManager::new(depth);
+    }
+
+    pub fn set_time_limit(&mut self, time_limit: Option<Duration>) {
+        self.config.time_limit = time_limit;
     }
 
     /// Returns a clone of the stop flag Arc for use by a polling thread.
@@ -621,6 +676,7 @@ where
     }
 
     let start = Instant::now();
+    context.config.start_time = Some(start);
     let current_player_is_maximizing = state.is_maximizing_player();
     let mut candidates = move_generator.generate_moves(state);
 
@@ -645,6 +701,12 @@ where
     for depth in 1..=target_depth {
         // Check stop flag at the top of each depth iteration
         if context.should_stop() {
+            break;
+        }
+
+        // Soft time limit: don't start a new depth if >50% of time budget used.
+        // Skip for depth 1 so we always complete at least one iteration.
+        if depth > 1 && context.config.soft_time_exceeded() {
             break;
         }
 
@@ -1176,8 +1238,10 @@ where
 {
     context.increment_position_count();
 
-    // Periodically check the stop flag (every 4096 nodes)
-    if context.stats.count() & 0xFFF == 0 && context.should_stop() {
+    // Periodically check the stop flag and hard time limit (every 4096 nodes)
+    if context.stats.count() & 0xFFF == 0
+        && (context.should_stop() || context.config.hard_time_exceeded())
+    {
         return Err(SearchError::Stopped);
     }
 
@@ -1213,6 +1277,12 @@ where
     }
 
     let hash = state.position_hash();
+
+    // Check for repetition draw (e.g., twofold repetition during search).
+    // This is a cheap hash check that avoids searching positions already seen in the game.
+    if let Some(rep_score) = evaluator.repetition_score(hash) {
+        return Ok(rep_score);
+    }
 
     // Probe TT once for both cutoff score and PV move
     context.increment_tt_probes();

@@ -18,6 +18,10 @@ pub enum UciCommand {
     Go {
         depth: Option<u8>,
         movetime: Option<u64>,
+        wtime: Option<u64>,
+        btime: Option<u64>,
+        winc: Option<u64>,
+        binc: Option<u64>,
         infinite: bool,
     },
     /// Stop searching
@@ -100,52 +104,52 @@ fn parse_position_command(parts: &[&str]) -> Result<UciCommand, String> {
     Ok(UciCommand::Position { fen, moves })
 }
 
+/// Parse the next token as a numeric value, returning an error if missing or invalid.
+fn parse_next_value<T: std::str::FromStr>(
+    parts: &[&str],
+    i: &mut usize,
+    name: &str,
+) -> Result<T, String> {
+    *i += 1;
+    if *i >= parts.len() {
+        return Err(format!("{} requires a value", name));
+    }
+    parts[*i]
+        .parse::<T>()
+        .map_err(|_| format!("invalid {} value: {}", name, parts[*i]))
+}
+
 fn parse_go_command(parts: &[&str]) -> Result<UciCommand, String> {
     let mut depth = None;
     let mut movetime = None;
+    let mut wtime = None;
+    let mut btime = None;
+    let mut winc = None;
+    let mut binc = None;
     let mut infinite = false;
     let mut i = 0;
 
     while i < parts.len() {
         match parts[i] {
-            "depth" => {
-                i += 1;
-                if i >= parts.len() {
-                    return Err("depth requires a value".to_string());
-                }
-                depth = Some(
-                    parts[i]
-                        .parse::<u8>()
-                        .map_err(|_| format!("invalid depth value: {}", parts[i]))?,
-                );
-                i += 1;
-            }
-            "movetime" => {
-                i += 1;
-                if i >= parts.len() {
-                    return Err("movetime requires a value".to_string());
-                }
-                movetime = Some(
-                    parts[i]
-                        .parse::<u64>()
-                        .map_err(|_| format!("invalid movetime value: {}", parts[i]))?,
-                );
-                i += 1;
-            }
-            "infinite" => {
-                infinite = true;
-                i += 1;
-            }
-            // Ignore other go parameters for now
-            _ => {
-                i += 1;
-            }
+            "depth" => depth = Some(parse_next_value(parts, &mut i, "depth")?),
+            "movetime" => movetime = Some(parse_next_value(parts, &mut i, "movetime")?),
+            "wtime" => wtime = Some(parse_next_value(parts, &mut i, "wtime")?),
+            "btime" => btime = Some(parse_next_value(parts, &mut i, "btime")?),
+            "winc" => winc = Some(parse_next_value(parts, &mut i, "winc")?),
+            "binc" => binc = Some(parse_next_value(parts, &mut i, "binc")?),
+            "infinite" => infinite = true,
+            _ => {}
         }
+        i += 1;
     }
 
     Ok(UciCommand::Go {
         depth,
         movetime,
+        wtime,
+        btime,
+        winc,
+        binc,
         infinite,
     })
 }
@@ -261,7 +265,11 @@ mod tests {
             UciCommand::Go {
                 depth: Some(6),
                 movetime: None,
-                infinite: false
+                wtime: None,
+                btime: None,
+                winc: None,
+                binc: None,
+                infinite: false,
             }
         );
     }
@@ -274,7 +282,11 @@ mod tests {
             UciCommand::Go {
                 depth: None,
                 movetime: Some(1000),
-                infinite: false
+                wtime: None,
+                btime: None,
+                winc: None,
+                binc: None,
+                infinite: false,
             }
         );
     }
@@ -287,9 +299,162 @@ mod tests {
             UciCommand::Go {
                 depth: None,
                 movetime: None,
-                infinite: true
+                wtime: None,
+                btime: None,
+                winc: None,
+                binc: None,
+                infinite: true,
             }
         );
+    }
+
+    #[test]
+    fn test_parse_go_wtime_btime() {
+        let cmd = "go wtime 60000 btime 60000".parse::<UciCommand>().unwrap();
+        assert_eq!(
+            cmd,
+            UciCommand::Go {
+                depth: None,
+                movetime: None,
+                wtime: Some(60000),
+                btime: Some(60000),
+                winc: None,
+                binc: None,
+                infinite: false,
+            }
+        );
+    }
+
+    #[test]
+    fn test_parse_go_wtime_btime_winc_binc() {
+        let cmd = "go wtime 60000 btime 60000 winc 1000 binc 1000"
+            .parse::<UciCommand>()
+            .unwrap();
+        assert_eq!(
+            cmd,
+            UciCommand::Go {
+                depth: None,
+                movetime: None,
+                wtime: Some(60000),
+                btime: Some(60000),
+                winc: Some(1000),
+                binc: Some(1000),
+                infinite: false,
+            }
+        );
+    }
+
+    #[test]
+    fn test_parse_go_combined_depth_and_time() {
+        let cmd = "go depth 6 wtime 60000 btime 60000"
+            .parse::<UciCommand>()
+            .unwrap();
+        assert_eq!(
+            cmd,
+            UciCommand::Go {
+                depth: Some(6),
+                movetime: None,
+                wtime: Some(60000),
+                btime: Some(60000),
+                winc: None,
+                binc: None,
+                infinite: false,
+            }
+        );
+    }
+
+    #[test]
+    fn test_parse_go_movetime_with_clock() {
+        let cmd = "go movetime 5000 wtime 60000 btime 60000"
+            .parse::<UciCommand>()
+            .unwrap();
+        assert_eq!(
+            cmd,
+            UciCommand::Go {
+                depth: None,
+                movetime: Some(5000),
+                wtime: Some(60000),
+                btime: Some(60000),
+                winc: None,
+                binc: None,
+                infinite: false,
+            }
+        );
+    }
+
+    #[test]
+    fn test_parse_go_no_params() {
+        let cmd = "go".parse::<UciCommand>().unwrap();
+        assert_eq!(
+            cmd,
+            UciCommand::Go {
+                depth: None,
+                movetime: None,
+                wtime: None,
+                btime: None,
+                winc: None,
+                binc: None,
+                infinite: false,
+            }
+        );
+    }
+
+    #[test]
+    fn test_parse_go_ignores_unknown_params() {
+        let cmd = "go movestogo 30 nodes 100000"
+            .parse::<UciCommand>()
+            .unwrap();
+        assert_eq!(
+            cmd,
+            UciCommand::Go {
+                depth: None,
+                movetime: None,
+                wtime: None,
+                btime: None,
+                winc: None,
+                binc: None,
+                infinite: false,
+            }
+        );
+    }
+
+    #[test]
+    fn test_parse_position_fen_with_moves() {
+        let cmd =
+            "position fen rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1 moves e7e5"
+                .parse::<UciCommand>()
+                .unwrap();
+        match cmd {
+            UciCommand::Position {
+                fen: Some(f),
+                moves,
+            } => {
+                assert_eq!(
+                    f,
+                    "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"
+                );
+                assert_eq!(moves, vec!["e7e5".to_string()]);
+            }
+            _ => panic!("Expected Position command with FEN and moves"),
+        }
+    }
+
+    #[test]
+    fn test_parse_setoption_no_value() {
+        let cmd = "setoption name Debug".parse::<UciCommand>().unwrap();
+        assert_eq!(
+            cmd,
+            UciCommand::SetOption {
+                name: "Debug".to_string(),
+                value: None,
+            }
+        );
+    }
+
+    #[test]
+    fn test_parse_empty_input() {
+        let cmd = "".parse::<UciCommand>().unwrap();
+        assert_eq!(cmd, UciCommand::Unknown(String::new()));
     }
 
     #[test]

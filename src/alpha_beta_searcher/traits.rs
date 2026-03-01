@@ -102,6 +102,13 @@ pub trait Evaluator<S: GameState>: Clone + Send + Sync {
     fn lmp_threshold(&self, _depth: u8) -> Option<usize> {
         None
     }
+
+    /// Returns a draw score if the position hash indicates a repetition draw.
+    /// Used by the search to detect positions that have already occurred in the game.
+    /// Default returns None (no repetition detection).
+    fn repetition_score(&self, _position_hash: u64) -> Option<i16> {
+        None
+    }
 }
 
 /// Orders moves to improve alpha-beta pruning efficiency.

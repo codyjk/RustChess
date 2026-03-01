@@ -178,6 +178,7 @@ impl<I: InputSource, R: GameRenderer> GameLoop<I, R> {
         match self.engine.make_move_from_input(input) {
             Ok(_) => {
                 self.engine.board_mut().toggle_turn();
+                self.engine.record_position_hash();
                 self.apply_frame_delay();
                 None
             }

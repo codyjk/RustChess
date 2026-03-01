@@ -2323,3 +2323,219 @@ fn test_tt_depth_preferred_overwrite_counter() {
         "Deeper store should increment overwrite"
     );
 }
+
+// ========================================================================
+// Time limit tests
+// ========================================================================
+
+#[test]
+fn test_search_with_time_limit_returns_move() {
+    let mut state = NimState::new(10);
+    let mut context =
+        SearchContext::<NimMove>::with_time_limit(20, std::time::Duration::from_secs(5));
+
+    let result = alpha_beta_search(
+        &mut context,
+        &mut state,
+        &NimMoveGenerator,
+        &NimEvaluator,
+        &NoOpMoveOrderer,
+    );
+
+    assert!(
+        result.is_ok(),
+        "Search with generous time limit should return a move"
+    );
+    let best_move = result.unwrap();
+    let remaining = 10 - best_move.take;
+    assert_eq!(
+        remaining % 4,
+        0,
+        "Should still find optimal move with time limit"
+    );
+}
+
+#[test]
+fn test_search_with_tiny_time_limit_still_returns_move() {
+    let mut state = NimState::new(10);
+    let mut context =
+        SearchContext::<NimMove>::with_time_limit(20, std::time::Duration::from_millis(1));
+
+    let result = alpha_beta_search(
+        &mut context,
+        &mut state,
+        &NimMoveGenerator,
+        &NimEvaluator,
+        &NoOpMoveOrderer,
+    );
+
+    assert!(
+        result.is_ok(),
+        "Even with 1ms time limit, should complete at least depth 1 and return a move"
+    );
+}
+
+#[test]
+fn test_search_with_time_limit_searches_fewer_nodes() {
+    let mut state_limited = NimState::new(15);
+    let mut context_limited =
+        SearchContext::<NimMove>::with_time_limit(20, std::time::Duration::from_millis(1));
+
+    let _ = alpha_beta_search(
+        &mut context_limited,
+        &mut state_limited,
+        &NimMoveGenerator,
+        &NimEvaluator,
+        &NoOpMoveOrderer,
+    );
+    let limited_nodes = context_limited.searched_position_count();
+
+    let mut state_unlimited = NimState::new(15);
+    let mut context_unlimited = SearchContext::<NimMove>::new(20);
+
+    let _ = alpha_beta_search(
+        &mut context_unlimited,
+        &mut state_unlimited,
+        &NimMoveGenerator,
+        &NimEvaluator,
+        &NoOpMoveOrderer,
+    );
+    let unlimited_nodes = context_unlimited.searched_position_count();
+
+    assert!(
+        limited_nodes <= unlimited_nodes,
+        "Time-limited search ({} nodes) should search no more than unlimited ({} nodes)",
+        limited_nodes,
+        unlimited_nodes
+    );
+}
+
+#[test]
+fn test_search_without_time_limit_unchanged() {
+    let mut state1 = NimState::new(9);
+    let mut state2 = NimState::new(9);
+
+    let mut context_with_none = SearchContext::<NimMove>::new(5);
+    let result1 = alpha_beta_search(
+        &mut context_with_none,
+        &mut state1,
+        &NimMoveGenerator,
+        &NimEvaluator,
+        &NoOpMoveOrderer,
+    )
+    .unwrap();
+
+    let mut context_default = SearchContext::<NimMove>::new(5);
+    let result2 = alpha_beta_search(
+        &mut context_default,
+        &mut state2,
+        &NimMoveGenerator,
+        &NimEvaluator,
+        &NoOpMoveOrderer,
+    )
+    .unwrap();
+
+    assert_eq!(
+        result1, result2,
+        "Search without time limit should behave identically to default"
+    );
+}
+
+#[test]
+fn test_stop_flag_halts_search() {
+    use std::sync::atomic::Ordering;
+    use std::thread;
+
+    let mut state = NimState::new(15);
+    let mut context = SearchContext::<NimMove>::with_parallel(20, false);
+
+    // Set stop flag from another thread after a brief delay
+    let stop = context.stop_flag();
+    thread::spawn(move || {
+        thread::sleep(std::time::Duration::from_millis(5));
+        stop.store(true, Ordering::Relaxed);
+    });
+
+    let result = alpha_beta_search(
+        &mut context,
+        &mut state,
+        &NimMoveGenerator,
+        &NimEvaluator,
+        &NoOpMoveOrderer,
+    );
+
+    // Should return a valid move from partial search (at least depth 1 completed)
+    assert!(
+        result.is_ok(),
+        "Stopped search should return partial result"
+    );
+    // Should have searched fewer nodes than a full depth-20 search
+    let stopped_nodes = context.searched_position_count();
+    assert!(
+        stopped_nodes > 0,
+        "Should have searched some nodes before stopping"
+    );
+}
+
+#[test]
+fn test_search_records_duration() {
+    let mut state = NimState::new(5);
+    let mut context = SearchContext::<NimMove>::new(3);
+
+    assert!(
+        context.last_search_duration().is_none(),
+        "Duration should be None before search"
+    );
+
+    let _ = alpha_beta_search(
+        &mut context,
+        &mut state,
+        &NimMoveGenerator,
+        &NimEvaluator,
+        &NoOpMoveOrderer,
+    );
+
+    assert!(
+        context.last_search_duration().is_some(),
+        "Duration should be recorded after search"
+    );
+}
+
+#[test]
+fn test_soft_limit_stops_between_depths() {
+    // Use a moderate time limit -- Nim with depth 20 should hit the soft limit
+    // well before completing all depths
+    let mut state = NimState::new(15);
+    let mut context =
+        SearchContext::<NimMove>::with_time_limit(20, std::time::Duration::from_millis(1));
+
+    let _ = alpha_beta_search(
+        &mut context,
+        &mut state,
+        &NimMoveGenerator,
+        &NimEvaluator,
+        &NoOpMoveOrderer,
+    );
+
+    // The unlimited search at depth 20 would search many nodes.
+    // With 1ms limit, the soft limit should prevent completing all 20 depths.
+    let limited_nodes = context.searched_position_count();
+
+    let mut state2 = NimState::new(15);
+    let mut context2 = SearchContext::<NimMove>::new(20);
+    let _ = alpha_beta_search(
+        &mut context2,
+        &mut state2,
+        &NimMoveGenerator,
+        &NimEvaluator,
+        &NoOpMoveOrderer,
+    );
+    let unlimited_nodes = context2.searched_position_count();
+
+    assert!(
+        limited_nodes < unlimited_nodes,
+        "Soft limit should cause fewer nodes ({} vs {})",
+        limited_nodes,
+        unlimited_nodes
+    );
+}

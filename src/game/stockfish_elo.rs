@@ -13,12 +13,6 @@ use ratatui::{
 use crate::board::color::Color;
 use crate::board::piece::Piece;
 use crate::board::Board;
-use crate::chess_move::capture::Capture;
-use crate::chess_move::castle::CastleChessMove;
-use crate::chess_move::chess_move::ChessMove;
-use crate::chess_move::en_passant::EnPassantChessMove;
-use crate::chess_move::pawn_promotion::PawnPromotionChessMove;
-use crate::chess_move::standard::StandardChessMove;
 use crate::evaluate::GameEnding;
 use crate::game::engine::{Engine, EngineConfig};
 use crate::game::stockfish_interface::Stockfish;
@@ -28,7 +22,7 @@ const GAMES_PER_ELO: usize = 10;
 const ELO_INCREMENT: u32 = 25;
 const TIME_LIMIT: u64 = 1000; // 1 second per move
 
-pub fn determine_stockfish_elo(depth: u8, starting_elo: u32) {
+pub fn determine_stockfish_elo(depth: u8, starting_elo: u32, no_tui: bool) {
     let mut stockfish = match Stockfish::new() {
         Ok(sf) => sf,
         Err(_) => {
@@ -37,79 +31,80 @@ pub fn determine_stockfish_elo(depth: u8, starting_elo: u32) {
         }
     };
 
-    // Initialize TUI
-    let mut tui = match EloTui::new() {
-        Ok(tui) => tui,
-        Err(e) => {
-            eprintln!("Failed to initialize TUI: {}", e);
-            return;
+    let mut renderer: Box<dyn EloRenderer> = if no_tui {
+        Box::new(HeadlessRenderer)
+    } else {
+        match EloTui::new() {
+            Ok(tui) => Box::new(tui),
+            Err(e) => {
+                eprintln!("Failed to initialize TUI: {}", e);
+                return;
+            }
         }
     };
 
     let mut current_elo = starting_elo;
-    let mut wins = 0;
-    let mut losses = 0;
-    let mut draws = 0;
-    let mut total_games = 0;
     let mut engine_total_time = Duration::new(0, 0);
     let mut stockfish_total_time = Duration::new(0, 0);
 
     loop {
         stockfish.set_elo(current_elo).unwrap();
 
+        let mut level_wins = 0;
+        let mut level_losses = 0;
+        let mut level_draws = 0;
+        let mut level_games = 0;
+
         for _ in 0..GAMES_PER_ELO {
             let stats = EloStats {
                 current_elo,
-                wins,
-                losses,
-                draws,
-                total_games,
+                wins: level_wins,
+                losses: level_losses,
+                draws: level_draws,
+                total_games: level_games,
                 engine_total_time,
                 stockfish_total_time,
             };
 
-            let (result, engine_time, sf_time) = play_game(&mut stockfish, depth, &mut tui, &stats);
-            total_games += 1;
+            let (result, engine_time, sf_time) =
+                play_game(&mut stockfish, depth, renderer.as_mut(), &stats);
+            level_games += 1;
             engine_total_time += engine_time;
             stockfish_total_time += sf_time;
 
             match result {
-                GameResult::Win => wins += 1,
-                GameResult::Loss => losses += 1,
-                GameResult::Draw => draws += 1,
+                GameResult::Win => level_wins += 1,
+                GameResult::Loss => level_losses += 1,
+                GameResult::Draw => level_draws += 1,
             }
 
-            if is_elo_determined(wins, losses, total_games) {
+            if is_elo_determined(level_wins, level_losses, level_games) {
                 let final_stats = EloStats {
                     current_elo,
-                    wins,
-                    losses,
-                    draws,
-                    total_games,
+                    wins: level_wins,
+                    losses: level_losses,
+                    draws: level_draws,
+                    total_games: level_games,
                     engine_total_time,
                     stockfish_total_time,
                 };
-                tui.render_final(&final_stats).ok();
+                renderer.render_final(&final_stats).ok();
                 return;
             }
         }
 
-        if wins > losses {
+        if level_wins > level_losses {
             current_elo += ELO_INCREMENT;
         } else {
-            current_elo -= ELO_INCREMENT;
+            current_elo = current_elo.saturating_sub(ELO_INCREMENT);
         }
-
-        wins = 0;
-        losses = 0;
-        draws = 0;
     }
 }
 
 fn play_game(
     stockfish: &mut Stockfish,
     depth: u8,
-    tui: &mut EloTui,
+    renderer: &mut dyn EloRenderer,
     stats: &EloStats,
 ) -> (GameResult, Duration, Duration) {
     let mut engine = Engine::with_config(EngineConfig {
@@ -143,20 +138,45 @@ fn play_game(
         let start_time = Instant::now();
         let current_turn = engine.board().turn();
 
-        let chess_move = if current_turn == engine_color {
-            let chess_move = engine.get_best_move().unwrap();
-            engine_time += start_time.elapsed();
-            chess_move
+        if current_turn == engine_color {
+            match engine.make_best_move_with_time_limit(Duration::from_millis(TIME_LIMIT)) {
+                Ok(chess_move) => {
+                    engine_time += start_time.elapsed();
+                    moves.push(chess_move.to_uci());
+                }
+                Err(_) => return (GameResult::Draw, engine_time, stockfish_time),
+            }
         } else {
-            let (sf_move, sf_time) = stockfish
-                .get_best_move(&moves.join(" "), TIME_LIMIT)
-                .unwrap();
+            let (sf_move, sf_time) = match stockfish.get_best_move(&moves.join(" "), TIME_LIMIT) {
+                Ok(result) => result,
+                Err(_) => return (GameResult::Draw, engine_time, stockfish_time),
+            };
             stockfish_time += Duration::from_millis(sf_time);
-            create_chess_move_from_uci(&sf_move, engine.board())
-        };
 
-        engine.apply_chess_move(chess_move.clone()).unwrap();
-        moves.push(chess_move.to_uci());
+            let from = match Square::from_algebraic(&sf_move[0..2]) {
+                Some(sq) => sq,
+                None => return (GameResult::Draw, engine_time, stockfish_time),
+            };
+            let to = match Square::from_algebraic(&sf_move[2..4]) {
+                Some(sq) => sq,
+                None => return (GameResult::Draw, engine_time, stockfish_time),
+            };
+            let promotion = sf_move.chars().nth(4).map(|c| match c {
+                'q' => Piece::Queen,
+                'r' => Piece::Rook,
+                'b' => Piece::Bishop,
+                'n' => Piece::Knight,
+                _ => Piece::Queen,
+            });
+
+            match engine.make_move_by_squares_with_promotion(from, to, promotion) {
+                Ok(chess_move) => moves.push(chess_move.to_uci()),
+                Err(e) => {
+                    eprintln!("Board desync with Stockfish: {}", e);
+                    return (GameResult::Draw, engine_time, stockfish_time);
+                }
+            }
+        }
 
         // Render the current game state
         let game_state = GameState {
@@ -164,43 +184,10 @@ fn play_game(
             engine_time,
             stockfish_time,
         };
-        tui.render(&engine, &game_state, stats).ok();
+        renderer.render(&engine, &game_state, stats).ok();
 
         engine.board_mut().toggle_turn();
-    }
-}
-
-fn create_chess_move_from_uci(uci: &str, board: &Board) -> ChessMove {
-    let from = Square::from_algebraic(&uci[0..2]).expect("Invalid from square");
-    let to = Square::from_algebraic(&uci[2..4]).expect("Invalid to square");
-    let promotion = uci.chars().nth(4).map(|c| match c {
-        'q' => Piece::Queen,
-        'r' => Piece::Rook,
-        'b' => Piece::Bishop,
-        'n' => Piece::Knight,
-        _ => panic!("Invalid promotion piece"),
-    });
-
-    let piece = board
-        .get(from)
-        .expect("from square should contain a piece")
-        .0;
-    let capture = board.get(to).map(|(p, _)| Capture(p));
-
-    match (piece, promotion) {
-        (Piece::Pawn, Some(promote_to)) => {
-            ChessMove::PawnPromotion(PawnPromotionChessMove::new(from, to, capture, promote_to))
-        }
-        (Piece::Pawn, None) if Some(to) == board.peek_en_passant_target() => {
-            ChessMove::EnPassant(EnPassantChessMove::new(from, to))
-        }
-        (Piece::King, None) if (from, to) == (E1, G1) || (from, to) == (E8, G8) => {
-            ChessMove::Castle(CastleChessMove::castle_kingside(board.turn()))
-        }
-        (Piece::King, None) if (from, to) == (E1, C1) || (from, to) == (E8, C8) => {
-            ChessMove::Castle(CastleChessMove::castle_queenside(board.turn()))
-        }
-        _ => ChessMove::Standard(StandardChessMove::new(from, to, capture)),
+        engine.record_position_hash();
     }
 }
 
@@ -232,6 +219,65 @@ struct GameState {
     stockfish_time: Duration,
 }
 
+/// Rendering abstraction for ELO determination progress
+trait EloRenderer {
+    fn render(
+        &mut self,
+        engine: &Engine,
+        game_state: &GameState,
+        elo_stats: &EloStats,
+    ) -> io::Result<()>;
+
+    fn render_final(&mut self, elo_stats: &EloStats) -> io::Result<()>;
+}
+
+/// Headless renderer that prints progress to stdout
+struct HeadlessRenderer;
+
+impl EloRenderer for HeadlessRenderer {
+    fn render(
+        &mut self,
+        engine: &Engine,
+        game_state: &GameState,
+        elo_stats: &EloStats,
+    ) -> io::Result<()> {
+        // Print a summary line after each game completes (when move count resets).
+        // We detect "new game" by checking if the board is near starting position.
+        let move_count = engine.move_history().len();
+        if move_count <= 1 && elo_stats.total_games > 0 {
+            let win_rate = elo_stats.wins as f32 / elo_stats.total_games as f32 * 100.0;
+            println!(
+                "  ELO {} | Game {} | W/L/D: {}/{}/{} | Win Rate: {:.1}% | \
+                 Engine: {:.1}s | SF: {:.1}s",
+                elo_stats.current_elo,
+                elo_stats.total_games,
+                elo_stats.wins,
+                elo_stats.losses,
+                elo_stats.draws,
+                win_rate,
+                game_state.engine_time.as_secs_f64(),
+                game_state.stockfish_time.as_secs_f64(),
+            );
+        }
+        Ok(())
+    }
+
+    fn render_final(&mut self, elo_stats: &EloStats) -> io::Result<()> {
+        let win_rate = if elo_stats.total_games > 0 {
+            elo_stats.wins as f32 / elo_stats.total_games as f32 * 100.0
+        } else {
+            0.0
+        };
+        println!("\nELO DETERMINATION COMPLETE");
+        println!("Final ELO: {}", elo_stats.current_elo);
+        println!(
+            "Games: {} | W/L/D: {}/{}/{} | Win Rate: {:.1}%",
+            elo_stats.total_games, elo_stats.wins, elo_stats.losses, elo_stats.draws, win_rate
+        );
+        Ok(())
+    }
+}
+
 /// TUI for ELO determination
 struct EloTui {
     terminal: Terminal<CrosstermBackend<io::Stdout>>,
@@ -249,44 +295,6 @@ impl EloTui {
             terminal,
             theme: Theme::default(),
         })
-    }
-
-    fn render(
-        &mut self,
-        engine: &Engine,
-        game_state: &GameState,
-        elo_stats: &EloStats,
-    ) -> io::Result<()> {
-        self.terminal.clear()?;
-
-        let theme = &self.theme;
-        self.terminal.draw(|f| {
-            let size = f.area();
-
-            // Main layout: board area + status panel at bottom
-            let main_chunks = Layout::default()
-                .direction(Direction::Vertical)
-                .constraints([Constraint::Min(10), Constraint::Length(10)])
-                .split(size);
-
-            // Split board area: board on left, info panel on right
-            let board_chunks = Layout::default()
-                .direction(Direction::Horizontal)
-                .constraints([Constraint::Percentage(60), Constraint::Percentage(40)])
-                .split(main_chunks[0]);
-
-            // Render board
-            let board_widget = BoardWidget::new(engine.board(), theme);
-            f.render_widget(board_widget, board_chunks[0]);
-
-            // Render game info panel
-            Self::render_game_info(f, board_chunks[1], engine, game_state, theme);
-
-            // Render ELO stats panel
-            Self::render_elo_stats(f, main_chunks[1], game_state, elo_stats, theme);
-        })?;
-
-        Ok(())
     }
 
     fn render_game_info(
@@ -397,6 +405,40 @@ impl EloTui {
 
         frame.render_widget(paragraph, area);
     }
+}
+
+impl EloRenderer for EloTui {
+    fn render(
+        &mut self,
+        engine: &Engine,
+        game_state: &GameState,
+        elo_stats: &EloStats,
+    ) -> io::Result<()> {
+        self.terminal.clear()?;
+
+        let theme = &self.theme;
+        self.terminal.draw(|f| {
+            let size = f.area();
+
+            let main_chunks = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([Constraint::Min(10), Constraint::Length(10)])
+                .split(size);
+
+            let board_chunks = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints([Constraint::Percentage(60), Constraint::Percentage(40)])
+                .split(main_chunks[0]);
+
+            let board_widget = BoardWidget::new(engine.board(), theme);
+            f.render_widget(board_widget, board_chunks[0]);
+
+            Self::render_game_info(f, board_chunks[1], engine, game_state, theme);
+            Self::render_elo_stats(f, main_chunks[1], game_state, elo_stats, theme);
+        })?;
+
+        Ok(())
+    }
 
     fn render_final(&mut self, elo_stats: &EloStats) -> io::Result<()> {
         self.terminal.clear()?;
@@ -475,4 +517,43 @@ fn format_number(n: u64) -> String {
         result.push(c);
     }
     result.chars().rev().collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // --- is_elo_determined tests ---
+
+    #[test]
+    fn test_is_elo_determined_50_percent_win_rate() {
+        assert!(
+            is_elo_determined(5, 5, 10),
+            "50% win rate at 10 games should be determined"
+        );
+    }
+
+    #[test]
+    fn test_is_elo_determined_high_win_rate() {
+        assert!(
+            !is_elo_determined(8, 2, 10),
+            "80% win rate should not be determined"
+        );
+    }
+
+    #[test]
+    fn test_is_elo_determined_low_win_rate() {
+        assert!(
+            !is_elo_determined(2, 8, 10),
+            "20% win rate should not be determined"
+        );
+    }
+
+    #[test]
+    fn test_is_elo_determined_insufficient_games() {
+        assert!(
+            !is_elo_determined(3, 2, 5),
+            "Only 5 games should not be determined"
+        );
+    }
 }

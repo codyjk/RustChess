@@ -45,14 +45,29 @@ pub fn player_is_in_checkmate(
 }
 
 /// Returns the game ending state if the game has ended, otherwise returns None.
+/// `position_history` is used for threefold repetition detection when called from
+/// the game loop (pass `&[]` during search where game history is unavailable).
 #[inline(always)]
 pub fn game_ending(
     board: &mut Board,
     move_generator: &MoveGenerator,
     current_turn: Color,
+    position_history: &[u64],
 ) -> Option<GameEnding> {
-    if board.halfmove_clock().value() >= 50 {
+    if board.halfmove_clock().value() >= 100 {
         return Some(GameEnding::Draw);
+    }
+
+    // Threefold repetition: if the current position has appeared 3+ times in game history
+    if !position_history.is_empty() {
+        let current_hash = board.current_position_hash();
+        let count = position_history
+            .iter()
+            .filter(|&&h| h == current_hash)
+            .count();
+        if count >= 3 {
+            return Some(GameEnding::Draw);
+        }
     }
 
     let candidates = move_generator.generate_moves(board, current_turn);
@@ -77,8 +92,8 @@ pub fn score(
     current_turn: Color,
     remaining_depth: u8,
 ) -> i16 {
-    // Check for 50-move rule
-    if board.halfmove_clock().value() >= 50 {
+    // Near the 50-move rule (100 half-moves), score as draw to avoid surprises
+    if board.halfmove_clock().value() >= 90 {
         return 0;
     }
 
@@ -107,8 +122,8 @@ pub fn score(
         return board_material_score(board);
     }
 
-    // For non-leaf nodes, do full game ending check
-    match game_ending(board, move_generator, current_turn) {
+    // For non-leaf nodes, do full game ending check (no game history during search)
+    match game_ending(board, move_generator, current_turn, &[]) {
         Some(GameEnding::Checkmate) => {
             if current_turn == Color::White {
                 // Black wins, but sooner is better for Black
@@ -220,7 +235,7 @@ mod tests {
         board.set_turn(Color::Black);
         board.lose_castle_rights(CastleRights::all());
 
-        let ending = game_ending(&mut board, &MoveGenerator::default(), Color::Black);
+        let ending = game_ending(&mut board, &MoveGenerator::default(), Color::Black, &[]);
         matches!(ending, Some(GameEnding::Stalemate));
     }
 
@@ -239,7 +254,7 @@ mod tests {
         board.set_turn(Color::Black);
         board.lose_castle_rights(CastleRights::all());
 
-        let ending = game_ending(&mut board, &MoveGenerator::default(), Color::Black);
+        let ending = game_ending(&mut board, &MoveGenerator::default(), Color::Black, &[]);
         matches!(ending, Some(GameEnding::Checkmate));
     }
 
