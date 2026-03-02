@@ -2,12 +2,11 @@ use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, Command, Stdio};
 use std::time::Instant;
 
-const DEFAULT_ELO: u32 = 1000;
-
 pub struct Stockfish {
     process: Child,
     reader: BufReader<std::process::ChildStdout>,
     elo: u32,
+    min_elo: u32,
 }
 
 impl Stockfish {
@@ -19,11 +18,42 @@ impl Stockfish {
 
         let reader = BufReader::new(process.stdout.take().unwrap());
 
-        Ok(Stockfish {
+        let mut sf = Stockfish {
             process,
             reader,
-            elo: DEFAULT_ELO,
-        })
+            elo: 0,
+            min_elo: 1320, // Stockfish default, updated by init()
+        };
+        sf.init()?;
+        Ok(sf)
+    }
+
+    /// Send "uci" and parse option lines to discover the minimum UCI_Elo.
+    fn init(&mut self) -> Result<(), std::io::Error> {
+        self.send_command("uci")?;
+        loop {
+            let line = self.read_line()?;
+            // Parse: option name UCI_Elo type spin default 1320 min 1320 max 3190
+            if line.starts_with("option name UCI_Elo") {
+                if let Some(min_val) = line
+                    .split_whitespace()
+                    .skip_while(|&w| w != "min")
+                    .nth(1)
+                    .and_then(|s| s.parse::<u32>().ok())
+                {
+                    self.min_elo = min_val;
+                }
+            }
+            if line == "uciok" {
+                break;
+            }
+        }
+        Ok(())
+    }
+
+    /// Returns the minimum ELO that Stockfish supports.
+    pub fn min_elo(&self) -> u32 {
+        self.min_elo
     }
 
     pub fn send_command(&mut self, command: &str) -> Result<(), std::io::Error> {
@@ -38,9 +68,18 @@ impl Stockfish {
     }
 
     pub fn set_elo(&mut self, elo: u32) -> Result<(), std::io::Error> {
+        let clamped = elo.max(self.min_elo);
         self.send_command("setoption name UCI_LimitStrength value true")?;
-        self.send_command(&format!("setoption name UCI_Elo value {}", elo))?;
-        self.elo = elo;
+        self.send_command(&format!("setoption name UCI_Elo value {}", clamped))?;
+        // Ensure Stockfish has applied the options before we start a game
+        self.send_command("isready")?;
+        loop {
+            let line = self.read_line()?;
+            if line == "readyok" {
+                break;
+            }
+        }
+        self.elo = clamped;
         Ok(())
     }
 

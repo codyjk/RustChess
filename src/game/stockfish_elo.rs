@@ -20,9 +20,8 @@ use crate::tui::{board_widget::BoardWidget, Theme};
 
 const GAMES_PER_ELO: usize = 10;
 const ELO_INCREMENT: u32 = 25;
-const TIME_LIMIT: u64 = 1000; // 1 second per move
 
-pub fn determine_stockfish_elo(depth: u8, starting_elo: u32, no_tui: bool) {
+pub fn determine_stockfish_elo(depth: u8, starting_elo: u32, no_tui: bool, time_limit_ms: u64) {
     let mut stockfish = match Stockfish::new() {
         Ok(sf) => sf,
         Err(_) => {
@@ -43,7 +42,8 @@ pub fn determine_stockfish_elo(depth: u8, starting_elo: u32, no_tui: bool) {
         }
     };
 
-    let mut current_elo = starting_elo;
+    let min_elo = stockfish.min_elo();
+    let mut current_elo = starting_elo.max(min_elo);
     let mut engine_total_time = Duration::new(0, 0);
     let mut stockfish_total_time = Duration::new(0, 0);
 
@@ -66,8 +66,13 @@ pub fn determine_stockfish_elo(depth: u8, starting_elo: u32, no_tui: bool) {
                 stockfish_total_time,
             };
 
-            let (result, engine_time, sf_time) =
-                play_game(&mut stockfish, depth, renderer.as_mut(), &stats);
+            let (result, engine_time, sf_time) = play_game(
+                &mut stockfish,
+                depth,
+                time_limit_ms,
+                renderer.as_mut(),
+                &stats,
+            );
             level_games += 1;
             engine_total_time += engine_time;
             stockfish_total_time += sf_time;
@@ -78,7 +83,7 @@ pub fn determine_stockfish_elo(depth: u8, starting_elo: u32, no_tui: bool) {
                 GameResult::Draw => level_draws += 1,
             }
 
-            if is_elo_determined(level_wins, level_losses, level_games) {
+            if is_elo_determined(level_wins, level_draws, level_games) {
                 let final_stats = EloStats {
                     current_elo,
                     wins: level_wins,
@@ -93,10 +98,25 @@ pub fn determine_stockfish_elo(depth: u8, starting_elo: u32, no_tui: bool) {
             }
         }
 
-        if level_wins > level_losses {
+        // Use chess score rate: wins count 1, draws count 0.5
+        let score = level_wins as f32 + level_draws as f32 * 0.5;
+        if score > level_games as f32 * 0.5 {
             current_elo += ELO_INCREMENT;
+        } else if current_elo <= min_elo {
+            // Can't go below Stockfish's minimum -- report this as the floor
+            let final_stats = EloStats {
+                current_elo: min_elo,
+                wins: level_wins,
+                losses: level_losses,
+                draws: level_draws,
+                total_games: level_games,
+                engine_total_time,
+                stockfish_total_time,
+            };
+            renderer.render_final(&final_stats).ok();
+            return;
         } else {
-            current_elo = current_elo.saturating_sub(ELO_INCREMENT);
+            current_elo = current_elo.saturating_sub(ELO_INCREMENT).max(min_elo);
         }
     }
 }
@@ -104,6 +124,7 @@ pub fn determine_stockfish_elo(depth: u8, starting_elo: u32, no_tui: bool) {
 fn play_game(
     stockfish: &mut Stockfish,
     depth: u8,
+    time_limit_ms: u64,
     renderer: &mut dyn EloRenderer,
     stats: &EloStats,
 ) -> (GameResult, Duration, Duration) {
@@ -139,7 +160,7 @@ fn play_game(
         let current_turn = engine.board().turn();
 
         if current_turn == engine_color {
-            match engine.make_best_move_with_time_limit(Duration::from_millis(TIME_LIMIT)) {
+            match engine.make_best_move_with_time_limit(Duration::from_millis(time_limit_ms)) {
                 Ok(chess_move) => {
                     engine_time += start_time.elapsed();
                     moves.push(chess_move.to_uci());
@@ -147,7 +168,8 @@ fn play_game(
                 Err(_) => return (GameResult::Draw, engine_time, stockfish_time),
             }
         } else {
-            let (sf_move, sf_time) = match stockfish.get_best_move(&moves.join(" "), TIME_LIMIT) {
+            let (sf_move, sf_time) = match stockfish.get_best_move(&moves.join(" "), time_limit_ms)
+            {
                 Ok(result) => result,
                 Err(_) => return (GameResult::Draw, engine_time, stockfish_time),
             };
@@ -172,7 +194,23 @@ fn play_game(
             match engine.make_move_by_squares_with_promotion(from, to, promotion) {
                 Ok(chess_move) => moves.push(chess_move.to_uci()),
                 Err(e) => {
-                    eprintln!("Board desync with Stockfish: {}", e);
+                    let valid_moves = engine.get_valid_moves();
+                    let valid_uci: Vec<String> =
+                        valid_moves.iter().map(|(m, _)| m.to_uci()).collect();
+                    eprintln!(
+                        "Board desync with Stockfish: {}\n  \
+                         FEN: {}\n  \
+                         SF move: {}\n  \
+                         Turn: {:?}\n  \
+                         Move list: {}\n  \
+                         Valid moves: {:?}",
+                        e,
+                        engine.board().to_fen(),
+                        sf_move,
+                        engine.board().turn(),
+                        moves.join(" "),
+                        valid_uci
+                    );
                     return (GameResult::Draw, engine_time, stockfish_time);
                 }
             }
@@ -191,8 +229,13 @@ fn play_game(
     }
 }
 
-fn is_elo_determined(wins: usize, _losses: usize, total_games: usize) -> bool {
-    total_games >= GAMES_PER_ELO && (wins as f32 / total_games as f32 - 0.5).abs() < 0.1
+/// Check if ELO is determined using chess score rate (wins=1, draws=0.5).
+fn is_elo_determined(wins: usize, draws: usize, total_games: usize) -> bool {
+    if total_games < GAMES_PER_ELO {
+        return false;
+    }
+    let score_rate = (wins as f32 + draws as f32 * 0.5) / total_games as f32;
+    (score_rate - 0.5).abs() < 0.1
 }
 
 enum GameResult {
@@ -245,16 +288,18 @@ impl EloRenderer for HeadlessRenderer {
         // We detect "new game" by checking if the board is near starting position.
         let move_count = engine.move_history().len();
         if move_count <= 1 && elo_stats.total_games > 0 {
-            let win_rate = elo_stats.wins as f32 / elo_stats.total_games as f32 * 100.0;
+            let score_rate = (elo_stats.wins as f32 + elo_stats.draws as f32 * 0.5)
+                / elo_stats.total_games as f32
+                * 100.0;
             println!(
-                "  ELO {} | Game {} | W/L/D: {}/{}/{} | Win Rate: {:.1}% | \
+                "  ELO {} | Game {} | W/L/D: {}/{}/{} | Score: {:.1}% | \
                  Engine: {:.1}s | SF: {:.1}s",
                 elo_stats.current_elo,
                 elo_stats.total_games,
                 elo_stats.wins,
                 elo_stats.losses,
                 elo_stats.draws,
-                win_rate,
+                score_rate,
                 game_state.engine_time.as_secs_f64(),
                 game_state.stockfish_time.as_secs_f64(),
             );
@@ -263,16 +308,17 @@ impl EloRenderer for HeadlessRenderer {
     }
 
     fn render_final(&mut self, elo_stats: &EloStats) -> io::Result<()> {
-        let win_rate = if elo_stats.total_games > 0 {
-            elo_stats.wins as f32 / elo_stats.total_games as f32 * 100.0
+        let score_rate = if elo_stats.total_games > 0 {
+            (elo_stats.wins as f32 + elo_stats.draws as f32 * 0.5) / elo_stats.total_games as f32
+                * 100.0
         } else {
             0.0
         };
         println!("\nELO DETERMINATION COMPLETE");
         println!("Final ELO: {}", elo_stats.current_elo);
         println!(
-            "Games: {} | W/L/D: {}/{}/{} | Win Rate: {:.1}%",
-            elo_stats.total_games, elo_stats.wins, elo_stats.losses, elo_stats.draws, win_rate
+            "Games: {} | W/L/D: {}/{}/{} | Score: {:.1}%",
+            elo_stats.total_games, elo_stats.wins, elo_stats.losses, elo_stats.draws, score_rate
         );
         Ok(())
     }
@@ -359,8 +405,9 @@ impl EloTui {
         elo_stats: &EloStats,
         theme: &Theme,
     ) {
-        let win_rate = if elo_stats.total_games > 0 {
-            elo_stats.wins as f32 / elo_stats.total_games as f32 * 100.0
+        let score_rate = if elo_stats.total_games > 0 {
+            (elo_stats.wins as f32 + elo_stats.draws as f32 * 0.5) / elo_stats.total_games as f32
+                * 100.0
         } else {
             0.0
         };
@@ -378,7 +425,7 @@ impl EloTui {
         };
 
         let stats_text = format!(
-            "Target ELO: {}  │  Games: {}  │  W/L/D: {}/{}/{}  │  Win Rate: {:.1}%\n\
+            "Target ELO: {}  │  Games: {}  │  W/L/D: {}/{}/{}  │  Score: {:.1}%\n\
              Engine avg: {:.0}ms  │  Stockfish avg: {:.0}ms\n\
              \n\
              Current game timings:\n\
@@ -388,7 +435,7 @@ impl EloTui {
             elo_stats.wins,
             elo_stats.losses,
             elo_stats.draws,
-            win_rate,
+            score_rate,
             avg_engine_time,
             avg_stockfish_time,
             game_state.engine_time.as_millis(),
@@ -451,6 +498,9 @@ impl EloRenderer for EloTui {
                 .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
                 .split(size);
 
+            let score_rate = (elo_stats.wins as f32 + elo_stats.draws as f32 * 0.5)
+                / elo_stats.total_games as f32
+                * 100.0;
             let final_text = format!(
                 "ELO DETERMINATION COMPLETE\n\
                  \n\
@@ -460,7 +510,7 @@ impl EloRenderer for EloTui {
                  Wins: {}\n\
                  Losses: {}\n\
                  Draws: {}\n\
-                 Win Rate: {:.1}%\n\
+                 Score: {:.1}%\n\
                  \n\
                  Press any key to exit...",
                 elo_stats.current_elo,
@@ -468,7 +518,7 @@ impl EloRenderer for EloTui {
                 elo_stats.wins,
                 elo_stats.losses,
                 elo_stats.draws,
-                (elo_stats.wins as f32 / elo_stats.total_games as f32 * 100.0)
+                score_rate
             );
 
             let paragraph = Paragraph::new(final_text)
@@ -523,37 +573,58 @@ fn format_number(n: u64) -> String {
 mod tests {
     use super::*;
 
-    // --- is_elo_determined tests ---
+    // --- is_elo_determined tests (uses score rate: wins=1, draws=0.5) ---
 
     #[test]
-    fn test_is_elo_determined_50_percent_win_rate() {
+    fn test_is_elo_determined_50_percent_score_rate() {
+        // 5 wins, 0 draws, 5 losses -> score = 5/10 = 50%
         assert!(
-            is_elo_determined(5, 5, 10),
-            "50% win rate at 10 games should be determined"
+            is_elo_determined(5, 0, 10),
+            "50% score rate at 10 games should be determined"
         );
     }
 
     #[test]
-    fn test_is_elo_determined_high_win_rate() {
+    fn test_is_elo_determined_draws_count_half() {
+        // 4 wins, 2 draws, 4 losses -> score = (4+1)/10 = 50%
         assert!(
-            !is_elo_determined(8, 2, 10),
-            "80% win rate should not be determined"
+            is_elo_determined(4, 2, 10),
+            "4W/2D/4L = 50% score rate should be determined"
         );
     }
 
     #[test]
-    fn test_is_elo_determined_low_win_rate() {
+    fn test_is_elo_determined_high_score_rate() {
+        // 8 wins, 0 draws -> score = 8/10 = 80%
         assert!(
-            !is_elo_determined(2, 8, 10),
-            "20% win rate should not be determined"
+            !is_elo_determined(8, 0, 10),
+            "80% score rate should not be determined"
+        );
+    }
+
+    #[test]
+    fn test_is_elo_determined_low_score_rate() {
+        // 2 wins, 0 draws -> score = 2/10 = 20%
+        assert!(
+            !is_elo_determined(2, 0, 10),
+            "20% score rate should not be determined"
         );
     }
 
     #[test]
     fn test_is_elo_determined_insufficient_games() {
         assert!(
-            !is_elo_determined(3, 2, 5),
+            !is_elo_determined(3, 0, 5),
             "Only 5 games should not be determined"
+        );
+    }
+
+    #[test]
+    fn test_is_elo_determined_many_draws_is_determined() {
+        // 3 wins, 4 draws, 3 losses -> score = (3+2)/10 = 50%
+        assert!(
+            is_elo_determined(3, 4, 10),
+            "3W/4D/3L = 50% score rate should be determined"
         );
     }
 }
