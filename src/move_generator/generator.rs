@@ -66,6 +66,12 @@ impl MoveGenerator {
         }
     }
 
+    /// Returns a reference to the internal `Targets` for use by the evaluation function.
+    #[inline]
+    pub fn targets(&self) -> &Targets {
+        &self.targets
+    }
+
     #[cfg_attr(feature = "instrumentation", instrument(skip_all))]
     pub fn generate_moves_and_lazily_update_chess_move_effects(
         &self,

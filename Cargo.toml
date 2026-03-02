@@ -92,7 +92,3 @@ harness = false
 [[bench]]
 name = "evaluation_benchmark"
 harness = false
-
-[[bench]]
-name = "puzzle_benchmark"
-harness = false

@@ -5,7 +5,7 @@ use structopt::StructOpt;
 use crate::cli::commands::{
     benchmark_alpha_beta::BenchmarkAlphaBetaArgs, calculate_best_move::CalculateBestMoveArgs,
     count_positions::CountPositionsArgs, determine_stockfish_elo::DetermineStockfishEloArgs,
-    play::PlayArgs, pvp::PvpArgs, uci::UciArgs, watch::WatchArgs,
+    play::PlayArgs, pvp::PvpArgs, solve_puzzles::SolvePuzzlesArgs, uci::UciArgs, watch::WatchArgs,
 };
 
 #[derive(StructOpt)]
@@ -50,6 +50,11 @@ pub enum Chess {
     )]
     CountPositions(CountPositionsArgs),
     #[structopt(
+        name = "solve-puzzles",
+        about = "Run the puzzle suite (tactical, strategic, deep positional) and report solve rates. Use `--tier 1|2|3` to run a single tier."
+    )]
+    SolvePuzzles(SolvePuzzlesArgs),
+    #[structopt(
         name = "uci",
         about = "Start UCI (Universal Chess Interface) mode for integration with external chess GUIs like Arena, cutechess-cli, or lichess. Reads UCI commands from stdin and responds on stdout."
     )]
@@ -74,6 +79,7 @@ impl crate::cli::commands::Command for Chess {
             BenchmarkAlphaBeta(cmd),
             DetermineStockfishElo(cmd),
             CountPositions(cmd),
+            SolvePuzzles(cmd),
             Uci(cmd),
         }
     }

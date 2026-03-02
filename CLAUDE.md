@@ -36,8 +36,8 @@ Three-layer design separating generic search from chess-specific logic:
 - **`game/`** — Game loop with `InputSource`/`GameRenderer` trait abstractions for I/O modularity
 - **`uci/`** — UCI protocol state machine for GUI integration
 - **`tui/`** — ratatui-based terminal UI, colors customizable via `tui_colors.toml`
-- **`evaluate/`** — Material scoring + piece-square tables
-- **`cli/`** — StructOpt subcommands (play, watch, pvp, uci, calculate-best-move, count-positions, benchmark-alpha-beta, determine-stockfish-elo)
+- **`evaluate/`** — Tapered evaluation with material, piece-square tables (separate MG/EG for all piece types), pawn structure (passed/doubled/isolated/backward/connected), piece activity (bishop pair, knight outposts, rook on open files/7th rank), king safety (pawn shield, open file penalty, knight attack units), and piece mobility (knights + bishops via magic bitboards). Uses `LazyLock<Targets>` singleton for standalone eval; during search, shares `MoveGenerator::targets()` to avoid duplicate allocation.
+- **`cli/`** — StructOpt subcommands (play, watch, pvp, uci, calculate-best-move, count-positions, benchmark-alpha-beta, determine-stockfish-elo, solve-puzzles)
 
 ### Key patterns
 - Parallel search at root level only, using Rayon. Conditional cloning (only when parallelizing with 10+ moves).
@@ -61,3 +61,11 @@ Always use release builds for performance measurement. Quick feedback loop:
 cargo test && chess count-positions --depth 5 | tail -n 1
 ```
 Use depth 4-5 for iteration; depth 6+ for final validation only. Position counts must match exactly after optimization changes (correctness check).
+
+Puzzle solve rates measure eval quality (not latency):
+```bash
+chess solve-puzzles              # all tiers
+chess solve-puzzles --tier 1     # tactical only (depth 6, fast)
+chess solve-puzzles --tier 2     # BK strategic (depth 10)
+chess solve-puzzles --tier 3     # deep positional (depth 12, slow)
+```

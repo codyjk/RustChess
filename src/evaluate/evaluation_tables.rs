@@ -12,10 +12,10 @@ pub const MATERIAL_VALUES: [i16; 6] = [100, 320, 330, 500, 900, 20000];
 #[rustfmt::skip]
 pub const BONUS_TABLES_MG: [[i16; 64]; 6] = [
     PAWN_BONUSES_MG,
-    KNIGHT_BONUSES,
-    BISHOP_BONUSES,
-    ROOK_BONUSES,
-    QUEEN_BONUSES,
+    KNIGHT_BONUSES_MG,
+    BISHOP_BONUSES_MG,
+    ROOK_BONUSES_MG,
+    QUEEN_BONUSES_MG,
     KING_MIDGAME_BONUSES,
 ];
 
@@ -24,10 +24,10 @@ pub const BONUS_TABLES_MG: [[i16; 64]; 6] = [
 #[rustfmt::skip]
 pub const BONUS_TABLES_EG: [[i16; 64]; 6] = [
     PAWN_BONUSES_EG,
-    KNIGHT_BONUSES,
-    BISHOP_BONUSES,
-    ROOK_BONUSES,
-    QUEEN_BONUSES,
+    KNIGHT_BONUSES_EG,
+    BISHOP_BONUSES_EG,
+    ROOK_BONUSES_EG,
+    QUEEN_BONUSES_EG,
     KING_ENDGAME_BONUSES,
 ];
 
@@ -82,10 +82,10 @@ pub const PAWN_BONUSES_EG: [i16; 64] = [
      0,  0,  0,  0,  0,  0,  0,  0
 ];
 
-// --- Other piece PSTs (same for mg/eg for now) ---
+// --- Knight PST (midgame and endgame) ---
 
 #[rustfmt::skip]
-pub const KNIGHT_BONUSES: [i16; 64] = [
+pub const KNIGHT_BONUSES_MG: [i16; 64] = [
     -50,-40,-30,-30,-30,-30,-40,-50,
     -40,-20,  0,  0,  0,  0,-20,-40,
     -30,  0, 10, 15, 15, 10,  0,-30,
@@ -96,8 +96,23 @@ pub const KNIGHT_BONUSES: [i16; 64] = [
     -50,-40,-30,-30,-30,-30,-40,-50,
 ];
 
+/// Endgame knight: centralization is even more important (fewer pieces = less mobility on rim).
 #[rustfmt::skip]
-pub const BISHOP_BONUSES: [i16; 64] = [
+pub const KNIGHT_BONUSES_EG: [i16; 64] = [
+    -50,-40,-30,-30,-30,-30,-40,-50,
+    -40,-20,  0,  5,  5,  0,-20,-40,
+    -30,  0, 15, 20, 20, 15,  0,-30,
+    -30,  5, 20, 25, 25, 20,  5,-30,
+    -30,  5, 20, 25, 25, 20,  5,-30,
+    -30,  0, 15, 20, 20, 15,  0,-30,
+    -40,-20,  0,  5,  5,  0,-20,-40,
+    -50,-40,-30,-30,-30,-30,-40,-50,
+];
+
+// --- Bishop PST (midgame and endgame) ---
+
+#[rustfmt::skip]
+pub const BISHOP_BONUSES_MG: [i16; 64] = [
     -20,-10,-10,-10,-10,-10,-10,-20,
     -10,  0,  0,  0,  0,  0,  0,-10,
     -10,  0,  5, 10, 10,  5,  0,-10,
@@ -108,8 +123,23 @@ pub const BISHOP_BONUSES: [i16; 64] = [
     -20,-10,-10,-10,-10,-10,-10,-20,
 ];
 
+/// Endgame bishop: long diagonals and central squares become more valuable.
 #[rustfmt::skip]
-pub const ROOK_BONUSES: [i16; 64] = [
+pub const BISHOP_BONUSES_EG: [i16; 64] = [
+    -20,-10,-10,-10,-10,-10,-10,-20,
+    -10,  0,  0,  5,  5,  0,  0,-10,
+    -10,  0, 10, 15, 15, 10,  0,-10,
+    -10,  5, 15, 15, 15, 15,  5,-10,
+    -10,  5, 15, 15, 15, 15,  5,-10,
+    -10,  0, 10, 15, 15, 10,  0,-10,
+    -10,  0,  0,  5,  5,  0,  0,-10,
+    -20,-10,-10,-10,-10,-10,-10,-20,
+];
+
+// --- Rook PST (midgame and endgame) ---
+
+#[rustfmt::skip]
+pub const ROOK_BONUSES_MG: [i16; 64] = [
      0,  0,  0,  0,  0,  0,  0,  0,
      5, 10, 10, 10, 10, 10, 10,  5,
     -5,  0,  0,  0,  0,  0,  0, -5,
@@ -120,8 +150,23 @@ pub const ROOK_BONUSES: [i16; 64] = [
      0,  0,  0,  5,  5,  0,  0,  0
 ];
 
+/// Endgame rook: 7th rank and central files become more valuable.
 #[rustfmt::skip]
-pub const QUEEN_BONUSES: [i16; 64] = [
+pub const ROOK_BONUSES_EG: [i16; 64] = [
+     0,  0,  0,  0,  0,  0,  0,  0,
+    10, 15, 15, 15, 15, 15, 15, 10,
+     0,  0,  0,  5,  5,  0,  0,  0,
+     0,  0,  0,  5,  5,  0,  0,  0,
+     0,  0,  0,  5,  5,  0,  0,  0,
+     0,  0,  0,  5,  5,  0,  0,  0,
+     0,  0,  0,  0,  0,  0,  0,  0,
+     0,  0,  0,  5,  5,  0,  0,  0
+];
+
+// --- Queen PST (midgame and endgame) ---
+
+#[rustfmt::skip]
+pub const QUEEN_BONUSES_MG: [i16; 64] = [
     -20,-10,-10, -5, -5,-10,-10,-20,
     -10,  0,  0,  0,  0,  0,  0,-10,
     -10,  0,  5,  5,  5,  5,  0,-10,
@@ -129,6 +174,19 @@ pub const QUEEN_BONUSES: [i16; 64] = [
       0,  0,  5,  5,  5,  5,  0, -5,
     -10,  5,  5,  5,  5,  5,  0,-10,
     -10,  0,  5,  0,  0,  0,  0,-10,
+    -20,-10,-10, -5, -5,-10,-10,-20
+];
+
+/// Endgame queen: more centralized, slightly less edge penalty.
+#[rustfmt::skip]
+pub const QUEEN_BONUSES_EG: [i16; 64] = [
+    -20,-10,-10, -5, -5,-10,-10,-20,
+    -10,  0,  5,  5,  5,  5,  0,-10,
+    -10,  5, 10, 10, 10, 10,  5,-10,
+     -5,  5, 10, 10, 10, 10,  5, -5,
+     -5,  5, 10, 10, 10, 10,  5, -5,
+    -10,  5, 10, 10, 10, 10,  5,-10,
+    -10,  0,  5,  5,  5,  5,  0,-10,
     -20,-10,-10, -5, -5,-10,-10,-20
 ];
 
@@ -231,3 +289,35 @@ pub const PAWN_SHIELD_BONUS: i16 = 8;
 
 /// King safety: penalty per open file near king (midgame only).
 pub const KING_OPEN_FILE_PENALTY: i16 = 15;
+
+/// King safety: penalty per attack unit on king zone (midgame only).
+pub const KING_ATTACK_UNIT_PENALTY: i16 = 4;
+
+// --- Knight outpost bonuses ---
+
+/// Knight on outpost square (no enemy pawns on adjacent files ahead).
+pub const KNIGHT_OUTPOST_BONUS_MG: i16 = 15;
+pub const KNIGHT_OUTPOST_BONUS_EG: i16 = 10;
+
+/// Extra bonus when outpost knight is supported by a friendly pawn.
+pub const KNIGHT_OUTPOST_SUPPORTED_MG: i16 = 10;
+pub const KNIGHT_OUTPOST_SUPPORTED_EG: i16 = 5;
+
+// --- Additional pawn structure bonuses ---
+
+/// Backward pawn penalty (can't advance, stop square attacked by enemy pawn).
+pub const BACKWARD_PAWN_PENALTY_MG: i16 = 8;
+pub const BACKWARD_PAWN_PENALTY_EG: i16 = 10;
+
+/// Connected pawn bonus (friendly pawn on adjacent file supporting).
+pub const CONNECTED_PAWN_BONUS_MG: i16 = 4;
+pub const CONNECTED_PAWN_BONUS_EG: i16 = 6;
+
+// --- Piece mobility bonuses (per available square) ---
+// Only knight and bishop mobility are computed; rook/queen mobility is too
+// expensive per-node relative to the marginal benefit (PSTs already capture it).
+
+pub const KNIGHT_MOBILITY_MG: i16 = 4;
+pub const KNIGHT_MOBILITY_EG: i16 = 4;
+pub const BISHOP_MOBILITY_MG: i16 = 3;
+pub const BISHOP_MOBILITY_EG: i16 = 3;

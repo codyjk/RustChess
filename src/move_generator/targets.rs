@@ -120,6 +120,30 @@ impl Default for Targets {
 }
 
 impl Targets {
+    // --- Public accessors for evaluation (mobility, king attack) ---
+
+    /// Returns the attack bitboard for a knight or king on the given square.
+    #[inline]
+    pub fn piece_attacks(&self, square: Square, piece: Piece) -> Bitboard {
+        match piece {
+            Piece::Knight => self.knights[square.index() as usize],
+            Piece::King => self.kings[square.index() as usize],
+            _ => panic!("piece_attacks only supports Knight and King"),
+        }
+    }
+
+    /// Returns the attack bitboard for a bishop on the given square with the given blockers.
+    #[inline]
+    pub fn bishop_attacks(&self, square: Square, occupied: Bitboard) -> Bitboard {
+        self.magic_table.get_bishop_targets(square, occupied)
+    }
+
+    /// Returns the attack bitboard for a rook on the given square with the given blockers.
+    #[inline]
+    pub fn rook_attacks(&self, square: Square, occupied: Bitboard) -> Bitboard {
+        self.magic_table.get_rook_targets(square, occupied)
+    }
+
     /// Calculate pinned pieces for the given color.
     ///
     /// A piece is pinned if it's on a line between the king and an opponent sliding piece,

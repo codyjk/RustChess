@@ -10,6 +10,7 @@ pub mod count_positions;
 pub mod determine_stockfish_elo;
 pub mod play;
 pub mod pvp;
+pub mod solve_puzzles;
 pub mod uci;
 pub mod watch;
 
