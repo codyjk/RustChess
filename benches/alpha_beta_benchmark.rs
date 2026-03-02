@@ -1,11 +1,10 @@
 // benches/alpha_beta_benchmark.rs
 use chess::{
     alpha_beta_searcher::SearchContext,
-    board::{castle_rights_bitmask::ALL_CASTLE_RIGHTS, color::Color, piece::Piece, Board},
+    board::{castle_rights::CastleRights, color::Color, piece::Piece, Board},
     chess_position,
     chess_search::search_best_move,
 };
-use common::bitboard::bitboard::Bitboard;
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 
 fn benchmark_positions() -> Vec<(String, Board)> {
@@ -62,7 +61,7 @@ fn alpha_beta_benchmark(c: &mut Criterion) {
     for depth in [4, 5] {
         // Test each position
         for (name, mut initial_board) in benchmark_positions() {
-            initial_board.lose_castle_rights(ALL_CASTLE_RIGHTS);
+            initial_board.lose_castle_rights(CastleRights::all());
             group.bench_with_input(
                 BenchmarkId::new(format!("{}_depth_{}", name, depth), depth),
                 &depth,
