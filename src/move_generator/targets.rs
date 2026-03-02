@@ -151,13 +151,15 @@ impl Targets {
         while !rook_attackers.is_empty() {
             let attacker = rook_attackers.pop_lsb();
 
-            // Get the ray from attacker to king (including both squares)
+            // Get the ray BETWEEN attacker and king by using each as a
+            // blocker for the other. This prevents the ray from extending
+            // beyond both pieces and counting unrelated squares.
             let ray = self
                 .magic_table
-                .get_rook_targets(attacker.to_square(), Bitboard::EMPTY)
+                .get_rook_targets(attacker.to_square(), king)
                 & self
                     .magic_table
-                    .get_rook_targets(king.to_square(), Bitboard::EMPTY);
+                    .get_rook_targets(king.to_square(), attacker);
 
             // Count pieces between attacker and king
             let pieces_on_ray = ray & occupied;
@@ -167,7 +169,7 @@ impl Targets {
                 // Only pin our own pieces
                 if pieces_on_ray.overlaps(own_pieces) {
                     pin_info.pinned_pieces |= pieces_on_ray;
-                    // Pin ray includes the attacker (can capture) and squares between pinned piece and king
+                    // Pin ray includes the attacker (can capture) and squares between
                     pin_info.pin_rays[pieces_on_ray.to_square().index() as usize] = ray | attacker;
                 }
             }
@@ -183,13 +185,13 @@ impl Targets {
         while !bishop_attackers.is_empty() {
             let attacker = bishop_attackers.pop_lsb();
 
-            // Get the ray from attacker to king (including both squares)
+            // Get the ray BETWEEN attacker and king (same blocker technique)
             let ray = self
                 .magic_table
-                .get_bishop_targets(attacker.to_square(), Bitboard::EMPTY)
+                .get_bishop_targets(attacker.to_square(), king)
                 & self
                     .magic_table
-                    .get_bishop_targets(king.to_square(), Bitboard::EMPTY);
+                    .get_bishop_targets(king.to_square(), attacker);
 
             // Count pieces between attacker and king
             let pieces_on_ray = ray & occupied;
@@ -199,7 +201,7 @@ impl Targets {
                 // Only pin our own pieces
                 if pieces_on_ray.overlaps(own_pieces) {
                     pin_info.pinned_pieces |= pieces_on_ray;
-                    // Pin ray includes the attacker (can capture) and squares between pinned piece and king
+                    // Pin ray includes the attacker (can capture) and squares between
                     pin_info.pin_rays[pieces_on_ray.to_square().index() as usize] = ray | attacker;
                 }
             }
@@ -270,22 +272,28 @@ impl Targets {
             let is_sliding_check = (opponent_rooks | opponent_bishops).overlaps(checker);
 
             if is_sliding_check {
-                // Check ray is squares between checker and king (excluding both)
-                // Use the appropriate magic table based on piece type
-                let ray_from_king = if opponent_rooks.overlaps(checker) {
-                    self.magic_table
-                        .get_rook_targets(king.to_square(), Bitboard::EMPTY)
-                } else {
-                    self.magic_table
-                        .get_bishop_targets(king.to_square(), Bitboard::EMPTY)
-                };
+                // Determine if the check is along a rank/file or diagonal.
+                // A queen can check either way, so we test which ray type
+                // actually connects the checker to the king.
+                let rook_ray_from_king = self
+                    .magic_table
+                    .get_rook_targets(king.to_square(), Bitboard::EMPTY);
+                let is_rook_ray = rook_ray_from_king.overlaps(checker);
 
-                let ray_from_checker = if opponent_rooks.overlaps(checker) {
-                    self.magic_table
-                        .get_rook_targets(checker.to_square(), Bitboard::EMPTY)
+                // Use each piece as a blocker for the other's ray so the
+                // intersection yields only squares BETWEEN them (not beyond).
+                let (ray_from_king, ray_from_checker) = if is_rook_ray {
+                    (
+                        self.magic_table.get_rook_targets(king.to_square(), checker),
+                        self.magic_table.get_rook_targets(checker.to_square(), king),
+                    )
                 } else {
-                    self.magic_table
-                        .get_bishop_targets(checker.to_square(), Bitboard::EMPTY)
+                    (
+                        self.magic_table
+                            .get_bishop_targets(king.to_square(), checker),
+                        self.magic_table
+                            .get_bishop_targets(checker.to_square(), king),
+                    )
                 };
 
                 // Squares between checker and king

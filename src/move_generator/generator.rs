@@ -1663,4 +1663,44 @@ mod tests {
     fn move_gen_instance() -> MoveGenerator {
         MoveGenerator::default()
     }
+
+    /// Qg6 checks Kh7 diagonally. Only king moves and queen captures
+    /// should be legal, not f6f5.
+    #[test]
+    fn test_queen_adjacent_diagonal_check_no_pawn_move() {
+        use std::str::FromStr;
+        let mut board =
+            Board::from_str("3b4/rq3B1k/3R1pQp/1P6/1p2p2P/1P4P1/5P2/3R2K1 b - - 2 51").unwrap();
+        let mg = MoveGenerator::default();
+        let moves = mg.generate_moves(&mut board, Color::Black);
+        let uci_moves: Vec<String> = moves.iter().map(|m| m.to_uci()).collect();
+
+        // Stockfish says only h7h8 is legal (Kh8)
+        assert!(
+            !uci_moves.contains(&"f6f5".to_string()),
+            "f6f5 should be illegal when in check from Qg6. Got: {:?}",
+            uci_moves
+        );
+    }
+
+    /// Piece on f8 is pinned to King on e8 by Queen on h8 along rank 8.
+    /// Other pieces on a8/b8/c8 should not prevent pin detection.
+    #[test]
+    fn test_pin_along_rank_with_other_pieces() {
+        use std::str::FromStr;
+        // rnb1kq1Q = R(a8) N(b8) B(c8) K(e8) q(f8) Q(h8)
+        // Black queen on f8 is pinned by White queen on h8 along rank 8.
+        let mut board =
+            Board::from_str("rnb1kq1Q/1pp5/4pPB1/p3N3/2P5/P3R3/1P3P1P/6K1 b - - 12 40").unwrap();
+        let mg = MoveGenerator::default();
+        let moves = mg.generate_moves(&mut board, Color::Black);
+        let uci_moves: Vec<String> = moves.iter().map(|m| m.to_uci()).collect();
+
+        // f8f7 should be illegal (queen pinned to king along rank 8)
+        assert!(
+            !uci_moves.contains(&"f8f7".to_string()),
+            "f8f7 should be illegal (queen pinned to king by Qh8). Got: {:?}",
+            uci_moves
+        );
+    }
 }

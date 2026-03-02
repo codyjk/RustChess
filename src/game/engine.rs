@@ -815,4 +815,92 @@ mod tests {
             "Should have one move in history"
         );
     }
+
+    /// Reproduce desync: queen gives diagonal check but check_ray was
+    /// computed using rook rays (queen is in both rook and bishop sets).
+    /// Nc6 blocks the b5-e8 diagonal but was missing from legal moves.
+    #[test]
+    fn test_desync_queen_diagonal_check_blocking() {
+        let mut engine = Engine::new();
+        let moves = [
+            "e2e4", "e7e5", "f2f4", "e5f4", "d1h5", "d7d5", "f1e2", "d5e4", "h5b5",
+        ];
+
+        for mv in &moves {
+            let from = Square::from_algebraic(&mv[0..2]).unwrap();
+            let to = Square::from_algebraic(&mv[2..4]).unwrap();
+            engine.make_move_by_squares(from, to).unwrap();
+            engine.board_mut().toggle_turn();
+            engine.record_position_hash();
+        }
+
+        // Qb5 checks Ke8 diagonally. Nc6 blocks the check.
+        let result = engine.make_move_by_squares(
+            Square::from_algebraic("b8").unwrap(),
+            Square::from_algebraic("c6").unwrap(),
+        );
+        assert!(result.is_ok(), "Nc6 should block diagonal check from Qb5");
+    }
+
+    /// Reproduce desync: queen gives diagonal check, bishop blocks on d2.
+    #[test]
+    fn test_desync_queen_diagonal_check_bishop_blocks() {
+        let mut engine = Engine::new();
+        let moves = [
+            "g1f3", "g8f6", "d2d4", "e7e6", "g2g3", "h7h6", "c2c4", "b8c6", "f1g2", "f6g4", "d1c2",
+            "f8b4", "b1c3", "d8f6", "h2h3", "c6d4", "c2e4", "d4f5", "e4c2", "f5d4", "c2d1", "c7c5",
+            "h3g4", "b4c3", "b2c3", "d4f3", "e2f3", "f6c3",
+        ];
+
+        for mv in &moves {
+            let from = Square::from_algebraic(&mv[0..2]).unwrap();
+            let to = Square::from_algebraic(&mv[2..4]).unwrap();
+            engine.make_move_by_squares(from, to).unwrap();
+            engine.board_mut().toggle_turn();
+            engine.record_position_hash();
+        }
+
+        // Qc3 checks Ke1 diagonally via c3-d2-e1. Bd2 (c1d2) blocks.
+        let result = engine.make_move_by_squares(
+            Square::from_algebraic("c1").unwrap(),
+            Square::from_algebraic("d2").unwrap(),
+        );
+        assert!(result.is_ok(), "Bd2 should block diagonal check from Qc3");
+    }
+
+    /// Reproduce desync: Qg6 checks Kh7 (adjacent diagonal). Engine should
+    /// not allow f6f5 which doesn't resolve the check.
+    #[test]
+    fn test_desync_adjacent_diagonal_check_no_invalid_moves() {
+        let mut engine = Engine::new();
+        let moves = [
+            "g1f3", "g8f6", "a2a4", "h8g8", "g2g3", "d7d6", "c2c4", "a7a5", "b1c3", "b8c6", "f1g2",
+            "d8d7", "h2h3", "e7e6", "d2d4", "e8d8", "b2b3", "d8e7", "e2e4", "c6b4", "d1e2", "d7e8",
+            "e1g1", "e8d8", "c1g5", "h7h6", "g5d2", "f6d7", "a1d1", "d7f6", "e4e5", "d6e5", "d2c1",
+            "e7e8", "f3e5", "f6d7", "e5d3", "a8b8", "c1b2", "d7f6", "d3b4", "a5b4", "c3b5", "c7c6",
+            "b5a7", "d8d7", "a7c8", "d7c8", "g1h1", "e8d8", "d4d5", "c6d5", "c4d5", "d8e8", "d5e6",
+            "f7e6", "d1d3", "e8f7", "h1g1", "f6d7", "f1e1", "d7f6", "b2d4", "g8h8", "d4f6", "g7f6",
+            "e2h5", "f7g7", "h5g4", "g7f7", "g2f1", "f8e7", "g4e2", "b7b6", "e2h5", "f7f8", "d3e3",
+            "e6e5", "h5g6", "e7d8", "e3f3", "c8c7", "e1d1", "h8h7", "g6h5", "b8a8", "f1c4", "b6b5",
+            "a4b5", "h7f7", "f3d3", "e5e4", "d3d6", "f8g7", "h3h4", "c7b7", "h5g4", "g7h7", "c4f7",
+            "a8a7", "g4g6",
+        ];
+
+        for mv in &moves {
+            let from = Square::from_algebraic(&mv[0..2]).unwrap();
+            let to = Square::from_algebraic(&mv[2..4]).unwrap();
+            engine.make_move_by_squares(from, to).unwrap();
+            engine.board_mut().toggle_turn();
+            engine.record_position_hash();
+        }
+
+        // Qg6 checks Kh7 (adjacent diagonal). f6f5 should be illegal.
+        let valid_moves = engine.get_valid_moves();
+        let valid_uci: Vec<String> = valid_moves.iter().map(|(m, _)| m.to_uci()).collect();
+        assert!(
+            !valid_uci.contains(&"f6f5".to_string()),
+            "f6f5 should be illegal when king is in check from Qg6. Valid: {:?}",
+            valid_uci
+        );
+    }
 }
