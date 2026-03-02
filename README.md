@@ -47,6 +47,8 @@ SUBCOMMANDS:
                                specified using FEN notation with `--fen` (default: starting position).
     pvp                        Play a game against another human on this local machine. The initial position can be
                                specified using FEN notation with `--fen` (default: starting position).
+    solve-puzzles              Run the puzzle suite (tactical, strategic, deep positional) and report solve rates.
+                               Use `--tier 1|2|3` to run a single tier.
     uci                        Start UCI (Universal Chess Interface) mode for integration with external chess GUIs
                                like Arena, cutechess-cli, or lichess. Reads UCI commands from stdin and responds on
                                stdout.
@@ -174,6 +176,7 @@ The engine employs a sophisticated combination of algorithms and optimizations t
 * **Advanced move ordering** prioritizes moves likely to cause cutoffs: principal variation moves from the transposition table, [killer moves](src/alpha_beta_searcher/killer_moves.rs) stored in thread-local storage (eliminating lock contention), MVV-LVA (Most Valuable Victim - Least Valuable Attacker) for capture ordering, and history heuristic for quiet moves. Interior nodes use incremental selection (pick-best) instead of a full sort, avoiding O(n log n) sorting of moves never searched due to beta cutoffs.
 * **Parallel search** with thread-local killer move storage enables lock-free parallelization at the root level. [Move generation](src/move_generator/generator.rs) uses conditional cloning (only when parallelizing) and MoveGenerator sharing to minimize allocations.
 * **[Zobrist hashing](./precompile/src/zobrist/mod.rs)** tables are generated at compile time via the [precompile](./precompile/src/main.rs) build script, enabling incremental position hashing for efficient caching of move generation and transposition table lookups.
+* **[Tapered evaluation](src/evaluate/evaluation.rs)** interpolates between middlegame and endgame scores based on remaining material (phase 0-24). Features: material values, piece-square tables (separate MG/EG for all 6 piece types), pawn structure (passed/doubled/isolated/backward/connected pawns), piece activity (bishop pair, knight outposts, rook on open files and 7th rank), king safety (pawn shield, open file penalties, knight attack units), and piece mobility for knights and bishops via magic bitboard lookups.
 * **Generic trait-based architecture** implements the alpha-beta algorithm as a game-agnostic search using Rust traits, enabling clean separation between search logic and chess-specific implementations for comprehensive testing and maintainability.
 * **[Simple TUI](src/tui/app.rs)** built with ratatui and crossterm provides real-time game visualization with customizable colors. [UCI protocol support](src/uci/mod.rs) enables integration with external chess GUIs and online platforms like lichess.
 
@@ -217,7 +220,7 @@ RustChess/
   * [`board`](./src/board/mod.rs) - Chess board state representation, including newtype wrappers (`CastleRights`, `HalfmoveClock`, `FullmoveNumber`) and state management (`StateStack`)
   * [`chess_move`](./src/chess_move/mod.rs) - Chess move types and application logic
   * [`move_generator`](./src/move_generator/mod.rs) - Chess move generation with magic bitboards
-  * [`evaluate`](./src/evaluate/mod.rs) - Position evaluation (material + piece-square tables)
+  * [`evaluate`](./src/evaluate/mod.rs) - Tapered position evaluation (material, piece-square tables, pawn structure, piece activity, king safety, mobility)
   * [`game`](./src/game/mod.rs) - Game loop and engine coordination, with separate `InputSource` and `GameRenderer` traits for modularity
   * [`book`](./src/book/mod.rs) - Opening book lookup for move suggestions
   * [`input_handler`](./src/input_handler/mod.rs) - FEN parsing and position validation
