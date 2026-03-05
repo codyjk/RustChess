@@ -277,6 +277,10 @@ impl Engine {
 
     /// Record the current position hash. Call after turn toggle to capture
     /// the complete position state (including side to move).
+    pub fn search_stop_flag(&self) -> std::sync::Arc<std::sync::atomic::AtomicBool> {
+        self.search_context.stop_flag()
+    }
+
     pub fn record_position_hash(&mut self) {
         self.state
             .position_hashes

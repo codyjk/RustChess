@@ -1,4 +1,6 @@
 use std::io;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use common::bitboard::*;
@@ -73,7 +75,6 @@ pub fn determine_stockfish_elo(depth: u8, starting_elo: u32, no_tui: bool, time_
                 renderer.as_mut(),
                 &stats,
             );
-            level_games += 1;
             engine_total_time += engine_time;
             stockfish_total_time += sf_time;
 
@@ -81,7 +82,21 @@ pub fn determine_stockfish_elo(depth: u8, starting_elo: u32, no_tui: bool, time_
                 GameResult::Win => level_wins += 1,
                 GameResult::Loss => level_losses += 1,
                 GameResult::Draw => level_draws += 1,
+                GameResult::Cancelled => {
+                    let final_stats = EloStats {
+                        current_elo,
+                        wins: level_wins,
+                        losses: level_losses,
+                        draws: level_draws,
+                        total_games: level_wins + level_losses + level_draws,
+                        engine_total_time,
+                        stockfish_total_time,
+                    };
+                    renderer.render_final(&final_stats).ok();
+                    return;
+                }
             }
+            level_games += 1;
 
             if is_elo_determined(level_wins, level_draws, level_games) {
                 let final_stats = EloStats {
@@ -138,22 +153,91 @@ fn play_game(
 
     let engine_color = Color::random();
 
-    loop {
-        if let Some(result) = engine.check_game_over() {
-            return (
-                match result {
-                    GameEnding::Checkmate => {
-                        if engine.board().turn() == engine_color {
-                            GameResult::Loss
-                        } else {
-                            GameResult::Win
+    // Share a cancellation flag between the polling thread and the engine's search.
+    // Setting this flag both aborts the engine's iterative deepening (via stop_flag)
+    // and is checked between moves.
+    let cancelled = Arc::new(AtomicBool::new(false));
+    let stop_flag = engine.search_stop_flag();
+
+    // Spawn a background thread that polls for Ctrl-C during the entire game.
+    // In TUI mode (raw mode enabled), Ctrl-C is a key event, not SIGINT.
+    let poll_cancelled = cancelled.clone();
+    let poll_stop = stop_flag.clone();
+    let poll_thread = if renderer.uses_raw_mode() {
+        Some(std::thread::spawn(move || {
+            while !poll_cancelled.load(Ordering::Relaxed) {
+                if crossterm::event::poll(Duration::from_millis(50)).unwrap_or(false) {
+                    if let Ok(crossterm::event::Event::Key(key)) = crossterm::event::read() {
+                        if key.code == crossterm::event::KeyCode::Char('c')
+                            && key
+                                .modifiers
+                                .contains(crossterm::event::KeyModifiers::CONTROL)
+                        {
+                            poll_cancelled.store(true, Ordering::Relaxed);
+                            poll_stop.store(true, Ordering::Relaxed);
+                            return;
                         }
                     }
-                    _ => GameResult::Draw,
-                },
-                engine_time,
-                stockfish_time,
-            );
+                }
+            }
+        }))
+    } else {
+        None
+    };
+
+    let result = play_game_loop(
+        &mut engine,
+        stockfish,
+        time_limit_ms,
+        &mut moves,
+        &mut engine_time,
+        &mut stockfish_time,
+        engine_color,
+        &cancelled,
+        renderer,
+        stats,
+    );
+
+    // Signal polling thread to exit and wait for it
+    cancelled.store(true, Ordering::Relaxed);
+    if let Some(thread) = poll_thread {
+        let _ = thread.join();
+    }
+    // Clear the engine's stop flag so it doesn't affect future games
+    stop_flag.store(false, Ordering::Relaxed);
+
+    (result, engine_time, stockfish_time)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn play_game_loop(
+    engine: &mut Engine,
+    stockfish: &mut Stockfish,
+    time_limit_ms: u64,
+    moves: &mut Vec<String>,
+    engine_time: &mut Duration,
+    stockfish_time: &mut Duration,
+    engine_color: Color,
+    cancelled: &AtomicBool,
+    renderer: &mut dyn EloRenderer,
+    stats: &EloStats,
+) -> GameResult {
+    loop {
+        if cancelled.load(Ordering::Relaxed) {
+            return GameResult::Cancelled;
+        }
+
+        if let Some(result) = engine.check_game_over() {
+            return match result {
+                GameEnding::Checkmate => {
+                    if engine.board().turn() == engine_color {
+                        GameResult::Loss
+                    } else {
+                        GameResult::Win
+                    }
+                }
+                _ => GameResult::Draw,
+            };
         }
 
         let start_time = Instant::now();
@@ -162,26 +246,31 @@ fn play_game(
         if current_turn == engine_color {
             match engine.make_best_move_with_time_limit(Duration::from_millis(time_limit_ms)) {
                 Ok(chess_move) => {
-                    engine_time += start_time.elapsed();
+                    *engine_time += start_time.elapsed();
                     moves.push(chess_move.to_uci());
                 }
-                Err(_) => return (GameResult::Draw, engine_time, stockfish_time),
+                Err(_) => {
+                    if cancelled.load(Ordering::Relaxed) {
+                        return GameResult::Cancelled;
+                    }
+                    return GameResult::Draw;
+                }
             }
         } else {
             let (sf_move, sf_time) = match stockfish.get_best_move(&moves.join(" "), time_limit_ms)
             {
                 Ok(result) => result,
-                Err(_) => return (GameResult::Draw, engine_time, stockfish_time),
+                Err(_) => return GameResult::Draw,
             };
-            stockfish_time += Duration::from_millis(sf_time);
+            *stockfish_time += Duration::from_millis(sf_time);
 
             let from = match Square::from_algebraic(&sf_move[0..2]) {
                 Some(sq) => sq,
-                None => return (GameResult::Draw, engine_time, stockfish_time),
+                None => return GameResult::Draw,
             };
             let to = match Square::from_algebraic(&sf_move[2..4]) {
                 Some(sq) => sq,
-                None => return (GameResult::Draw, engine_time, stockfish_time),
+                None => return GameResult::Draw,
             };
             let promotion = sf_move.chars().nth(4).map(|c| match c {
                 'q' => Piece::Queen,
@@ -211,7 +300,7 @@ fn play_game(
                         moves.join(" "),
                         valid_uci
                     );
-                    return (GameResult::Draw, engine_time, stockfish_time);
+                    return GameResult::Draw;
                 }
             }
         }
@@ -219,10 +308,10 @@ fn play_game(
         // Render the current game state
         let game_state = GameState {
             engine_color,
-            engine_time,
-            stockfish_time,
+            engine_time: *engine_time,
+            stockfish_time: *stockfish_time,
         };
-        renderer.render(&engine, &game_state, stats).ok();
+        renderer.render(engine, &game_state, stats).ok();
 
         engine.board_mut().toggle_turn();
         engine.record_position_hash();
@@ -242,6 +331,7 @@ enum GameResult {
     Win,
     Loss,
     Draw,
+    Cancelled,
 }
 
 /// Statistics for ELO determination progress
@@ -272,6 +362,9 @@ trait EloRenderer {
     ) -> io::Result<()>;
 
     fn render_final(&mut self, elo_stats: &EloStats) -> io::Result<()>;
+
+    /// Whether this renderer uses raw mode (requiring crossterm event polling for Ctrl-C)
+    fn uses_raw_mode(&self) -> bool;
 }
 
 /// Headless renderer that prints progress to stdout
@@ -305,6 +398,10 @@ impl EloRenderer for HeadlessRenderer {
             );
         }
         Ok(())
+    }
+
+    fn uses_raw_mode(&self) -> bool {
+        false
     }
 
     fn render_final(&mut self, elo_stats: &EloStats) -> io::Result<()> {
@@ -487,6 +584,10 @@ impl EloRenderer for EloTui {
         Ok(())
     }
 
+    fn uses_raw_mode(&self) -> bool {
+        true
+    }
+
     fn render_final(&mut self, elo_stats: &EloStats) -> io::Result<()> {
         self.terminal.clear()?;
 
@@ -498,9 +599,13 @@ impl EloRenderer for EloTui {
                 .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
                 .split(size);
 
-            let score_rate = (elo_stats.wins as f32 + elo_stats.draws as f32 * 0.5)
-                / elo_stats.total_games as f32
-                * 100.0;
+            let score_rate = if elo_stats.total_games > 0 {
+                (elo_stats.wins as f32 + elo_stats.draws as f32 * 0.5)
+                    / elo_stats.total_games as f32
+                    * 100.0
+            } else {
+                0.0
+            };
             let final_text = format!(
                 "ELO DETERMINATION COMPLETE\n\
                  \n\
